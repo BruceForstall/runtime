@@ -11820,6 +11820,30 @@ GenTree* Compiler::fgMorphSmpOp(GenTree* tree, MorphAddrContext* mac)
                 // this method returns true.
                 //
                 op1->gtRequestSetFlags();
+
+                // Pattern-matching optimization:
+                //    (a % 2) ==/!= 0
+                // =>
+                //    a & 1 ==/!= 0
+                // For integer `a`, even if negative.
+                if (opts.OptimizationEnabled())
+                {
+                    if (op1->OperIs(GT_EQ, GT_NE))
+                    {
+                        GenTree* op1op1 = op1->AsOp()->gtOp1;
+                        GenTree* op1op2 = op1->AsOp()->gtOp2;
+                        if (op1op1->OperIs(GT_MOD) && varTypeIsIntegral(op1op1->TypeGet()) &&
+                            op1op2->IsIntegralConst(0))
+                        {
+                            GenTree* op1op1op2 = op1op1->AsOp()->gtOp2;
+                            if (op1op1op2->AsIntConCommon()->IsIntegralConst(2))
+                            {
+                                op1op1->SetOper(GT_AND);                      // Change % => &
+                                op1op1op2->AsIntConCommon()->SetIconValue(1); // Change 2 => 1
+                            }
+                        }
+                    }
+                }
             }
             else
             {
