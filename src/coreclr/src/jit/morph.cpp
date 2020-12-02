@@ -11822,11 +11822,12 @@ GenTree* Compiler::fgMorphSmpOp(GenTree* tree, MorphAddrContext* mac)
                 op1->gtRequestSetFlags();
 
                 // Pattern-matching optimization:
-                //    (a % 2) ==/!= 0
+                //    (a % c) ==/!= 0
+                // for power-of-2 constant `c`
                 // =>
-                //    a & 1 ==/!= 0
+                //    a & (c - 1) ==/!= 0
                 // For integer `a`, even if negative.
-                if (opts.OptimizationEnabled())
+                if (!optValnumCSE_phase && opts.OptimizationEnabled())
                 {
                     if (op1->OperIs(GT_EQ, GT_NE))
                     {
@@ -11836,10 +11837,11 @@ GenTree* Compiler::fgMorphSmpOp(GenTree* tree, MorphAddrContext* mac)
                             op1op2->IsIntegralConst(0))
                         {
                             GenTree* op1op1op2 = op1op1->AsOp()->gtOp2;
-                            if (op1op1op2->AsIntConCommon()->IsIntegralConst(2))
+                            ssize_t  modValue  = op1op1op2->AsIntCon()->IconValue();
+                            if (isPow2(modValue))
                             {
-                                op1op1->SetOper(GT_AND);                      // Change % => &
-                                op1op1op2->AsIntConCommon()->SetIconValue(1); // Change 2 => 1
+                                op1op1->SetOper(GT_AND);                                 // Change % => &
+                                op1op1op2->AsIntConCommon()->SetIconValue(modValue - 1); // Change c => c - 1
                             }
                         }
                     }
