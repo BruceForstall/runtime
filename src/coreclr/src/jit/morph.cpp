@@ -11820,32 +11820,6 @@ GenTree* Compiler::fgMorphSmpOp(GenTree* tree, MorphAddrContext* mac)
                 // this method returns true.
                 //
                 op1->gtRequestSetFlags();
-
-                // Pattern-matching optimization:
-                //    (a % c) ==/!= 0
-                // for power-of-2 constant `c`
-                // =>
-                //    a & (c - 1) ==/!= 0
-                // For integer `a`, even if negative.
-                if (!optValnumCSE_phase && opts.OptimizationEnabled())
-                {
-                    if (op1->OperIs(GT_EQ, GT_NE))
-                    {
-                        GenTree* op1op1 = op1->AsOp()->gtOp1;
-                        GenTree* op1op2 = op1->AsOp()->gtOp2;
-                        if (op1op1->OperIs(GT_MOD) && varTypeIsIntegral(op1op1->TypeGet()) &&
-                            op1op2->IsIntegralConst(0))
-                        {
-                            GenTree* op1op1op2 = op1op1->AsOp()->gtOp2;
-                            ssize_t  modValue  = op1op1op2->AsIntCon()->IconValue();
-                            if (isPow2(modValue))
-                            {
-                                op1op1->SetOper(GT_AND);                                 // Change % => &
-                                op1op1op2->AsIntConCommon()->SetIconValue(modValue - 1); // Change c => c - 1
-                            }
-                        }
-                    }
-                }
             }
             else
             {
@@ -14492,6 +14466,35 @@ DONE_MORPHING_CHILDREN:
                 op1->gtType = op1->AsOp()->gtOp1->gtType;
 
                 return tree;
+            }
+
+            // Pattern-matching optimization:
+            //    (a % c) ==/!= 0
+            // for power-of-2 constant `c`
+            // =>
+            //    a & (c - 1) ==/!= 0
+            // For integer `a`, even if negative.
+            if (!optValnumCSE_phase && opts.OptimizationEnabled())
+            {
+                if (op1->OperIs(GT_EQ, GT_NE))
+                {
+                    GenTree* op1op1 = op1->AsOp()->gtOp1;
+                    GenTree* op1op2 = op1->AsOp()->gtOp2;
+                    if (op1op1->OperIs(GT_MOD) && varTypeIsIntegral(op1op1->TypeGet()) &&
+                        op1op2->IsIntegralConst(0))
+                    {
+                        GenTree* op1op1op2 = op1op1->AsOp()->gtOp2;
+                        if (op1op1op2->IsCnsIntOrI())
+                        {
+                            ssize_t modValue = op1op1op2->AsIntCon()->IconValue();
+                            if (isPow2(modValue))
+                            {
+                                op1op1->SetOper(GT_AND);                                 // Change % => &
+                                op1op1op2->AsIntConCommon()->SetIconValue(modValue - 1); // Change c => c - 1
+                            }
+                        }
+                    }
+                }
             }
             break;
 
