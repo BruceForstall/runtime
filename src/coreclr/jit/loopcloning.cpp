@@ -771,7 +771,7 @@ BasicBlock* LoopCloneContext::CondToStmtInBlock(Compiler*                       
     assert((insertAfter->bbJumpKind == BBJ_NONE) || (insertAfter->bbJumpKind == BBJ_COND));
 
     // Choose how to generate the conditions
-    const bool generateOneConditionPerBlock = true;
+    const bool generateOneConditionPerBlock = false;
 
     if (generateOneConditionPerBlock)
     {
@@ -1845,11 +1845,14 @@ void Compiler::optCloneLoop(unsigned loopInd, LoopCloneContext* context)
     // "newPred" will be the predecessor of the blocks of the cloned loop.
     BasicBlock* b       = loop.lpBottom;
     BasicBlock* newPred = b;
+    BasicBlock* x       = b->bbNext;
     if (b->bbJumpKind != BBJ_ALWAYS)
     {
         assert(b->bbJumpKind == BBJ_COND);
 
-        BasicBlock* x = b->bbNext;
+        // If x is null, that means the loop falls off the end of the function!
+        // And since we're duplicating the slow path after the fast path, that means we would just fall into the
+        // slow path, which doesn't make sense.
         if (x != nullptr)
         {
             JITDUMP("Create branch around cloned loop\n");
@@ -1872,11 +1875,6 @@ void Compiler::optCloneLoop(unsigned loopInd, LoopCloneContext* context)
             newPred = x2;
         }
     }
-
-    // We're going to create a new loop head for the slow loop immediately before the slow loop itself. All failed
-    // conditions will branch to the slow head. The slow head will either fall through to the entry, or unconditionally
-    // branch to the slow path entry. This puts the slow loop in the canonical loop form.
-    BasicBlock* slowHeadPrev = newPred;
 
     // Now we'll make "h2", after "h" to go to "e" -- unless the loop is a do-while,
     // so that "h" already falls through to "e" (e == t == f).
@@ -1905,9 +1903,29 @@ void Compiler::optCloneLoop(unsigned loopInd, LoopCloneContext* context)
         // NOTE: 'h' is no longer the loop head; 'h2' is!
     }
 
-    // Now we'll clone the blocks of the loop body. These cloned blocks will be the slow path.
-    BasicBlock* newFirst = nullptr;
+    // We're going to create a new loop head for the slow loop. There are two options:
+    // 1. Put the slow head and slow loop after the fast loop,
+    // 2. Put the slow head and slow loop somewhere else, e.g., at the end of the function. Since the slow path
+    //    is not expected to run (is "cold"), this makes sense. It also allows the fast path to fall through to
+    //    the code that follows it.
+    // We will implement #2.
+    //
+    // All failed conditions will branch to the slow head. The slow head will either fall through to the entry,
+    // or unconditionally branch to the slow path entry. This puts the slow loop in the canonical loop form.
+    //
+    // We haven't cloned the loop yet, so if the entry isn't a fall-through, we can't set the branch target to the
+    // cloned entry, and change this to a BBJ_ALWAYS, until later.
 
+    JITDUMP("Create unique head block for slow path loop\n");
+    BasicBlock* slowHead = fgNewBBinRegion(BBJ_NONE, newPred, /* runRarely */ false, /* insertAtEnd */ true);
+    JITDUMP("Adding " FMT_BB " after " FMT_BB "\n", slowHead->bbNum, slowHead->bbPrev->bbNum);
+    slowHead->bbWeight = newPred->isRunRarely() ? BB_ZERO_WEIGHT : ambientWeight;
+    slowHead->scaleBBWeight(slowPathWeightScaleFactor);
+    slowHead->bbNatLoopNum = ambientLoop;
+
+    newPred = slowHead;
+
+    // Now we'll clone the blocks of the loop body. These cloned blocks will be the slow path.
     BlockToBlockMap* blockMap = new (getAllocator(CMK_LoopClone)) BlockToBlockMap(getAllocator(CMK_LoopClone));
     for (BasicBlock* const blk : loop.LoopBlocks())
     {
@@ -1945,12 +1963,28 @@ void Compiler::optCloneLoop(unsigned loopInd, LoopCloneContext* context)
         // loop, if one exists -- the parent of the loop we're cloning.
         newBlk->bbNatLoopNum = loop.lpParent;
 
-        if (newFirst == nullptr)
-        {
-            newFirst = newBlk;
-        }
         newPred = newBlk;
         blockMap->Set(blk, newBlk);
+    }
+
+    // If the bottom of the loop is a fall-through, we need to add an additional block after the slow path cloned
+    // loop to branch back to the fast/slow path merge point.
+    if (b->bbJumpKind != BBJ_ALWAYS)
+    {
+        assert(b->bbJumpKind == BBJ_COND);
+
+        BasicBlock* newBlk = fgNewBBafter(BBJ_ALWAYS, newPred, /*extendRegion*/ true);
+        JITDUMP("Adding BBJ_ALWAYS branch to fast/slow join point " FMT_BB " after " FMT_BB "\n", newBlk->bbNum, newPred->bbNum);
+
+        newBlk->scaleBBWeight(slowPathWeightScaleFactor);
+        newBlk->bbNatLoopNum = loop.lpParent;
+
+        // We don't add the pred edge newPred -> newBlk here because that will be added naturally in the loop below
+        // where we process the cloned loop blocks and handle the final block, which is the cloned "bottom" BBJ_COND.
+
+        newBlk->bbJumpDest = x;
+        fgAddRefPred(x, newBlk);
+        JITDUMP("Adding " FMT_BB " -> " FMT_BB "\n", newBlk->bbNum, x->bbNum);
     }
 
     // Perform the static optimizations on the fast path.
@@ -2027,7 +2061,7 @@ void Compiler::optCloneLoop(unsigned loopInd, LoopCloneContext* context)
     //      !condn        -?> slowHead
     //      h2/entry (fast)
     //      ...
-    //      slowHead      -?> e2 (slowHead) branch or fall-through to e2
+    //      slowHead      -?> e2 branch or fall-through to e2
     //
     // We should always have block conditions; at the minimum, the array should be deref-able.
     assert(context->HasBlockConditions(loopInd));
@@ -2046,18 +2080,11 @@ void Compiler::optCloneLoop(unsigned loopInd, LoopCloneContext* context)
         h->bbJumpDest = nullptr;
     }
 
+    // Check for slowHead fall-through.
     // If any condition is false, go to slowHead (which branches or falls through to e2).
     BasicBlock* e2      = nullptr;
     bool        foundIt = blockMap->Lookup(loop.lpEntry, &e2);
     assert(foundIt && e2 != nullptr);
-
-    // Create a unique header for the slow path.
-    JITDUMP("Create unique head block for slow path loop\n");
-    BasicBlock* slowHead = fgNewBBafter(BBJ_NONE, slowHeadPrev, /*extendRegion*/ true);
-    JITDUMP("Adding " FMT_BB " after " FMT_BB "\n", slowHead->bbNum, slowHeadPrev->bbNum);
-    slowHead->bbWeight = slowHeadPrev->isRunRarely() ? BB_ZERO_WEIGHT : ambientWeight;
-    slowHead->scaleBBWeight(slowPathWeightScaleFactor);
-    slowHead->bbNatLoopNum = ambientLoop;
 
     if (slowHead->bbNext != e2)
     {
