@@ -194,6 +194,123 @@ exception occurs.
     3. Perform short circuit AND for (array != null) side effect check
       before hoisting (limit <= a.length) check.
 
+
+    True multi-dimensional arrays (not jagged arrays):
+
+    Consider:
+
+    for (int i = 0; i < l0; i++) {
+        for (int j = 0; j < l1; j++) {
+            for (int k = 0; k < l2; k++) {
+                a[i,j,k] = i + j + k;   // case 1: 3 bounds checks: one each for i, j, and k
+                a[k,j,i] = i + j + k;   // case 2: 3 bounds checks: one each for k, j, and i
+            }
+        }
+    }
+
+    We should be able to eliminate the bounds check for all three dimensions. Note that for case 1,
+    it's in a "natural" order: i and j are loop-invariant in the inner loop. This is required for
+    jagged arrays, since there, if i and j are not loop invariant in the inner loop, then a[i][j].Length
+    could change. In case 2, therefore, for jagged array a[k][j][i], we can eliminate the bounds check
+    on a[k], but not a[k][j] or a[k][j][i]. For multi-dimensional arrays, however, it doesn't matter since
+    the array is guaranteed to be "rectangular": the bounds on each dimension are not dependent on the
+    other dimensions. For case 2, the j and i are loop invariant indices. We can still loop conditions
+    for them outside the 'k' loop. Ideally, we clone the entire loop nest once, and put the conditions
+    at the outside level. However, l0/l1/l2 might not be loop invariant in their respective locations
+    (we require l2 is loop invariant in the 'k' loop, 'l1' in the 'j' loop (which includes the 'k' loop),
+    and 'l0' in the 'i' loop, so across the entire loop nest).
+
+    We might need:
+
+    if (bounds check a[,,i] v. l0 succeeds) {
+        for (int i = 0; i < l0; i++) {
+            if (bounds check a[,j,] v. l1 succeeds) {
+                for (int j = 0; j < l1; j++) {
+                    if (bounds check a[k,,] v. l2 succeeds) {
+                        for (int k = 0; k < l2; k++) {
+                            a[k,j,i] = i + j + k; // no bounds check
+                        }
+                    } else {
+                        for (int k = 0; k < l2; k++) {
+                            a[k,j,i] = i + j + k; // bounds check on a[k,,]
+                        }
+                    }
+                }
+            } else {
+                for (int j = 0; j < l1; j++) {
+                    if (bounds check a[k,,] succeeds) {
+                        for (int k = 0; k < l2; k++) {
+                            a[k,j,i] = i + j + k; // bounds check on a[,j,] (i and k are ok)
+                        }
+                    } else {
+                        for (int k = 0; k < l2; k++) {
+                            a[k,j,i] = i + j + k; // bounds check on a[,j,] and a[k,,] (i is ok)
+                        }
+                    }
+                }
+            }
+        }
+    } else {
+        for (int i = 0; i < l0; i++) {
+            if (bounds check a[,j,] succeeds) {
+                for (int j = 0; j < l1; j++) {
+                    if (bounds check a[k,,] succeeds) {
+                        for (int k = 0; k < l2; k++) {
+                            a[k,j,i] = i + j + k; // bounds check on a[,,i] (j and k are ok)
+                        }
+                    } else {
+                        for (int k = 0; k < l2; k++) {
+                            a[k,j,i] = i + j + k; // bounds check on a[,,i] and a[k,,] (j is ok)
+                        }
+                    }
+                }
+            } else {
+                for (int j = 0; j < l1; j++) {
+                    if (bounds check a[k,,] succeeds) {
+                        for (int k = 0; k < l2; k++) {
+                            a[k,j,i] = i + j + k; // bounds check on a[,,i] and a[,j,] (k is ok)
+                        }
+                    } else {
+                        for (int k = 0; k < l2; k++) {
+                            a[k,j,i] = i + j + k; // bounds check on a[,,i] and a[,j,] and a[k,,] (NONE are ok)
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    This is pretty ridiculous.
+
+    If all the conditions are loop invariant, they can all be hoisted to the outer loop. Note that this isn't
+    possible with jagged arrays since we don't know the size of a[i] if 'i' is a loop induction variable.
+    Thus, we should do:
+
+    if ((bounds check a[,,i] v. l0 succeeds) &&
+        (bounds check a[,j,] v. l1 succeeds) &&
+        (bounds check a[k,,] v. l2 succeeds)) {
+        for (int i = 0; i < l0; i++) {
+            for (int j = 0; j < l1; j++) {
+                for (int k = 0; k < l2; k++) {
+                    a[k,j,i] = i + j + k; // no bounds check
+                }
+            }
+        }
+    } else {
+        for (int i = 0; i < l0; i++) {
+            for (int j = 0; j < l1; j++) {
+                for (int k = 0; k < l2; k++) {
+                    a[k,j,i] = i + j + k; // ALL bounds checks
+                }
+            }
+        }
+    }
+
+    This is not the optimal loop if, say, bounds conditions for 'i' and 'j' succeed, but 'k' fails, since
+    we won't remove the 'i' and 'j' bounds checks in the inner loop (although we should be able to hoist
+    them out of the loop). However, assuming the array indexing expression is actually executed, the bounds
+    check will guarantee to fail eventually.
+
 */
 #pragma once
 

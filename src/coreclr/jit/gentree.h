@@ -5580,6 +5580,19 @@ struct GenTreeArrElem : public GenTree
 //                +--*  <index0>
 //             +--* - (GT_SUB)
 //
+// What if we manifested the bounds check, so it can be CSE'ed/hoisted (if not eliminated by cloning, e.g.):
+//
+// comma(
+//   tmp1 = dim-effective-index(array, dim, index), // tmp1 = index - array.GetLowerBound(dim)
+//      // if the lower bound is known to be zero, this is just `tmp1 = index`. In that case, if `index` is simple
+//      // (lcl_var/lcl_field/constant?), we don't need tmp1 or this comma.
+//   comma(
+//       dim-bounds-check(array, tmp1), // compare tmp1 against array.GetLength(dim).
+//          // If we know it's in range, it can be removed. It can be CSE'ed/hoisted.
+//       tmp1 // result is tmp1, the effective index
+//   )
+// )
+//
 struct GenTreeArrIndex : public GenTreeOp
 {
     // The array object - may be any expression producing an Array reference, but is likely to be a lclVar.
