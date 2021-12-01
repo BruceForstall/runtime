@@ -2468,15 +2468,15 @@ enum LoopFlags : unsigned short
 {
     LPFLG_EMPTY = 0,
 
-    LPFLG_DO_WHILE  = 0x0001, // it's a do-while loop (i.e ENTRY is at the TOP)
-    LPFLG_ONE_EXIT  = 0x0002, // the loop has only one exit
-    LPFLG_ITER      = 0x0004, // loop of form: for (i = icon or lclVar; test_condition(); i++)
-    LPFLG_HOISTABLE = 0x0008, // the loop is in a form that is suitable for hoisting expressions
+    // LPFLG_UNUSED  = 0x0001,
+    // LPFLG_UNUSED  = 0x0002,
+    LPFLG_ITER = 0x0004, // loop of form: for (i = icon or lclVar; test_condition(); i++)
+    // LPFLG_UNUSED    = 0x0008,
 
-    LPFLG_CONST      = 0x0010, // loop of form: for (i=icon;i<icon;i++){ ... } - constant loop
-    LPFLG_VAR_INIT   = 0x0020, // iterator is initialized with a local var (var # found in lpVarInit)
-    LPFLG_CONST_INIT = 0x0040, // iterator is initialized with a constant (found in lpConstInit)
-    LPFLG_SIMD_LIMIT = 0x0080, // iterator is compared with vector element count (found in lpConstLimit)
+    LPFLG_CONTAINS_CALL = 0x0010, // If executing the loop body *may* execute a call
+    LPFLG_VAR_INIT      = 0x0020, // iterator is initialized with a local var (var # found in lpVarInit)
+    LPFLG_CONST_INIT    = 0x0040, // iterator is initialized with a constant (found in lpConstInit)
+    LPFLG_SIMD_LIMIT    = 0x0080, // iterator is compared with vector element count (found in lpConstLimit)
 
     LPFLG_VAR_LIMIT    = 0x0100, // iterator is compared with a local var (var # found in lpVarLimit)
     LPFLG_CONST_LIMIT  = 0x0200, // iterator is compared with a constant (found in lpConstLimit)
@@ -5791,6 +5791,8 @@ public:
 
     BasicBlock* fgFirstBlockOfHandler(BasicBlock* block);
 
+    bool fgIsFirstBlockOfFilterOrHandler(BasicBlock* block);
+
     flowList* fgGetPredForBlock(BasicBlock* block, BasicBlock* blockPred);
 
     flowList* fgGetPredForBlock(BasicBlock* block, BasicBlock* blockPred, flowList*** ptrToPred);
@@ -5974,6 +5976,8 @@ public:
     static fgWalkPreFn fgStress64RsltMulCB;
     void               fgStress64RsltMul();
     void               fgDebugCheckUpdate();
+
+    void fgDebugCheckBBNumIncreasing();
     void fgDebugCheckBBlist(bool checkBBNum = false, bool checkBBRefs = true);
     void fgDebugCheckBlockLinks();
     void fgDebugCheckLinks(bool morphTrees = false);
@@ -5989,6 +5993,8 @@ public:
     void fgDebugCheckProfileData();
     bool fgDebugCheckIncomingProfileData(BasicBlock* block);
     bool fgDebugCheckOutgoingProfileData(BasicBlock* block);
+
+    unsigned* fgBuildBlockNumMap();
 #endif
 
     static bool fgProfileWeightsEqual(weight_t weight1, weight_t weight2);
@@ -6573,8 +6579,7 @@ protected:
     void optHoistLoopCode();
 
     // To represent sets of VN's that have already been hoisted in outer loops.
-    typedef JitHashTable<ValueNum, JitSmallPrimitiveKeyFuncs<ValueNum>, bool> VNToBoolMap;
-    typedef VNToBoolMap VNSet;
+    typedef JitHashTable<ValueNum, JitSmallPrimitiveKeyFuncs<ValueNum>, bool> VNSet;
 
     struct LoopHoistContext
     {
@@ -6585,9 +6590,10 @@ protected:
     public:
         // Value numbers of expressions that have been hoisted in parent loops in the loop nest.
         VNSet m_hoistedInParentLoops;
+
         // Value numbers of expressions that have been hoisted in the current (or most recent) loop in the nest.
         // Previous decisions on loop-invariance of value numbers in the current loop.
-        VNToBoolMap m_curLoopVnInvariantCache;
+        VNSet m_curLoopVnInvariantCache;
 
         VNSet* GetHoistedInCurLoop(Compiler* comp)
         {
@@ -6614,7 +6620,7 @@ protected:
     };
 
     // Do hoisting for loop "lnum" (an index into the optLoopTable), and all loops nested within it.
-    // Tracks the expressions that have been hoisted by containing loops by temporary recording their
+    // Tracks the expressions that have been hoisted by containing loops by temporarily recording their
     // value numbers in "m_hoistedInParentLoops".  This set is not modified by the call.
     void optHoistLoopNest(unsigned lnum, LoopHoistContext* hoistCtxt);
 
@@ -6624,13 +6630,13 @@ protected:
     //
     void optHoistThisLoop(unsigned lnum, LoopHoistContext* hoistCtxt);
 
-    // Hoist all expressions in "blk" that are invariant in loop "lnum" (an index into the optLoopTable)
+    // Hoist all expressions in "blocks" that are invariant in loop "loopNum" (an index into the optLoopTable)
     // outside of that loop.  Exempt expressions whose value number is in "m_hoistedInParentLoops"; add VN's of hoisted
     // expressions to "hoistInLoop".
     void optHoistLoopBlocks(unsigned loopNum, ArrayStack<BasicBlock*>* blocks, LoopHoistContext* hoistContext);
 
     // Return true if the tree looks profitable to hoist out of loop 'lnum'.
-    bool optIsProfitableToHoistableTree(GenTree* tree, unsigned lnum);
+    bool optIsProfitableToHoistTree(GenTree* tree, unsigned lnum);
 
     // Performs the hoisting 'tree' into the PreHeader for loop 'lnum'
     void optHoistCandidate(GenTree* tree, BasicBlock* treeBb, unsigned lnum, LoopHoistContext* hoistCtxt);
@@ -6638,7 +6644,7 @@ protected:
     // Returns true iff the ValueNum "vn" represents a value that is loop-invariant in "lnum".
     //   Constants and init values are always loop invariant.
     //   VNPhi's connect VN's to the SSA definition, so we can know if the SSA def occurs in the loop.
-    bool optVNIsLoopInvariant(ValueNum vn, unsigned lnum, VNToBoolMap* recordedVNs);
+    bool optVNIsLoopInvariant(ValueNum vn, unsigned lnum, VNSet* recordedVNs);
 
     // If "blk" is the entry block of a natural loop, returns true and sets "*pLnum" to the index of the loop
     // in the loop table.
@@ -6647,6 +6653,10 @@ protected:
     // Records the set of "side effects" of all loops: fields (object instance and static)
     // written to, and SZ-array element type equivalence classes updated.
     void optComputeLoopSideEffects();
+
+    // Mark a loop, and any more nested loops within, as removed.
+    void optMarkLoopRemovedHelp(unsigned loopNum);
+    void optMarkLoopRemoved(unsigned loopNum);
 
 private:
     // Requires "lnum" to be the index of an outermost loop in the loop table.  Traverses the body of that loop,
@@ -6729,10 +6739,11 @@ public:
         bool lpLoopHasMemoryHavoc[MemoryKindCount]; // The loop contains an operation that we assume has arbitrary
                                                     // memory side effects.  If this is set, the fields below
                                                     // may not be accurate (since they become irrelevant.)
-        bool lpContainsCall;                        // True if executing the loop body *may* execute a call
 
         VARSET_TP lpVarInOut;  // The set of variables that are IN or OUT during the execution of this loop
         VARSET_TP lpVarUseDef; // The set of variables that are USE or DEF during the execution of this loop
+
+        // The following counts are used for hoisting profitability checks.
 
         int lpHoistedExprCount; // The register count for the non-FP expressions from inside this loop that have been
                                 // hoisted
@@ -6773,6 +6784,10 @@ public:
 
         var_types lpIterOperType() const; // For overflow instructions
 
+        // Set to the block where we found the initialization for LPFLG_CONST_INIT or LPFLG_VAR_INIT loops.
+        // Initially, this will be 'head', but 'head' might change if we insert a loop pre-header block.
+        BasicBlock* lpInitBlock;
+
         union {
             int lpConstInit;    // initial constant value of iterator
                                 // : Valid if LPFLG_CONST_INIT
@@ -6803,49 +6818,65 @@ public:
         // : Valid if LPFLG_ARRLEN_LIMIT
         bool lpArrLenLimit(Compiler* comp, ArrIndex* index) const;
 
+        // Returns "true" iff this is a "top entry" loop.
+        bool lpIsTopEntry() const
+        {
+            if (lpHead->bbNext == lpEntry)
+            {
+                assert(lpHead->bbFallsThrough());
+                assert(lpTop == lpEntry);
+                return true;
+            }
+            else
+            {
+                return false;
+            }
+        }
+
         // Returns "true" iff "*this" contains the blk.
         bool lpContains(BasicBlock* blk) const
         {
             return lpTop->bbNum <= blk->bbNum && blk->bbNum <= lpBottom->bbNum;
         }
-        // Returns "true" iff "*this" (properly) contains the range [first, bottom] (allowing firsts
+        // Returns "true" iff "*this" (properly) contains the range [top, bottom] (allowing tops
         // to be equal, but requiring bottoms to be different.)
-        bool lpContains(BasicBlock* first, BasicBlock* bottom) const
+        bool lpContains(BasicBlock* top, BasicBlock* bottom) const
         {
-            return lpTop->bbNum <= first->bbNum && bottom->bbNum < lpBottom->bbNum;
+            return lpTop->bbNum <= top->bbNum && bottom->bbNum < lpBottom->bbNum;
         }
 
-        // Returns "true" iff "*this" (properly) contains "lp2" (allowing firsts to be equal, but requiring
+        // Returns "true" iff "*this" (properly) contains "lp2" (allowing tops to be equal, but requiring
         // bottoms to be different.)
         bool lpContains(const LoopDsc& lp2) const
         {
             return lpContains(lp2.lpTop, lp2.lpBottom);
         }
 
-        // Returns "true" iff "*this" is (properly) contained by the range [first, bottom]
-        // (allowing firsts to be equal, but requiring bottoms to be different.)
-        bool lpContainedBy(BasicBlock* first, BasicBlock* bottom) const
+        // Returns "true" iff "*this" is (properly) contained by the range [top, bottom]
+        // (allowing tops to be equal, but requiring bottoms to be different.)
+        bool lpContainedBy(BasicBlock* top, BasicBlock* bottom) const
         {
-            return first->bbNum <= lpTop->bbNum && lpBottom->bbNum < bottom->bbNum;
+            return top->bbNum <= lpTop->bbNum && lpBottom->bbNum < bottom->bbNum;
         }
 
         // Returns "true" iff "*this" is (properly) contained by "lp2"
-        // (allowing firsts to be equal, but requiring bottoms to be different.)
+        // (allowing tops to be equal, but requiring bottoms to be different.)
         bool lpContainedBy(const LoopDsc& lp2) const
         {
-            return lpContains(lp2.lpTop, lp2.lpBottom);
+            return lpContainedBy(lp2.lpTop, lp2.lpBottom);
         }
 
         // Returns "true" iff "*this" is disjoint from the range [top, bottom].
-        bool lpDisjoint(BasicBlock* first, BasicBlock* bottom) const
+        bool lpDisjoint(BasicBlock* top, BasicBlock* bottom) const
         {
-            return bottom->bbNum < lpTop->bbNum || lpBottom->bbNum < first->bbNum;
+            return bottom->bbNum < lpTop->bbNum || lpBottom->bbNum < top->bbNum;
         }
         // Returns "true" iff "*this" is disjoint from "lp2".
         bool lpDisjoint(const LoopDsc& lp2) const
         {
             return lpDisjoint(lp2.lpTop, lp2.lpBottom);
         }
+
         // Returns "true" iff the loop is well-formed (see code for defn).
         bool lpWellFormed() const
         {
@@ -6886,6 +6917,12 @@ public:
                        BasicBlock*   exit,
                        unsigned char exitCnt);
 
+#ifdef DEBUG
+    void optPrintLoopInfo(unsigned lnum, bool printVerbose = false);
+    void optPrintLoopInfo(const LoopDsc* loop, bool printVerbose = false);
+    void optPrintLoopTable();
+#endif
+
 protected:
     unsigned optCallCount;         // number of calls made in the method
     unsigned optIndirectCallCount; // number of virtual, interface and indirect calls made in the method
@@ -6893,17 +6930,6 @@ protected:
     unsigned optLoopsCloned;       // number of loops cloned in the current method.
 
 #ifdef DEBUG
-    void optPrintLoopInfo(unsigned      loopNum,
-                          BasicBlock*   lpHead,
-                          BasicBlock*   lpTop,
-                          BasicBlock*   lpEntry,
-                          BasicBlock*   lpBottom,
-                          unsigned char lpExitCnt,
-                          BasicBlock*   lpExit,
-                          unsigned      parentLoop = BasicBlock::NOT_IN_LOOP) const;
-    void optPrintLoopInfo(unsigned lnum) const;
-    void optPrintLoopRecording(unsigned lnum) const;
-
     void optCheckPreds();
 #endif
 
@@ -6922,7 +6948,7 @@ protected:
     unsigned optIsLoopIncrTree(GenTree* incr);
     bool optCheckIterInLoopTest(unsigned loopInd, GenTree* test, BasicBlock* from, BasicBlock* to, unsigned iterVar);
     bool optComputeIterInfo(GenTree* incr, BasicBlock* from, BasicBlock* to, unsigned* pIterVar);
-    bool optPopulateInitInfo(unsigned loopInd, GenTree* init, unsigned iterVar);
+    bool optPopulateInitInfo(unsigned loopInd, BasicBlock* initBlock, GenTree* init, unsigned iterVar);
     bool optExtractInitTestIncr(
         BasicBlock* head, BasicBlock* bottom, BasicBlock* exit, GenTree** ppInit, GenTree** ppTest, GenTree** ppIncr);
 

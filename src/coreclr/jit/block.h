@@ -991,6 +991,16 @@ struct BasicBlock : private LIR::Range
         bbHndIndex = from->bbHndIndex;
     }
 
+    void copyTryIndex(const BasicBlock* from)
+    {
+        bbTryIndex = from->bbTryIndex;
+    }
+
+    void copyHndIndex(const BasicBlock* from)
+    {
+        bbHndIndex = from->bbHndIndex;
+    }
+
     static bool sameTryRegion(const BasicBlock* blk1, const BasicBlock* blk2)
     {
         return blk1->bbTryIndex == blk2->bbTryIndex;
@@ -1552,6 +1562,10 @@ public:
 // BasicBlock specified with both `begin` and `end` blocks. `begin` and `end` are *inclusive*
 // and must be non-null. E.g.,
 //    for (BasicBlock* const block : BasicBlockRangeList(startBlock, endBlock)) ...
+//
+// Note that endBlock->bbNext is captured at the beginning of the iteration. Thus, any blocks
+// inserted before that will continue the iteration. In particular, inserting blocks between endBlock
+// and endBlock->bbNext will yield unexpected results, as the iteration will continue longer than desired.
 //
 class BasicBlockRangeList
 {

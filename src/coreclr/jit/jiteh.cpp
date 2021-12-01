@@ -4428,8 +4428,8 @@ void Compiler::fgExtendEHRegionBefore(BasicBlock* block)
             bPrev->bbRefs++;
 
             // If this is a handler for a filter, the last block of the filter will end with
-            // a BBJ_EJFILTERRET block that has a bbJumpDest that jumps to the first block of
-            // it's handler.  So we need to update it to keep things in sync.
+            // a BBJ_EHFILTERRET block that has a bbJumpDest that jumps to the first block of
+            // its handler. So we need to update it to keep things in sync.
             //
             if (HBtab->HasFilter())
             {
@@ -4611,4 +4611,32 @@ bool Compiler::fgCheckEHCanInsertAfterBlock(BasicBlock* blk, unsigned regionInde
     } // end of for(;;)
 
     return insertOK;
+}
+
+//------------------------------------------------------------------------
+// fgIsFirstBlockOfFilterOrHandler: return true if the given block is the first block of an EH handler
+// or filter.
+//
+// Arguments:
+//    block - the BasicBlock in question
+//
+// Return Value:
+//    As described above.
+//
+bool Compiler::fgIsFirstBlockOfFilterOrHandler(BasicBlock* block)
+{
+    if (!block->hasHndIndex())
+    {
+        return false;
+    }
+    EHblkDsc* ehDsc = ehGetDsc(block->getHndIndex());
+    if (ehDsc->ebdHndBeg == block)
+    {
+        return true;
+    }
+    if (ehDsc->HasFilter() && (ehDsc->ebdFilter == block))
+    {
+        return true;
+    }
+    return false;
 }

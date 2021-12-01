@@ -1592,19 +1592,18 @@ bool Compiler::optIsLoopClonable(unsigned loopInd)
         return false;
     }
 
-    BasicBlock* head = loop.lpHead;
-    BasicBlock* end  = loop.lpBottom;
-    BasicBlock* beg  = head->bbNext;
+    BasicBlock* top    = loop.lpTop;
+    BasicBlock* bottom = loop.lpBottom;
 
-    if (end->bbJumpKind != BBJ_COND)
+    if (bottom->bbJumpKind != BBJ_COND)
     {
         JITDUMP("Loop cloning: rejecting loop " FMT_LP ". Couldn't find termination test.\n", loopInd);
         return false;
     }
 
-    if (end->bbJumpDest != beg)
+    if (bottom->bbJumpDest != top)
     {
-        JITDUMP("Loop cloning: rejecting loop " FMT_LP ". Branch at loop 'end' not looping to 'begin'.\n", loopInd);
+        JITDUMP("Loop cloning: rejecting loop " FMT_LP ". Branch at loop 'bottom' not looping to 'top'.\n", loopInd);
         return false;
     }
 

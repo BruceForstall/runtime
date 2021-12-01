@@ -4650,7 +4650,7 @@ void Compiler::fgRemoveBlock(BasicBlock* block, bool unreachable)
             if (block->isLoopAlign())
             {
                 succBlock->bbFlags |= BBF_LOOP_ALIGN;
-                JITDUMP("Propagating LOOP_ALIGN flag from " FMT_BB " to " FMT_BB " for loop# %d.", block->bbNum,
+                JITDUMP("Propagating LOOP_ALIGN flag from " FMT_BB " to " FMT_BB " for loop# %d.\n", block->bbNum,
                         succBlock->bbNum, block->bbNatLoopNum);
             }
 
