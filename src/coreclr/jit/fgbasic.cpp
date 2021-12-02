@@ -35,7 +35,8 @@ void Compiler::fgInit()
     fgCalledCount            = BB_ZERO_WEIGHT;
 
     /* We haven't yet computed the dominator sets */
-    fgDomsComputed = false;
+    fgDomsComputed         = false;
+    fgReturnBlocksComputed = false;
 
 #ifdef DEBUG
     fgReachabilitySetsValid = false;

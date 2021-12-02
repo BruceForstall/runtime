@@ -56,10 +56,11 @@ DataFlow::DataFlow(Compiler* pCompiler) : m_pCompiler(pCompiler)
 // Notes:
 //    Depends on dominators, and fgReturnBlocks being set.
 //
-void Compiler::optSetBlockWeights()
+PhaseStatus Compiler::optSetBlockWeights()
 {
     noway_assert(opts.OptimizationEnabled());
     assert(fgDomsComputed);
+    assert(fgReturnBlocksComputed);
 
 #ifdef DEBUG
     bool changed = false;
@@ -137,6 +138,8 @@ void Compiler::optSetBlockWeights()
     /* Check that the flowgraph data (bbNum, bbRefs, bbPreds) is up-to-date */
     fgDebugCheckBBlist();
 #endif
+
+    return PhaseStatus::MODIFIED_EVERYTHING;
 }
 
 //------------------------------------------------------------------------
@@ -452,7 +455,7 @@ void Compiler::optUpdateLoopsBeforeRemoveBlock(BasicBlock* block, bool skipUnmar
         if (block == loop.lpEntry || block == loop.lpBottom)
         {
             reportBefore();
-            loop.lpFlags |= LPFLG_REMOVED;
+            optMarkLoopRemoved(loopNum);
             reportAfter();
             continue;
         }
@@ -570,7 +573,7 @@ void Compiler::optUpdateLoopsBeforeRemoveBlock(BasicBlock* block, bool skipUnmar
             if (removeLoop)
             {
                 reportBefore();
-                loop.lpFlags |= LPFLG_REMOVED;
+                optMarkLoopRemoved(loopNum);
             }
         }
         else if (loop.lpHead == block)
@@ -3796,6 +3799,7 @@ PhaseStatus Compiler::optUnrollLoops()
         else if (totalIter <= 1)
         {
             // No limit for single iteration loops
+            // If there is no iteration (totalIter == 0), we will remove the loop body entirely.
             unrollLimitSz = INT_MAX;
         }
         else if (!(loopFlags & LPFLG_SIMD_LIMIT))
@@ -3871,7 +3875,7 @@ PhaseStatus Compiler::optUnrollLoops()
             }
 
 #ifdef JIT32_GCENCODER
-            if (fgReturnCount + loopRetCount * (totalIter - 1) > SET_EPILOGCNT_MAX)
+            if ((totalIter > 0) && (fgReturnCount + loopRetCount * (totalIter - 1) > SET_EPILOGCNT_MAX))
             {
                 // Jit32 GC encoder can't report more than SET_EPILOGCNT_MAX epilogs.
                 JITDUMP("Failed to unroll loop " FMT_LP ": GC encoder max epilog constraint\n", lnum);
@@ -3960,13 +3964,9 @@ PhaseStatus Compiler::optUnrollLoops()
                         goto DONE_LOOP;
                     }
 
-                    if (block->bbNatLoopNum != lnum)
-                    {
-                        anyNestedLoopsUnrolledThisLoop = true;
-                    }
-
                     // All blocks in the unrolled loop and all children loops will now be marked
                     // with the parent loop number.
+
                     newBlock->bbNatLoopNum = newLoopNum;
 
                     // Block weight should no longer have the loop multiplier
@@ -4034,19 +4034,28 @@ PhaseStatus Compiler::optUnrollLoops()
             }
 
             // If we get here, we successfully cloned all the blocks in the unrolled loop.
-            if (anyNestedLoopsUnrolledThisLoop)
-            {
-                anyNestedLoopsUnrolled = true;
-            }
 
             // Gut the old loop body
             for (BasicBlock* const block : loop.LoopBlocks())
             {
+                // Check if the old loop body had any nested loops that got cloned. Note that we need to do this
+                // here, and not in the loop above, to handle the special case where totalIter is zero, and the
+                // above loop doesn't execute.
+                if (block->bbNatLoopNum != lnum)
+                {
+                    anyNestedLoopsUnrolledThisLoop = true;
+                }
+
                 block->bbStmtList = nullptr;
                 block->bbJumpKind = BBJ_NONE;
                 block->bbFlags &= ~BBF_LOOP_HEAD;
                 block->bbJumpDest   = nullptr;
                 block->bbNatLoopNum = newLoopNum;
+            }
+
+            if (anyNestedLoopsUnrolledThisLoop)
+            {
+                anyNestedLoopsUnrolled = true;
             }
 
             // If the HEAD is a BBJ_COND drop the condition (and make HEAD a BBJ_NONE block).
@@ -4078,13 +4087,22 @@ PhaseStatus Compiler::optUnrollLoops()
                     printf("Unrolled loop " FMT_LP " contains nested loops\n", lnum);
                 }
             }
-#endif
+#endif // DEBUG
 
             // Update loop table.
             optMarkLoopRemoved(lnum);
 
-            // Note if we created new BBJ_RETURNs
-            fgReturnCount += loopRetCount * (totalIter - 1);
+            // Note if we created new BBJ_RETURNs (or removed some).
+            if (totalIter > 0)
+            {
+                fgReturnCount += loopRetCount * (totalIter - 1);
+            }
+            else
+            {
+                assert(totalIter == 0);
+                assert(fgReturnCount >= loopRetCount);
+                fgReturnCount -= loopRetCount;
+            }
 
             // Remember that something has changed.
             INDEBUG(++unrollCount);
@@ -4097,33 +4115,31 @@ PhaseStatus Compiler::optUnrollLoops()
     if (change)
     {
 #ifdef DEBUG
-        printf("\nFinished unrolling %d loops", unrollCount);
-        if (unrollFailures > 0)
+        if (verbose)
         {
-            printf(", %d failures due to block cloning", unrollFailures);
-        }
-        printf("\n");
-        if (anyNestedLoopsUnrolled)
-        {
-            printf("At least one unrolled loop contains nested loops\n");
+            printf("\nFinished unrolling %d loops", unrollCount);
+            if (unrollFailures > 0)
+            {
+                printf(", %d failures due to block cloning", unrollFailures);
+            }
+            printf("\n");
+            if (anyNestedLoopsUnrolled)
+            {
+                printf("At least one unrolled loop contains nested loops; recomputing loop table\n");
+            }
         }
 #endif // DEBUG
 
-        //**************************
-        // we might want to force rebuilding the loop table, if we unrolled something with nested loops!
-        // If we don't rebuild, then we can leave disjoint blocks pointing bbNatLoopNum to the same loop,
-        // which is illegal.
-        // Note that Compiler::RecomputeLoopInfo() already does this in the optRepeat case: make it work in
-        // fgUpdateFlowGraph as well?
+        // If we unrolled any nested loops, we rebuild the loop table (including recomputing the
+        // return blocks list).
 
-        constexpr bool computePreds = true;
-        constexpr bool computeDoms  = true; ///**** not necessary unless we add another parameter after it
-        fgUpdateChangedFlowGraph(computePreds, computeDoms);
+        constexpr bool computePreds        = true;
+        constexpr bool computeDoms         = true;
+        const bool     computeReturnBlocks = anyNestedLoopsUnrolled;
+        const bool     computeLoops        = anyNestedLoopsUnrolled;
+        fgUpdateChangedFlowGraph(computePreds, computeDoms, computeReturnBlocks, computeLoops);
 
-#ifdef DEBUG
-        fgDebugCheckBBlist(true);
-        fgDebugCheckLoopTable();
-#endif
+        DBEXEC(verbose, fgDispBasicBlocks());
     }
     else
     {
@@ -4137,6 +4153,11 @@ PhaseStatus Compiler::optUnrollLoops()
         }
 #endif // DEBUG
     }
+
+#ifdef DEBUG
+    fgDebugCheckBBlist(true);
+    fgDebugCheckLoopTable();
+#endif // DEBUG
 
     return PhaseStatus::MODIFIED_EVERYTHING;
 }
@@ -4803,14 +4824,17 @@ PhaseStatus Compiler::optOptimizeLayout()
 //
 void Compiler::optMarkLoopHeads()
 {
-    assert(!fgCheapPredsValid);
-    assert(fgReachabilitySetsValid);
-
 #ifdef DEBUG
     if (verbose)
     {
         printf("*************** In optMarkLoopHeads()\n");
     }
+
+    assert(!fgCheapPredsValid);
+    assert(fgReachabilitySetsValid);
+    fgDebugCheckBBNumIncreasing();
+
+    int loopHeadsMarked = 0;
 #endif
 
     bool hasLoops = false;
@@ -4835,13 +4859,127 @@ void Compiler::optMarkLoopHeads()
                 {
                     hasLoops = true;
                     block->bbFlags |= BBF_LOOP_HEAD;
+                    INDEBUG(++loopHeadsMarked);
                     break; // No need to look at more `block` predecessors
                 }
             }
         }
     }
 
+    JITDUMP("%d loop heads marked\n", loopHeadsMarked);
     fgHasLoops = hasLoops;
+}
+
+//-----------------------------------------------------------------------------
+// optResetLoopInfo: reset all loop info in preparation for rebuilding the loop table, or preventing
+// future phases from accessing loop-related data.
+//
+void Compiler::optResetLoopInfo()
+{
+    optLoopCount = 0;       // This will force the table to be rebuilt
+    optLoopTable = nullptr; // This will cause users to crash if they use the table when it is considered empty.
+    for (BasicBlock* const block : Blocks())
+    {
+        // If the block weight didn't come from profile data, reset it so it can be calculated again.
+        if (!block->hasProfileWeight())
+        {
+            block->bbWeight = BB_UNITY_WEIGHT;
+            block->bbFlags &= ~BBF_RUN_RARELY;
+        }
+
+        block->bbFlags &= ~BBF_LOOP_FLAGS;
+        block->bbNatLoopNum = BasicBlock::NOT_IN_LOOP;
+    }
+}
+
+//-----------------------------------------------------------------------------
+// optFindAndScaleGeneralLoopBlocks: scale block weights based on loop nesting depth.
+// Note that this uses a very general notion of "loop": any block targeted by a reachable
+// back-edge is considered a loop.
+//
+void Compiler::optFindAndScaleGeneralLoopBlocks()
+{
+#ifdef DEBUG
+    if (verbose)
+    {
+        printf("*************** In optFindAndScaleGeneralLoopBlocks()\n");
+    }
+#endif
+
+    // This code depends on block number ordering.
+    INDEBUG(fgDebugCheckBBNumIncreasing());
+
+    unsigned generalLoopCount = 0;
+
+    // We will use the following terminology:
+    // top        - the first basic block in the loop (i.e. the head of the backward edge)
+    // bottom     - the last block in the loop (i.e. the block from which we jump to the top)
+    // lastBottom - used when we have multiple back edges to the same top
+
+    for (BasicBlock* const top : Blocks())
+    {
+        // Only consider `top` blocks already determined to be potential loop heads.
+        if (!top->isLoopHead())
+        {
+            continue;
+        }
+
+        BasicBlock* foundBottom = nullptr;
+
+        for (BasicBlock* const bottom : top->PredBlocks())
+        {
+            // Is this a loop candidate? - We look for "back edges"
+
+            // Is this a backward edge? (from BOTTOM to TOP)
+            if (top->bbNum > bottom->bbNum)
+            {
+                continue;
+            }
+
+            // We only consider back-edges that are BBJ_COND or BBJ_ALWAYS for loops.
+            if ((bottom->bbJumpKind != BBJ_COND) && (bottom->bbJumpKind != BBJ_ALWAYS))
+            {
+                continue;
+            }
+
+            /* the top block must be able to reach the bottom block */
+            if (!fgReachable(top, bottom))
+            {
+                continue;
+            }
+
+            /* Found a new loop, record the longest backedge in foundBottom */
+
+            if ((foundBottom == nullptr) || (bottom->bbNum > foundBottom->bbNum))
+            {
+                foundBottom = bottom;
+            }
+        }
+
+        if (foundBottom)
+        {
+            generalLoopCount++;
+
+            /* Mark all blocks between 'top' and 'bottom' */
+
+            optScaleLoopBlocks(top, foundBottom);
+        }
+
+        // We track at most 255 loops
+        if (generalLoopCount == 255)
+        {
+#if COUNT_LOOPS
+            totalUnnatLoopOverflows++;
+#endif
+            break;
+        }
+    }
+
+    JITDUMP("\nFound a total of %d general loops.\n", generalLoopCount);
+
+#if COUNT_LOOPS
+    totalUnnatLoopCount += generalLoopCount;
+#endif
 }
 
 //-----------------------------------------------------------------------------
@@ -4858,11 +4996,8 @@ void Compiler::optMarkLoopHeads()
 // Notes:
 //  Also (re)sets all non-IBC block weights, and marks loops potentially needing alignment padding.
 //
-PhaseStatus Compiler::optFindLoops()
+void Compiler::optFindLoops()
 {
-    noway_assert(opts.OptimizationEnabled());
-    assert(fgDomsComputed);
-
 #ifdef DEBUG
     if (verbose)
     {
@@ -4870,92 +5005,18 @@ PhaseStatus Compiler::optFindLoops()
     }
 #endif
 
+    noway_assert(opts.OptimizationEnabled());
+    assert(fgDomsComputed);
+
     optMarkLoopHeads();
 
-    optSetBlockWeights();
-
-    /* Were there any loops in the flow graph? */
+    // Were there any potential loops in the flow graph?
 
     if (fgHasLoops)
     {
         optFindNaturalLoops();
-
-        // Now find the general loops and scale block weights.
-
-        unsigned generalLoopCount = 0;
-
-        // We will use the following terminology:
-        // top        - the first basic block in the loop (i.e. the head of the backward edge)
-        // bottom     - the last block in the loop (i.e. the block from which we jump to the top)
-        // lastBottom - used when we have multiple back edges to the same top
-
-        for (BasicBlock* const top : Blocks())
-        {
-            // Only consider `top` blocks already determined to be potential loop heads.
-            if (!top->isLoopHead())
-            {
-                continue;
-            }
-
-            BasicBlock* foundBottom = nullptr;
-
-            for (BasicBlock* const bottom : top->PredBlocks())
-            {
-                // Is this a loop candidate? - We look for "back edges"
-
-                // Is this a backward edge? (from BOTTOM to TOP)
-                if (top->bbNum > bottom->bbNum)
-                {
-                    continue;
-                }
-
-                // We only consider back-edges that are BBJ_COND or BBJ_ALWAYS for loops.
-                if ((bottom->bbJumpKind != BBJ_COND) && (bottom->bbJumpKind != BBJ_ALWAYS))
-                {
-                    continue;
-                }
-
-                /* the top block must be able to reach the bottom block */
-                if (!fgReachable(top, bottom))
-                {
-                    continue;
-                }
-
-                /* Found a new loop, record the longest backedge in foundBottom */
-
-                if ((foundBottom == nullptr) || (bottom->bbNum > foundBottom->bbNum))
-                {
-                    foundBottom = bottom;
-                }
-            }
-
-            if (foundBottom)
-            {
-                generalLoopCount++;
-
-                /* Mark all blocks between 'top' and 'bottom' */
-
-                optScaleLoopBlocks(top, foundBottom);
-            }
-
-            // We track at most 255 loops
-            if (generalLoopCount == 255)
-            {
-#if COUNT_LOOPS
-                totalUnnatLoopOverflows++;
-#endif
-                break;
-            }
-        }
-
-        JITDUMP("\nFound a total of %d general loops.\n", generalLoopCount);
-
-#if COUNT_LOOPS
-        totalUnnatLoopCount += generalLoopCount;
-#endif
-
-        // Check if any of the loops need alignment
-        optIdentifyLoopsForAlignment();
+        optFindAndScaleGeneralLoopBlocks();
+        optIdentifyLoopsForAlignment(); // Check if any of the loops need alignment
     }
 
 #ifdef DEBUG
@@ -4963,6 +5024,14 @@ PhaseStatus Compiler::optFindLoops()
 #endif
 
     optLoopsMarked = true;
+}
+
+//-----------------------------------------------------------------------------
+// optFindLoopsPhase: The wrapper function for the "find loops" phase.
+//
+PhaseStatus Compiler::optFindLoopsPhase()
+{
+    optFindLoops();
     return PhaseStatus::MODIFIED_EVERYTHING;
 }
 
@@ -7574,8 +7643,8 @@ void Compiler::optComputeLoopSideEffects()
 
 void Compiler::optComputeLoopNestSideEffects(unsigned lnum)
 {
+    JITDUMP("optComputeLoopNestSideEffects for " FMT_LP "\n", lnum);
     assert(optLoopTable[lnum].lpParent == BasicBlock::NOT_IN_LOOP); // Requires: lnum is outermost.
-    JITDUMP("optComputeLoopSideEffects lnum is %d\n", lnum);
     for (BasicBlock* const bbInLoop : optLoopTable[lnum].LoopBlocks())
     {
         if (!optComputeLoopSideEffectsOfBlock(bbInLoop))
@@ -9399,43 +9468,46 @@ void Compiler::optRemoveRedundantZeroInits()
     }
 }
 
+#ifdef DEBUG
+
 //------------------------------------------------------------------------
-// optMarkLoopRemovedHelp: Recursively mark the specified loop and it's children as removed
-// (some optimization, such as unrolling, has made the outer loop no longer exist).
-//
-// You could imagine splicing out just the specified loop, and "promoting" the children loops. However,
-// no optimization requires this currently.
-//
-// This helper only sets the LPFLG_REMOVED bit.
+// optAnyChildNotRemoved: Recursively check the child loops of a loop to see if any of them
+// are still live (that is, not marked as LPFLG_REMOVED). This check is done when we are
+// removing a parent, just to notify that there is something odd about leaving a live child.
 //
 // Arguments:
-//      loopNum - the loop number to remove
+//      loopNum - the loop number to check
 //
-void Compiler::optMarkLoopRemovedHelp(unsigned loopNum)
+bool Compiler::optAnyChildNotRemoved(unsigned loopNum)
 {
     assert(loopNum < optLoopCount);
-    LoopDsc& loop = optLoopTable[loopNum];
-
-    // Mark the loop removed.
-    loop.lpFlags |= LPFLG_REMOVED;
 
     // Now recursively mark the children.
     for (BasicBlock::loopNumber l = optLoopTable[loopNum].lpChild; //
          l != BasicBlock::NOT_IN_LOOP;                             //
          l = optLoopTable[l].lpSibling)
     {
-        JITDUMP("Marking child loop " FMT_LP " removed\n", l);
-        optMarkLoopRemovedHelp(l);
+        if ((optLoopTable[l].lpFlags & LPFLG_REMOVED) == 0)
+        {
+            return true;
+        }
+
+        if (optAnyChildNotRemoved(l))
+        {
+            return true;
+        }
     }
+
+    // All children were removed
+    return false;
 }
+
+#endif // DEBUG
 
 //------------------------------------------------------------------------
 // optMarkLoopRemoved: Mark the specified loop as removed (some optimization, such as unrolling, has made the
-// loop no longer exist). Also, if this loop has children, mark all its more nested (children) loops as also
-// removed.
-//
-// You could imagine splicing out just the specified loop, and "promoting" the children loops. However,
-// no optimization requires this currently.
+// loop no longer exist). Note that only the given loop is marked as being removed; if it has any children,
+// they are not touched (but a warning message is output to the JitDump).
 //
 // Arguments:
 //      loopNum - the loop number to remove
@@ -9443,9 +9515,19 @@ void Compiler::optMarkLoopRemovedHelp(unsigned loopNum)
 void Compiler::optMarkLoopRemoved(unsigned loopNum)
 {
     JITDUMP("Marking loop " FMT_LP " removed\n", loopNum);
-    optMarkLoopRemovedHelp(loopNum);
 
-    INDEBUG(fgDebugCheckLoopTable());
-    JITDUMP("After remove loop " FMT_LP "\n", loopNum);
-    DBEXEC(verbose, optPrintLoopTable());
+    assert(loopNum < optLoopCount);
+    LoopDsc& loop = optLoopTable[loopNum];
+    loop.lpFlags |= LPFLG_REMOVED;
+
+#ifdef DEBUG
+    if (optAnyChildNotRemoved(loopNum))
+    {
+        JITDUMP("Removed loop " FMT_LP " has one or more live children\n", loopNum);
+    }
+
+// Note: we can't call `fgDebugCheckLoopTable()` here because if there are live children, it will assert.
+// Assume the caller is going to fix up the table and `bbNatLoopNum` block annotations before the next time
+// `fgDebugCheckLoopTable()` is called.
+#endif // DEBUG
 }

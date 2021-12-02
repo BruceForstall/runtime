@@ -5052,11 +5052,12 @@ public:
     unsigned fgMeasureIR();
 #endif // FEATURE_JIT_METHOD_PERF
 
-    bool fgModified;         // True if the flow graph has been modified recently
-    bool fgComputePredsDone; // Have we computed the bbPreds list
-    bool fgCheapPredsValid;  // Is the bbCheapPreds list valid?
-    bool fgDomsComputed;     // Have we computed the dominator sets?
-    bool fgOptimizedFinally; // Did we optimize any try-finallys?
+    bool fgModified;             // True if the flow graph has been modified recently
+    bool fgComputePredsDone;     // Have we computed the bbPreds list
+    bool fgCheapPredsValid;      // Is the bbCheapPreds list valid?
+    bool fgDomsComputed;         // Have we computed the dominator sets?
+    bool fgReturnBlocksComputed; // Have we computed the return blocks list?
+    bool fgOptimizedFinally;     // Did we optimize any try-finallys?
 
     bool fgHasSwitch; // any BBJ_SWITCH jumps?
 
@@ -5656,6 +5657,8 @@ protected:
 
     void fgComputeReachabilitySets(); // Compute bbReach sets. (Also sets BBF_GC_SAFE_POINT flag on blocks.)
 
+    void fgComputeReturnBlocks(); // Initialize fgReturnBlocks to a list of BBJ_RETURN blocks.
+
     void fgComputeEnterBlocksSet(); // Compute the set of entry blocks, 'fgEnterBlks'.
 
     bool fgRemoveUnreachableBlocks(); // Remove blocks determined to be unreachable by the bbReach sets.
@@ -5683,9 +5686,12 @@ protected:
     // && postOrder(A) >= postOrder(B) making the computation O(1).
     void fgNumberDomTree(DomTreeNode* domTree);
 
-    // When the flow graph changes, we need to update the block numbers, predecessor lists, reachability sets, and
-    // dominators.
-    void fgUpdateChangedFlowGraph(const bool computePreds = true, const bool computeDoms = true);
+    // When the flow graph changes, we need to update the block numbers, predecessor lists, reachability sets,
+    // dominators, and possibly loops.
+    void fgUpdateChangedFlowGraph(const bool computePreds        = true,
+                                  const bool computeDoms         = true,
+                                  const bool computeReturnBlocks = false,
+                                  const bool computeLoops        = false);
 
 public:
     // Compute the predecessors of the blocks in the control flow graph.
@@ -6654,8 +6660,11 @@ protected:
     // written to, and SZ-array element type equivalence classes updated.
     void optComputeLoopSideEffects();
 
-    // Mark a loop, and any more nested loops within, as removed.
-    void optMarkLoopRemovedHelp(unsigned loopNum);
+#ifdef DEBUG
+    bool optAnyChildNotRemoved(unsigned loopNum);
+#endif // DEBUG
+
+    // Mark a loop as removed.
     void optMarkLoopRemoved(unsigned loopNum);
 
 private:
@@ -6681,7 +6690,10 @@ public:
 public:
     PhaseStatus optInvertLoops();    // Invert loops so they're entered at top and tested at bottom.
     PhaseStatus optOptimizeLayout(); // Optimize the BasicBlock layout of the method
-    PhaseStatus optFindLoops();      // Finds loops and records them in the loop table
+    PhaseStatus optSetBlockWeights();
+    PhaseStatus optFindLoopsPhase(); // Finds loops and records them in the loop table
+
+    void optFindLoops();
 
     PhaseStatus optCloneLoops();
     void optCloneLoop(unsigned loopInd, LoopCloneContext* context);
@@ -6933,10 +6945,11 @@ protected:
     void optCheckPreds();
 #endif
 
+    void optResetLoopInfo();
+    void optFindAndScaleGeneralLoopBlocks();
+
     // Determine if there are any potential loops, and set BBF_LOOP_HEAD on potential loop heads.
     void optMarkLoopHeads();
-
-    void optSetBlockWeights();
 
     void optScaleLoopBlocks(BasicBlock* begBlk, BasicBlock* endBlk);
 
