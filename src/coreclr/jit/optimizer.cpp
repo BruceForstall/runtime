@@ -6087,41 +6087,6 @@ void Compiler::optHoistThisLoop(unsigned lnum, LoopHoistContext* hoistCtxt)
         return;
     }
 
-    // We must have a top entry loop
-    // TODO: why? Can we remove this
-    if (!pLoopDsc->lpIsTopEntry())
-    {
-        JITDUMP("   ... not hoisting " FMT_LP ": not top entry\n", lnum);
-        return;
-    }
-
-#if 0 // these criteria aren't necessary
-
-    // The loop-head must dominate the loop-entry.
-    // TODO-CQ: Couldn't we make this true if it's not?
-    if (!fgDominate(head, lbeg))
-    {
-        JITDUMP("   ... not hoisting " FMT_LP ": head " FMT_BB " does not dominate beg " FMT_BB "\n", lnum, head->bbNum,
-                lbeg->bbNum);
-        return;
-    }
-
-    // if lbeg is the start of a new try block then we won't be able to hoist
-    if (!BasicBlock::sameTryRegion(head, lbeg))
-    {
-        JITDUMP("   ... not hoisting in " FMT_LP ", eh region constraint\n", lnum);
-        return;
-    }
-
-    // We don't bother hoisting when inside of a catch block
-    if ((lbeg->bbCatchTyp != BBCT_NONE) && (lbeg->bbCatchTyp != BBCT_FINALLY))
-    {
-        JITDUMP("   ... not hoisting in " FMT_LP ", within catch\n", lnum);
-        return;
-    }
-
-#endif // 0
-
     // Ensure the per-loop sets/tables are empty.
     hoistCtxt->m_curLoopVnInvariantCache.RemoveAll();
 
