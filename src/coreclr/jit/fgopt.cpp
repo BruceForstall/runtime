@@ -67,9 +67,9 @@ bool Compiler::fgDominate(BasicBlock* b1, BasicBlock* b2)
         // for this case)
         if (b1->bbFlags & BBF_LOOP_PREHEADER)
         {
-            noway_assert(b1->bbFlags & BBF_INTERNAL);
-            noway_assert(b1->bbJumpKind == BBJ_NONE);
-            return fgDominate(b1->bbNext, b2);
+            BasicBlock* loopEntry = b1->GetUniqueSucc();
+            assert(loopEntry != nullptr);
+            return fgDominate(loopEntry, b2);
         }
 
         // unknown dominators; err on the safe side and return false

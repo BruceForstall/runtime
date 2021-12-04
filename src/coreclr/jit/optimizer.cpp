@@ -5756,19 +5756,20 @@ int Compiler::optIsSetAssgLoop(unsigned lnum, ALLVARSET_VALARG_TP vars, varRefKi
 
 void Compiler::optPerformHoistExpr(GenTree* origExpr, BasicBlock* exprBb, unsigned lnum)
 {
+    assert(exprBb != nullptr);
+
 #ifdef DEBUG
     if (verbose)
     {
         printf("\nHoisting a copy of ");
         printTreeID(origExpr);
-        printf(" into PreHeader for loop " FMT_LP " <" FMT_BB ".." FMT_BB ">:\n", lnum, optLoopTable[lnum].lpTop->bbNum,
+        printf(" from " FMT_BB " into PreHeader " FMT_BB " for loop " FMT_LP " <" FMT_BB ".." FMT_BB ">:\n",
+               exprBb->bbNum, optLoopTable[lnum].lpHead->bbNum, lnum, optLoopTable[lnum].lpTop->bbNum,
                optLoopTable[lnum].lpBottom->bbNum);
         gtDispTree(origExpr);
         printf("\n");
     }
 #endif
-
-    assert(exprBb != nullptr);
 
     // Create a copy of the expression and mark it for CSE's.
     GenTree* hoistExpr = gtCloneExpr(origExpr, GTF_MAKE_CSE);
@@ -5793,10 +5794,9 @@ void Compiler::optPerformHoistExpr(GenTree* origExpr, BasicBlock* exprBb, unsign
 
     /* Put the statement in the preheader */
 
-    fgCreateLoopPreHeader(lnum);
+    INDEBUG(optLoopTable[lnum].lpValidatePreHeader());
 
     BasicBlock* preHead = optLoopTable[lnum].lpHead;
-    assert(preHead->bbJumpKind == BBJ_NONE);
 
     // fgMorphTree requires that compCurBB be the block that contains
     // (or in this case, will contain) the expression.
@@ -6652,7 +6652,7 @@ void Compiler::optHoistLoopBlocks(unsigned loopNum, ArrayStack<BasicBlock*>* blo
                 m_valueStack.Reset();
             }
 
-            // Only uncondtionally executed blocks in the loop are visited (see optHoistThisLoop)
+            // Only unconditionally executed blocks in the loop are visited (see optHoistThisLoop)
             // so after we're done visiting the first block we need to assume the worst, that the
             // blocks that are not visisted have side effects.
             m_beforeSideEffect = false;
@@ -7060,6 +7060,19 @@ void Compiler::optHoistCandidate(GenTree* tree, BasicBlock* treeBb, unsigned lnu
         return;
     }
 
+    // Create a loop pre-header in which to put the hoisted code.
+    fgCreateLoopPreHeader(lnum);
+
+    // If the block we're hoisting from and the pre-header are in different EH regions, don't hoist.
+    // TODO: we could probably hoist things that won't raise exceptions, such as constants.
+    if (!BasicBlock::sameTryRegion(optLoopTable[lnum].lpHead, treeBb))
+    {
+        JITDUMP("   ... not hoisting in " FMT_LP ", eh region constraint (pre-header try index %d, candidate " FMT_BB
+                " try index %d\n",
+                lnum, optLoopTable[lnum].lpHead->bbTryIndex, treeBb->bbNum, treeBb->bbTryIndex);
+        return;
+    }
+
     // Expression can be hoisted
     optPerformHoistExpr(tree, treeBb, lnum);
 
@@ -7174,7 +7187,7 @@ bool Compiler::optVNIsLoopInvariant(ValueNum vn, unsigned lnum, VNSet* loopVnInv
 
 //------------------------------------------------------------------------------
 // fgCreateLoopPreHeader: Creates a pre-header block for the given loop.
-// A preheader is a block outside the loop that falls through or branches to the loop
+// A pre-header is a block outside the loop that falls through or branches to the loop
 // entry block. It is the only non-loop predecessor block to the entry block (thus, it
 // dominates the entry block). The pre-header replaces the current lpHead in the loop table.
 // The pre-header will be placed immediately before the loop top block, which is the first
@@ -7191,49 +7204,68 @@ bool Compiler::optVNIsLoopInvariant(ValueNum vn, unsigned lnum, VNSet* loopVnInv
 // before doing so.
 //
 // Since the flow graph has changed, if needed, fgUpdateChangedFlowGraph() should be called after this
-// to update the block numbers, reachability, and dominators. The new pre-header block does have a copy
-// of the previous 'head' reachability set, but the pre-header itself doesn't exist in any
-// reachability/dominator sets. The preds lists have been maintained.
+// to update the block numbers, reachability, and dominators. The loop table does not need to be rebuilt.
+// The new pre-header block does have a copy of the previous 'head' reachability set, but the pre-header
+// itself doesn't exist in any reachability/dominator sets. `fgDominate` has code to specifically
+// handle queries about the pre-header dominating other blocks, even without re-computing dominators.
+// The preds lists have been maintained.
+//
+// Currently, if you create a pre-header but don't put any code in it, any subsequent fgUpdateFlowGraph()
+// pass might choose to compact the empty pre-header with a predecessor block. That is, a pre-header
+// block might disappear if not used.
+//
+// The code does not depend on the order of the BasicBlock bbNum.
 //
 // Arguments:
 //    lnum  - loop index
 //
 void Compiler::fgCreateLoopPreHeader(unsigned lnum)
 {
-    LoopDsc* pLoopDsc = &optLoopTable[lnum];
+#ifdef DEBUG
+    if (verbose)
+    {
+        printf("*************** In fgCreateLoopPreHeader for " FMT_LP "\n", lnum);
+    }
+#endif // DEBUG
+
+    LoopDsc& loop = optLoopTable[lnum];
 
     // Have we already created a loop-preheader block?
 
-    if (pLoopDsc->lpFlags & LPFLG_HAS_PREHEAD)
+    if (loop.lpFlags & LPFLG_HAS_PREHEAD)
     {
+        JITDUMP("   pre-header already exists\n");
+        INDEBUG(loop.lpValidatePreHeader());
         return;
     }
 
-    BasicBlock* head  = pLoopDsc->lpHead;
-    BasicBlock* top   = pLoopDsc->lpTop;
-    BasicBlock* entry = pLoopDsc->lpEntry;
+    BasicBlock* head  = loop.lpHead;
+    BasicBlock* top   = loop.lpTop;
+    BasicBlock* entry = loop.lpEntry;
 
     // Ensure that lpHead always dominates lpEntry
 
     noway_assert(fgDominate(head, entry));
 
 #if 0  // Disable the following code to reduce asm diffs
-    // The pre-header must unconditionally enter the loop.
-    if (((head->bbJumpKind == BBJ_ALWAYS) && (head->bbJumpDest == entry)) ||
-        ((head->bbJumpKind == BBJ_NONE) && (head->bbNext == entry)))
+    // If `head` is already a valid pre-header, then mark it so.
+    if (head->GetUniqueSucc() == entry)
     {
-        // 'head' dominates 'entry' (asserted above, but could be dynamically checked),
-        // and either falls through to 'entry' or branches directly to 'entry'.
-        pLoopDsc->lpFlags |= LPFLG_HAS_PREHEAD;
-        assert((pLoopDsc->lpHead->bbFlags & BBF_LOOP_PREHEADER) == 0); // It isn't already a loop pre-header
-        pLoopDsc->lpHead->bbFlags |= BBF_LOOP_PREHEADER;
-        return;
+        // The loop entry must have a single predecessor, which is the pre-header.
+        if ((entry->bbPreds != nullptr) && (entry->bbPreds->flNext == nullptr) && (entry->bbPreds->getBlock() == head))
+        {
+            loop.lpFlags |= LPFLG_HAS_PREHEAD;
+            assert((loop.lpHead->bbFlags & BBF_LOOP_PREHEADER) == 0); // It isn't already a loop pre-header
+            loop.lpHead->bbFlags |= BBF_LOOP_PREHEADER;
+            INDEBUG(loop.lpValidatePreHeader());
+            return;
+        }
     }
 #endif // 0
 
     // Allocate a new basic block for the pre-header.
 
-    const bool isTopEntryLoop = pLoopDsc->lpIsTopEntry();
+    const bool isTopEntryLoop = loop.lpIsTopEntry();
 
     BasicBlock* preHead = bbNewBasicBlock(isTopEntryLoop ? BBJ_NONE : BBJ_ALWAYS);
     preHead->bbFlags |= BBF_INTERNAL | BBF_LOOP_PREHEADER;
@@ -7263,7 +7295,7 @@ void Compiler::fgCreateLoopPreHeader(unsigned lnum)
     if (verbose)
     {
         printf("\nCreated PreHeader (" FMT_BB ") for loop " FMT_LP " (" FMT_BB " - " FMT_BB, preHead->bbNum, lnum,
-               top->bbNum, pLoopDsc->lpBottom->bbNum);
+               top->bbNum, loop.lpBottom->bbNum);
         if (!isTopEntryLoop)
         {
             printf(", entry " FMT_BB, entry->bbNum);
@@ -7273,7 +7305,7 @@ void Compiler::fgCreateLoopPreHeader(unsigned lnum)
 #endif
 
     // The preheader block is part of the containing loop (if any).
-    preHead->bbNatLoopNum = pLoopDsc->lpParent;
+    preHead->bbNatLoopNum = loop.lpParent;
 
     if (fgIsUsingProfileWeights() && (head->bbJumpKind == BBJ_COND))
     {
@@ -7434,27 +7466,36 @@ void Compiler::fgCreateLoopPreHeader(unsigned lnum)
 
     // Update the loop table
 
-    pLoopDsc->lpHead = preHead;
-    pLoopDsc->lpFlags |= LPFLG_HAS_PREHEAD;
+    loop.lpHead = preHead;
+    loop.lpFlags |= LPFLG_HAS_PREHEAD;
 
     // The new block becomes the 'head' of the loop - update bbRefs and bbPreds.
-    // All predecessors of 'entry' now have to jump to 'preHead', unless they
-    // are dominated by 'head'.
+    // All non-loop predecessors of 'entry' now jump to 'preHead'.
 
     preHead->bbRefs       = 0;
     bool checkNestedLoops = false;
 
     for (BasicBlock* const predBlock : entry->PredBlocks())
     {
-        if (fgDominate(entry, predBlock))
+        // Is the predBlock in the loop?
+        //
+        // We want to use:
+        //    const bool intraLoopPred = loop.lpContains(predBlock);
+        // but we can't depend on the bbNum ordering.
+        //
+        // Previously, this code wouldn't redirect predecessors dominated by the entry. However, that can
+        // lead to a case where non-loop predecessor is dominated by the loop entry, and that predecessor
+        // continues to branch to the entry, not the new pre-header. If you subsequently hoist something
+        // loop invariant to the pre-header, but that is not invariant in the blocks that follow the loop
+        // before the non-loop predecessor, you could get bad code.
+        //****************************
+        // TODO: USE: const bool intraLoopPred = optLoopContains(lnum, predBlock->bbNatLoopNum);
+
+        const bool intraLoopPred = fgDominate(top, predBlock); // Not actually guaranteed to be intra-block
+
+        if (intraLoopPred)
         {
-            noway_assert(predBlock != head);
-
-            // Note: if 'entry' dominates predBlock, 'head' dominates predBlock too
-            // (we know that 'head' dominates 'entry'), but using 'entry' instead of
-            // 'head' in the test allows us to not enter here if 'predBlock == head'
-
-            if (predBlock != pLoopDsc->lpBottom)
+            if (predBlock != loop.lpBottom)
             {
                 checkNestedLoops = true;
             }
@@ -7540,7 +7581,7 @@ void Compiler::fgCreateLoopPreHeader(unsigned lnum)
         {
             if (optLoopTable[l].lpHead == head)
             {
-                // pLoopDsc->lpHead was already changed from 'head' to 'preHead'
+                // loop.lpHead was already changed from 'head' to 'preHead'
                 noway_assert(l != lnum);
 
                 // If it shares head, it must be a top-entry loop that shares top.

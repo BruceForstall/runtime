@@ -3842,6 +3842,19 @@ void Compiler::fgDebugCheckLoopTable()
         {
             return lpContainedBy(blockNumMap, loop, lp2.lpTop, lp2.lpBottom);
         }
+
+        static bool lpDisjoint(const unsigned*   blockNumMap,
+                               const LoopDsc*    loop,
+                               const BasicBlock* top,
+                               const BasicBlock* bottom)
+        {
+            return (blockNumMap[bottom->bbNum] < blockNumMap[loop->lpTop->bbNum]) ||
+                   (blockNumMap[loop->lpBottom->bbNum] < blockNumMap[top->bbNum]);
+        }
+        static bool lpDisjoint(const unsigned* blockNumMap, const LoopDsc* loop, const LoopDsc& lp2)
+        {
+            return lpDisjoint(blockNumMap, loop, lp2.lpTop, lp2.lpBottom);
+        }
     };
 
     // Check the loop table itself.
@@ -3886,35 +3899,49 @@ void Compiler::fgDebugCheckLoopTable()
 
         if (loop.lpChild != BasicBlock::NOT_IN_LOOP)
         {
-            assert(loop.lpChild < optLoopCount);
-            assert(i < loop.lpChild); // outer loops come before inner loops in the table
-            const LoopDsc& childLoop = optLoopTable[loop.lpChild];
-            if ((childLoop.lpFlags & LPFLG_REMOVED) == 0) // removed child loop might still be in table
+            // Verify all child loops are contained in the parent loop.
+            for (unsigned child = loop.lpChild;    //
+                 child != BasicBlock::NOT_IN_LOOP; //
+                 child = optLoopTable[child].lpSibling)
             {
-                assert(MappedChecks::lpContains(blockNumMap, &loop, childLoop));
-            }
-
-            unsigned sibling = childLoop.lpSibling;
-            while (sibling != BasicBlock::NOT_IN_LOOP)
-            {
-                assert(sibling < optLoopCount);
-                assert(i < sibling); // outer loops come before inner loops in the table
-                const LoopDsc& siblingLoop = optLoopTable[sibling];
-                if ((siblingLoop.lpFlags & LPFLG_REMOVED) == 0) // removed sibling loop might still be in table
+                assert(child < optLoopCount);
+                assert(i < child); // outer loops come before inner loops in the table
+                const LoopDsc& childLoop = optLoopTable[child];
+                if ((childLoop.lpFlags & LPFLG_REMOVED) == 0) // removed child loop might still be in table
                 {
-                    assert(MappedChecks::lpContains(blockNumMap, &loop, siblingLoop));
+                    assert(MappedChecks::lpContains(blockNumMap, &loop, childLoop));
                 }
-
-                sibling = siblingLoop.lpSibling;
             }
 
-            // TODO: verify all sibling loops are disjoint?
+            // Verify all child loops are disjoint.
+            for (unsigned child = loop.lpChild;    //
+                 child != BasicBlock::NOT_IN_LOOP; //
+                 child = optLoopTable[child].lpSibling)
+            {
+                const LoopDsc& childLoop = optLoopTable[child];
+                if (childLoop.lpFlags & LPFLG_REMOVED)
+                {
+                    continue;
+                }
+                for (unsigned child2 = optLoopTable[child].lpSibling; //
+                     child2 != BasicBlock::NOT_IN_LOOP;               //
+                     child2 = optLoopTable[child2].lpSibling)
+                {
+                    const LoopDsc& child2Loop = optLoopTable[child2];
+                    if (child2Loop.lpFlags & LPFLG_REMOVED)
+                    {
+                        continue;
+                    }
+                    assert(MappedChecks::lpDisjoint(blockNumMap, &childLoop, child2Loop));
+                }
+            }
         }
 
         // If the loop has a pre-header, ensure the pre-header form is correct.
         if ((loop.lpFlags & LPFLG_HAS_PREHEAD) != 0)
         {
             ++preHeaderCount;
+
             BasicBlock* h = loop.lpHead;
             assert(h->bbFlags & BBF_LOOP_PREHEADER);
 
@@ -3931,6 +3958,18 @@ void Compiler::fgDebugCheckLoopTable()
                 assert(loop.lpTop == e);
                 assert(loop.lpIsTopEntry());
             }
+
+//*************************
+#if 0  // TODO: This causes asserts if we use "fgDominate" instead of "intra-block pred" when creating a pre-header
+            // The entry block has a single non-loop predecessor, and it is the pre-header.
+            for (BasicBlock* const predBlock : e->PredBlocks())
+            {
+                if (predBlock != h)
+                {
+                    assert(MappedChecks::lpContains(blockNumMap, &loop, predBlock));
+                }
+            }
+#endif // 0
         }
     }
 

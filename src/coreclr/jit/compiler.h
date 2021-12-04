@@ -6807,7 +6807,7 @@ public:
                                 // : Valid if LPFLG_VAR_INIT
         };
 
-        // The following is for LPFLG_ITER loops only (i.e. the loop condition is "i RELOP const or var"
+        // The following is for LPFLG_ITER loops only (i.e. the loop condition is "i RELOP const or var")
 
         GenTree*   lpTestTree;         // pointer to the node containing the loop test
         genTreeOps lpTestOper() const; // the type of the comparison between the iterator and the limit (GT_LE, GT_GE,
@@ -6850,6 +6850,7 @@ public:
         {
             return lpTop->bbNum <= blk->bbNum && blk->bbNum <= lpBottom->bbNum;
         }
+
         // Returns "true" iff "*this" (properly) contains the range [top, bottom] (allowing tops
         // to be equal, but requiring bottoms to be different.)
         bool lpContains(BasicBlock* top, BasicBlock* bottom) const
@@ -6896,6 +6897,24 @@ public:
                    (lpHead->bbNum < lpTop->bbNum || lpHead->bbNum > lpBottom->bbNum);
         }
 
+#ifdef DEBUG
+        void lpValidatePreHeader()
+        {
+            // If this is called, we expect there to be a pre-header.
+            assert(lpFlags & LPFLG_HAS_PREHEAD);
+
+            // The pre-header must unconditionally enter the loop.
+            assert(lpHead->GetUniqueSucc() == lpEntry);
+
+            // The loop block must be marked as a pre-header.
+            assert(lpHead->bbFlags & BBF_LOOP_PREHEADER);
+
+            // The loop entry must have a single non-loop predecessor, which is the pre-header.
+            // We can't assume here that the bbNum are properly ordered, so we can't do a simple lpContained()
+            // check. So, we defer this check, which will be done by `fgDebugCheckLoopTable()`.
+        }
+#endif // DEBUG
+
         // LoopBlocks: convenience method for enabling range-based `for` iteration over all the
         // blocks in a loop, e.g.:
         //    for (BasicBlock* const block : loop->LoopBlocks()) ...
@@ -6908,6 +6927,35 @@ public:
             return BasicBlockRangeList(lpTop, lpBottom);
         }
     };
+
+    // Returns "true" iff the loop number `loopToCheck` is the same as `loopNum` or is a child
+    // (recursively) of `loopNum`.
+    bool optLoopContains(unsigned loopNum, unsigned loopToCheck) const
+    {
+        if (loopNum == loopToCheck)
+        {
+            return true;
+        }
+
+        if (loopToCheck < loopNum)
+        {
+            // Children come after parents in the loop table (outer loops come before related inner loops).
+            // So if the loop number we are checking is a smaller number, then it can't be a child.
+            return false;
+        }
+
+        for (unsigned child = optLoopTable[loopNum].lpChild; //
+             child != BasicBlock::NOT_IN_LOOP;               //
+             child = optLoopTable[child].lpSibling)
+        {
+            if (optLoopContains(loopNum, child))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
 
 protected:
     bool fgMightHaveLoop(); // returns true if there are any back edges
