@@ -7212,12 +7212,22 @@ void Compiler::fgCreateLoopPreHeader(unsigned lnum)
 
     noway_assert(fgDominate(head, entry));
 
-#if 0  // Disable the following code to reduce asm diffs
+#if 0
     // If `head` is already a valid pre-header, then mark it so.
     if (head->GetUniqueSucc() == entry)
     {
-        // The loop entry must have a single predecessor, which is the pre-header.
-        if ((entry->bbPreds != nullptr) && (entry->bbPreds->flNext == nullptr) && (entry->bbPreds->getBlock() == head))
+        // The loop entry must have a single non-loop predecessor, which is the pre-header.
+        bool loopHasProperEntryBlockPreds = true;
+        for (BasicBlock* const predBlock : entry->PredBlocks())
+        {
+            const bool intraLoopPred = optLoopContains(lnum, predBlock->bbNatLoopNum);
+            if (!intraLoopPred && (head != predBlock))
+            {
+                loopHasProperEntryBlockPreds = false;
+                break;
+            }
+        }
+        if (loopHasProperEntryBlockPreds)
         {
             loop.lpFlags |= LPFLG_HAS_PREHEAD;
             assert((loop.lpHead->bbFlags & BBF_LOOP_PREHEADER) == 0); // It isn't already a loop pre-header
