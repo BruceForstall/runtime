@@ -7031,15 +7031,13 @@ protected:
     // The depth of the loop described by "lnum" (an index into the loop table.) (0 == top level)
     unsigned optLoopDepth(unsigned lnum)
     {
-        unsigned par = optLoopTable[lnum].lpParent;
-        if (par == BasicBlock::NOT_IN_LOOP)
+        assert(lnum < optLoopCount);
+        unsigned depth = 0;
+        while ((lnum = optLoopTable[lnum].lpParent) != BasicBlock::NOT_IN_LOOP)
         {
-            return 0;
+            ++depth;
         }
-        else
-        {
-            return 1 + optLoopDepth(par);
-        }
+        return depth;
     }
 
     // Struct used in optInvertWhileLoop to count interesting constructs to boost the profitability score.
