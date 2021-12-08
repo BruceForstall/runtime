@@ -3959,8 +3959,6 @@ void Compiler::fgDebugCheckLoopTable()
                 assert(loop.lpIsTopEntry());
             }
 
-//*************************
-#if 0  // TODO: This causes asserts if we use "fgDominate" instead of "intra-block pred" when creating a pre-header
             // The entry block has a single non-loop predecessor, and it is the pre-header.
             for (BasicBlock* const predBlock : e->PredBlocks())
             {
@@ -3969,7 +3967,6 @@ void Compiler::fgDebugCheckLoopTable()
                     assert(MappedChecks::lpContains(blockNumMap, &loop, predBlock));
                 }
             }
-#endif // 0
         }
     }
 

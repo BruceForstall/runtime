@@ -7460,14 +7460,11 @@ void Compiler::fgCreateLoopPreHeader(unsigned lnum)
         //
         // Previously, this code wouldn't redirect predecessors dominated by the entry. However, that can
         // lead to a case where non-loop predecessor is dominated by the loop entry, and that predecessor
-        // continues to branch to the entry, not the new pre-header. If you subsequently hoist something
-        // loop invariant to the pre-header, but that is not invariant in the blocks that follow the loop
-        // before the non-loop predecessor, you could get bad code.
-        //****************************
-        // TODO: USE: const bool intraLoopPred = optLoopContains(lnum, predBlock->bbNatLoopNum);
+        // continues to branch to the entry, not the new pre-header. This is normally ok for hoisting
+        // because it will introduce an SSA PHI def within the loop, which will inhibit hoisting. However,
+        // it complicates the definition of what a pre-header is.
 
-        const bool intraLoopPred = fgDominate(top, predBlock); // Not actually guaranteed to be intra-block
-
+        const bool intraLoopPred = optLoopContains(lnum, predBlock->bbNatLoopNum);
         if (intraLoopPred)
         {
             if (predBlock != loop.lpBottom)
