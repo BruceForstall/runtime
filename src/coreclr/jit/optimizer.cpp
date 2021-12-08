@@ -7212,31 +7212,38 @@ void Compiler::fgCreateLoopPreHeader(unsigned lnum)
 
     noway_assert(fgDominate(head, entry));
 
-#if 0
     // If `head` is already a valid pre-header, then mark it so.
     if (head->GetUniqueSucc() == entry)
     {
         // The loop entry must have a single non-loop predecessor, which is the pre-header.
         bool loopHasProperEntryBlockPreds = true;
+        INDEBUG(bool loopEntryHasHeadPred = false);
         for (BasicBlock* const predBlock : entry->PredBlocks())
         {
+            if (head == predBlock)
+            {
+                INDEBUG(loopEntryHasHeadPred = true);
+                continue;
+            }
             const bool intraLoopPred = optLoopContains(lnum, predBlock->bbNatLoopNum);
-            if (!intraLoopPred && (head != predBlock))
+            if (!intraLoopPred)
             {
                 loopHasProperEntryBlockPreds = false;
                 break;
             }
         }
+        assert(loopEntryHasHeadPred);
         if (loopHasProperEntryBlockPreds)
         {
+            JITDUMP("   converting existing header " FMT_BB " into pre-header\n", loop.lpHead->bbNum);
             loop.lpFlags |= LPFLG_HAS_PREHEAD;
             assert((loop.lpHead->bbFlags & BBF_LOOP_PREHEADER) == 0); // It isn't already a loop pre-header
             loop.lpHead->bbFlags |= BBF_LOOP_PREHEADER;
             INDEBUG(loop.lpValidatePreHeader());
+            INDEBUG(fgDebugCheckLoopTable());
             return;
         }
     }
-#endif // 0
 
     // Allocate a new basic block for the pre-header.
 
