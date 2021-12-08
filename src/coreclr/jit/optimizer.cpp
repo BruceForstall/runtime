@@ -3021,7 +3021,7 @@ bool Compiler::optCanonicalizeLoop(unsigned char loopInd)
 // Notes:
 //    A loop contains itself.
 //
-bool Compiler::optLoopContains(unsigned l1, unsigned l2)
+bool Compiler::optLoopContains(unsigned l1, unsigned l2) const
 {
     assert(l1 < optLoopCount);
     assert((l2 < optLoopCount) || (l2 == BasicBlock::NOT_IN_LOOP));

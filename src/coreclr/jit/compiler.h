@@ -6928,35 +6928,6 @@ public:
         }
     };
 
-    // Returns "true" iff the loop number `loopToCheck` is the same as `loopNum` or is a child
-    // (recursively) of `loopNum`.
-    bool optLoopContains(unsigned loopNum, unsigned loopToCheck) const
-    {
-        if (loopNum == loopToCheck)
-        {
-            return true;
-        }
-
-        if (loopToCheck < loopNum)
-        {
-            // Children come after parents in the loop table (outer loops come before related inner loops).
-            // So if the loop number we are checking is a smaller number, then it can't be a child.
-            return false;
-        }
-
-        for (unsigned child = optLoopTable[loopNum].lpChild; //
-             child != BasicBlock::NOT_IN_LOOP;               //
-             child = optLoopTable[child].lpSibling)
-        {
-            if (optLoopContains(loopNum, child))
-            {
-                return true;
-            }
-        }
-
-        return false;
-    }
-
 protected:
     bool fgMightHaveLoop(); // returns true if there are any back edges
     bool fgHasLoops;        // True if this method has any loops, set in fgComputeReachability
@@ -7025,10 +6996,11 @@ protected:
     // unshared with any other loop.  Returns "true" iff the flowgraph has been modified
     bool optCanonicalizeLoop(unsigned char loopInd);
 
-    // Requires "l1" to be a valid loop table index, and not "BasicBlock::NOT_IN_LOOP".  Requires "l2" to be
-    // a valid loop table index, or else "BasicBlock::NOT_IN_LOOP".  Returns true
-    // iff "l2" is not NOT_IN_LOOP, and "l1" contains "l2".
-    bool optLoopContains(unsigned l1, unsigned l2);
+    // Requires "l1" to be a valid loop table index, and not "BasicBlock::NOT_IN_LOOP".
+    // Requires "l2" to be a valid loop table index, or else "BasicBlock::NOT_IN_LOOP".
+    // Returns true iff "l2" is not NOT_IN_LOOP, and "l1" contains "l2".
+    // A loop contains itself.
+    bool optLoopContains(unsigned l1, unsigned l2) const;
 
     // Updates the loop table by changing loop "loopInd", whose head is required
     // to be "from", to be "to".  Also performs this transformation for any
