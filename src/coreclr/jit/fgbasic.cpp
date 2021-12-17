@@ -4698,14 +4698,6 @@ void Compiler::fgRemoveBlock(BasicBlock* block, bool unreachable)
         {
             succBlock->bbFlags |= BBF_LOOP_HEAD;
 
-            if (block->isLoopAlign())
-            {
-                loopAlignCandidates++;
-                succBlock->bbFlags |= BBF_LOOP_ALIGN;
-                JITDUMP("Propagating LOOP_ALIGN flag from " FMT_BB " to " FMT_BB " for " FMT_LP "\n ", block->bbNum,
-                        succBlock->bbNum, block->bbNatLoopNum);
-            }
-
             if (fgDomsComputed && fgReachable(succBlock, block))
             {
                 // Mark all the reachable blocks between 'succBlock' and 'bPrev'
@@ -4852,9 +4844,6 @@ void Compiler::fgRemoveBlock(BasicBlock* block, bool unreachable)
         fgUnlinkBlock(block);
         block->bbFlags |= BBF_REMOVED;
     }
-
-    // If this was marked for alignment, remove it
-    block->unmarkLoopAlign(this DEBUG_ARG("Removed block"));
 
     if (bPrev != nullptr)
     {
