@@ -4103,12 +4103,14 @@ PhaseStatus Compiler::optUnrollLoops()
 
         // If we unrolled any nested loops, we rebuild the loop table (including recomputing the
         // return blocks list).
+        // TODO: can we avoid recomputing block weights? It will trash cloned loop slow path weights.
 
         constexpr bool computePreds        = true;
         constexpr bool computeDoms         = true;
         const bool     computeReturnBlocks = anyNestedLoopsUnrolled;
+        const bool     computeBlockWeights = anyNestedLoopsUnrolled;
         const bool     computeLoops        = anyNestedLoopsUnrolled;
-        fgUpdateChangedFlowGraph(computePreds, computeDoms, computeReturnBlocks, computeLoops);
+        fgUpdateChangedFlowGraph(computePreds, computeDoms, computeReturnBlocks, computeBlockWeights, computeLoops);
 
         DBEXEC(verbose, fgDispBasicBlocks());
     }
@@ -4865,15 +4867,31 @@ void Compiler::optResetLoopInfo()
 
     for (BasicBlock* const block : Blocks())
     {
+        block->bbFlags &= ~BBF_LOOP_FLAGS;
+        block->bbNatLoopNum = BasicBlock::NOT_IN_LOOP;
+    }
+}
+
+//-----------------------------------------------------------------------------
+// optResetBlockWeights: reset block weights for all blocks that don't have profile weights.
+//
+void Compiler::optResetBlockWeights()
+{
+#ifdef DEBUG
+    if (verbose)
+    {
+        printf("*************** In optResetBlockWeights()\n");
+    }
+#endif
+
+    for (BasicBlock* const block : Blocks())
+    {
         // If the block weight didn't come from profile data, reset it so it can be calculated again.
         if (!block->hasProfileWeight())
         {
             block->bbWeight = BB_UNITY_WEIGHT;
             block->bbFlags &= ~BBF_RUN_RARELY;
         }
-
-        block->bbFlags &= ~BBF_LOOP_FLAGS;
-        block->bbNatLoopNum = BasicBlock::NOT_IN_LOOP;
     }
 }
 

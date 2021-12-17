@@ -177,11 +177,13 @@ bool Compiler::fgReachable(BasicBlock* b1, BasicBlock* b2)
 //    computePreds        -- `true` if we should recompute predecessors
 //    computeDoms         -- `true` if we should recompute dominators
 //    computeReturnBlocks -- `true` if we should recompute the list of return blocks
+//    computeBlockWeights -- `true` if we should recompute block weights
 //    computeLoops        -- `true` if we should recompute the loop table
 //
 void Compiler::fgUpdateChangedFlowGraph(const bool computePreds,
                                         const bool computeDoms,
                                         const bool computeReturnBlocks,
+                                        const bool computeBlockWeights,
                                         const bool computeLoops)
 {
     // We need to clear this so we don't hit an assert calling fgRenumberBlocks().
@@ -205,12 +207,16 @@ void Compiler::fgUpdateChangedFlowGraph(const bool computePreds,
     {
         fgComputeDoms();
     }
+    if (computeBlockWeights)
+    {
+        optResetBlockWeights();
+        optSetBlockWeights();
+    }
     if (computeLoops)
     {
         // Reset the loop info annotations and find the loops again.
         // Note: this is similar to `RecomputeLoopInfo`.
         optResetLoopInfo();
-        optSetBlockWeights();
         optFindLoops();
     }
 }

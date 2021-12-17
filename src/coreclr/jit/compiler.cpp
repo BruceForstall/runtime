@@ -5544,6 +5544,7 @@ void Compiler::RecomputeLoopInfo()
     assert(JitConfig.JitOptRepeatCount() > 0);
     // Recompute reachability sets, dominators, and loops.
     optResetLoopInfo();
+    optResetBlockWeights();
     fgDomsComputed = false;
     fgComputeReachability();
     optSetBlockWeights();

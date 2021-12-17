@@ -5718,6 +5718,7 @@ protected:
     void fgUpdateChangedFlowGraph(const bool computePreds        = true,
                                   const bool computeDoms         = true,
                                   const bool computeReturnBlocks = false,
+                                  const bool computeBlockWeights = false,
                                   const bool computeLoops        = false);
 
 public:
@@ -7007,6 +7008,7 @@ protected:
 #endif
 
     void optResetLoopInfo();
+    void optResetBlockWeights();
     void optFindAndScaleGeneralLoopBlocks();
 
     // Determine if there are any potential loops, and set BBF_LOOP_HEAD on potential loop heads.
