@@ -4710,6 +4710,7 @@ void Compiler::fgRemoveBlock(BasicBlock* block, bool unreachable)
         // structures exist, but haven't been maintained.
         if (block->isLoopHead() && (succBlock->bbNum <= block->bbNum))
         {
+            assert(!"unexpected case 1");
             succBlock->bbFlags |= BBF_LOOP_HEAD;
 
             if (block->isLoopAlign())
@@ -4728,6 +4729,7 @@ void Compiler::fgRemoveBlock(BasicBlock* block, bool unreachable)
         }
         else if (succBlock->isLoopHead() && bPrev && (succBlock->bbNum <= bPrev->bbNum))
         {
+            assert(!"unexpected case 2");
             skipUnmarkLoop = true;
         }
 
