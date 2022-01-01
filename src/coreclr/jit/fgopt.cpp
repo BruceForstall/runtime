@@ -217,7 +217,7 @@ void Compiler::fgUpdateChangedFlowGraph(const bool computePreds,
         // Reset the loop info annotations and find the loops again.
         // Note: this is similar to `RecomputeLoopInfo`.
         optResetLoopInfo();
-        optFindLoops();
+        optFindLoops(computeBlockWeights);
     }
 }
 

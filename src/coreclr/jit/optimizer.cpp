@@ -4900,6 +4900,9 @@ void Compiler::optResetBlockWeights()
 // Note that this uses a very general notion of "loop": any block targeted by a reachable
 // back-edge is considered a loop.
 //
+// Depends on BBF_LOOP_HEAD flags (so optMarkLoopHeads() has already been called), and
+// sequentially numbered blocks. Depends on reachability info.
+//
 void Compiler::optFindAndScaleGeneralLoopBlocks()
 {
 #ifdef DEBUG
@@ -4908,6 +4911,8 @@ void Compiler::optFindAndScaleGeneralLoopBlocks()
         printf("*************** In optFindAndScaleGeneralLoopBlocks()\n");
     }
 #endif
+
+    assert(fgReachabilitySetsValid);
 
     // This code depends on block number ordering.
     INDEBUG(fgDebugCheckBBNumIncreasing());
@@ -4999,7 +5004,7 @@ void Compiler::optFindAndScaleGeneralLoopBlocks()
 // Notes:
 //  Also (re)sets all non-IBC block weights, and marks loops potentially needing alignment padding.
 //
-void Compiler::optFindLoops()
+void Compiler::optFindLoops(const bool scaleLoopBlocks)
 {
 #ifdef DEBUG
     if (verbose)
@@ -5009,7 +5014,6 @@ void Compiler::optFindLoops()
 #endif
 
     noway_assert(opts.OptimizationEnabled());
-    assert(fgDomsComputed);
 
     optMarkLoopHeads();
 
@@ -5018,7 +5022,11 @@ void Compiler::optFindLoops()
     if (fgHasLoops)
     {
         optFindNaturalLoops();
-        optFindAndScaleGeneralLoopBlocks();
+
+        if (scaleLoopBlocks)
+        {
+            optFindAndScaleGeneralLoopBlocks();
+        }
     }
 
 #ifdef DEBUG

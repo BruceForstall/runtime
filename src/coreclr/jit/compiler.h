@@ -6723,7 +6723,7 @@ public:
     PhaseStatus optSetBlockWeights();
     PhaseStatus optFindLoopsPhase(); // Finds loops and records them in the loop table
 
-    void optFindLoops();
+    void optFindLoops(const bool scaleLoopBlocks = true);
 
     PhaseStatus optCloneLoops();
     void optCloneLoop(unsigned loopInd, LoopCloneContext* context);
