@@ -6003,6 +6003,8 @@ bool Compiler::fgUpdateFlowGraph(bool doTailDuplication)
                           to the final target by the time we're done here.
                         */
 
+                        JITDUMP("Removing block " FMT_BB "\n", bNext->bbNum);
+
                         fgRemoveRefPred(bNext, block);
                         fgUnlinkBlock(bNext);
 

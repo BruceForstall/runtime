@@ -286,6 +286,18 @@ void Compiler::optScaleLoopBlocks(BasicBlock* begBlk, BasicBlock* endBlk)
 //
 void Compiler::optUnmarkLoopBlocks(BasicBlock* begBlk, BasicBlock* endBlk)
 {
+    // Are the bbNum in increasing order? We assume they are if maximum bbNum is the same as the
+    // number of blocks with dominator info. One reason this can happen is if loop hoisting creates
+    // loop pre-headers, which is after dominators have been computed. If we always created loop pre-headers
+    // the number of cases might be reduced.
+    const bool validIncreasingBBNum = fgDomsComputed && (fgBBNumMax == fgDomBBcount);
+    if (!validIncreasingBBNum)
+    {
+        // We can't do the bbNum comparisons, so don't unmark the loops.
+        return;
+    }
+
+    INDEBUG(fgDebugCheckBBNumIncreasing());
     noway_assert(begBlk->bbNum <= endBlk->bbNum);
     noway_assert(begBlk->isLoopHead());
     noway_assert(!opts.MinOpts());
@@ -385,17 +397,25 @@ void Compiler::optUnmarkLoopBlocks(BasicBlock* begBlk, BasicBlock* endBlk)
     begBlk->unmarkLoopAlign(this DEBUG_ARG("Removed loop"));
 }
 
-/*****************************************************************************************************
- *
- *  Function called to update the loop table and bbWeight before removing a block
- */
-
+//------------------------------------------------------------------------
+// optUpdateLoopsBeforeRemoveBlock: Function called to update the loop table and loop block
+// bbWeight values before removing a block.
+//
+// Arguments:
+//     block          - block being removed
+//     skipUnmarkLoop - if `true`, loop blocks will not be scaled if a loop is removed.
+//
 void Compiler::optUpdateLoopsBeforeRemoveBlock(BasicBlock* block, bool skipUnmarkLoop)
 {
     if (!optLoopsMarked)
     {
         return;
     }
+
+    // Are the bbNum in increasing order? We assume they are if maximum bbNum is the same as the
+    // number of blocks with dominator info.
+    const bool validIncreasingBBNum = fgDomsComputed && (fgBBNumMax == fgDomBBcount);
+    DBEXEC(validIncreasingBBNum, fgDebugCheckBBNumIncreasing());
 
     noway_assert(!opts.MinOpts());
 
@@ -463,121 +483,134 @@ void Compiler::optUpdateLoopsBeforeRemoveBlock(BasicBlock* block, bool skipUnmar
             loop.lpExit = nullptr;
         }
 
-        // If `block` flows to the loop entry then the whole loop will become unreachable if it is the
-        // only non-loop predecessor.
-
-        switch (block->bbJumpKind)
+        if (loop.lpHead == block)
         {
-            case BBJ_NONE:
-                if (block->bbNext == loop.lpEntry)
-                {
-                    removeLoop = true;
-                }
-                break;
-
-            case BBJ_COND:
-                if ((block->bbNext == loop.lpEntry) || (block->bbJumpDest == loop.lpEntry))
-                {
-                    removeLoop = true;
-                }
-                break;
-
-            case BBJ_ALWAYS:
-                if (block->bbJumpDest == loop.lpEntry)
-                {
-                    removeLoop = true;
-                }
-                break;
-
-            case BBJ_SWITCH:
-                for (BasicBlock* const bTarget : block->SwitchTargets())
-                {
-                    if (bTarget == loop.lpEntry)
-                    {
-                        removeLoop = true;
-                        break;
-                    }
-                }
-                break;
-
-            default:
-                break;
+            reportBefore();
+            // The loop has a new head - Just update the loop table.
+            assert(block->bbPrev != nullptr);
+            loop.lpHead = block->bbPrev;
         }
 
-        if (removeLoop)
+        // If `block` flows to the loop entry then the whole loop will become unreachable if it is the
+        // only non-loop predecessor.
+        if (validIncreasingBBNum && !loop.lpContains(block))
         {
-            // Check if the entry has other predecessors outside the loop.
-            // TODO: Replace this when predecessors are available.
-
-            for (BasicBlock* const auxBlock : Blocks())
+            switch (block->bbJumpKind)
             {
-                // Ignore blocks in the loop.
-                if (loop.lpContains(auxBlock))
-                {
-                    continue;
-                }
+                case BBJ_NONE:
+                    if (block->bbNext == loop.lpEntry)
+                    {
+                        removeLoop = true;
+                    }
+                    break;
 
-                switch (auxBlock->bbJumpKind)
-                {
-                    case BBJ_NONE:
-                        if (auxBlock->bbNext == loop.lpEntry)
+                case BBJ_COND:
+                    if ((block->bbNext == loop.lpEntry) || (block->bbJumpDest == loop.lpEntry))
+                    {
+                        removeLoop = true;
+                    }
+                    break;
+
+                case BBJ_ALWAYS:
+                    if (block->bbJumpDest == loop.lpEntry)
+                    {
+                        removeLoop = true;
+                    }
+                    break;
+
+                case BBJ_SWITCH:
+                    for (BasicBlock* const bTarget : block->SwitchTargets())
+                    {
+                        if (bTarget == loop.lpEntry)
                         {
-                            removeLoop = false;
+                            removeLoop = true;
+                            break;
                         }
-                        break;
+                    }
+                    break;
 
-                    case BBJ_COND:
-                        if ((auxBlock->bbNext == loop.lpEntry) || (auxBlock->bbJumpDest == loop.lpEntry))
-                        {
-                            removeLoop = false;
-                        }
-                        break;
-
-                    case BBJ_ALWAYS:
-                        if (auxBlock->bbJumpDest == loop.lpEntry)
-                        {
-                            removeLoop = false;
-                        }
-                        break;
-
-                    case BBJ_SWITCH:
-                        for (BasicBlock* const bTarget : auxBlock->SwitchTargets())
-                        {
-                            if (bTarget == loop.lpEntry)
-                            {
-                                removeLoop = false;
-                                break;
-                            }
-                        }
-                        break;
-
-                    default:
-                        break;
-                }
+                default:
+                    break;
             }
 
             if (removeLoop)
             {
-                reportBefore();
-                optMarkLoopRemoved(loopNum);
+                // Check if the entry has other predecessors outside the loop.
+                // TODO: Replace this when predecessors are available.
+
+                for (BasicBlock* const auxBlock : Blocks())
+                {
+                    // Skip the block we're checking against.
+                    if (block == auxBlock)
+                    {
+                        continue;
+                    }
+
+                    // Ignore blocks in the loop.
+                    if (loop.lpContains(auxBlock))
+                    {
+                        continue;
+                    }
+
+                    switch (auxBlock->bbJumpKind)
+                    {
+                        case BBJ_NONE:
+                            if (auxBlock->bbNext == loop.lpEntry)
+                            {
+                                removeLoop = false;
+                            }
+                            break;
+
+                        case BBJ_COND:
+                            if ((auxBlock->bbNext == loop.lpEntry) || (auxBlock->bbJumpDest == loop.lpEntry))
+                            {
+                                removeLoop = false;
+                            }
+                            break;
+
+                        case BBJ_ALWAYS:
+                            if (auxBlock->bbJumpDest == loop.lpEntry)
+                            {
+                                removeLoop = false;
+                            }
+                            break;
+
+                        case BBJ_SWITCH:
+                            for (BasicBlock* const bTarget : auxBlock->SwitchTargets())
+                            {
+                                if (bTarget == loop.lpEntry)
+                                {
+                                    removeLoop = false;
+                                    break;
+                                }
+                            }
+                            break;
+
+                        default:
+                            break;
+                    }
+                }
+
+                if (removeLoop)
+                {
+                    reportBefore();
+                    optMarkLoopRemoved(loopNum);
+                }
             }
-        }
-        else if (loop.lpHead == block)
-        {
-            reportBefore();
-            /* The loop has a new head - Just update the loop table */
-            loop.lpHead = block->bbPrev;
         }
 
         reportAfter();
     }
 
-    if ((skipUnmarkLoop == false) &&                  //
-        block->KindIs(BBJ_ALWAYS, BBJ_COND) &&        //
-        block->bbJumpDest->isLoopHead() &&            //
-        (block->bbJumpDest->bbNum <= block->bbNum) && //
-        fgDomsComputed &&                             //
-        (fgCurBBEpochSize == fgDomBBcount + 1) &&     //
+    // If `skipUnmarkLoop` is not set, and the block looks like the bottom of a potential "unnatural"
+    // loop (not necessarily a loop in the loop table), then reverse the block weight scaling that
+    // was done in optScaleLoopBlocks. We only do this if the block set epoch is up to date with the
+    // number of blocks.
+    if (!skipUnmarkLoop &&                                                        //
+        validIncreasingBBNum &&                                                   //
+        block->KindIs(BBJ_ALWAYS, BBJ_COND) &&                                    //
+        block->bbJumpDest->isLoopHead() &&                                        //
+        (block->bbJumpDest->bbNum <= block->bbNum) &&                             //
         fgReachable(block->bbJumpDest, block))
     {
         optUnmarkLoopBlocks(block->bbJumpDest, block);
