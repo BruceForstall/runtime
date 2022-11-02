@@ -6499,8 +6499,7 @@ void emitter::emitIns_R_R_R_I(instruction ins,
                               regNumber   reg3,
                               ssize_t     imm,
                               insOpts     opt /* = INS_OPTS_NONE */,
-                              emitAttr    attrReg2 /* = EA_UNKNOWN */,
-                              instrDesc*  reuseInstr /* = nullptr */)
+                              emitAttr    attrReg2 /* = EA_UNKNOWN */)
 {
     emitAttr  size     = EA_SIZE(attr);
     emitAttr  elemsize = EA_UNKNOWN;
@@ -6916,52 +6915,7 @@ void emitter::emitIns_R_R_R_I(instruction ins,
     }
     assert(fmt != IF_NONE);
 
-    // An "instrDesc" will *always* be required.
-    // Under normal circumstances the instruction
-    // will be added to the emitted group. However,
-    // this is not correct for instructions that
-    // are going to overwrite already-emitted
-    // instructions.
-    instrDesc* id;
-    INDEBUG(size_t reusedInstrSize = (reuseInstr != nullptr) ? emitSizeOfInsDsc(reuseInstr) : 0);
-
-    // Now the instruction is either emitted OR
-    // used to overwrite the previously-emitted
-    // instruction.
-    if (reuseInstr == nullptr)
-    {
-        id = emitNewInstrCns(attr, imm);
-    }
-    else
-    {
-        id = reuseInstr;
-        memset(id, 0, sizeof(instrDesc));
-
-        // Store the size and handle the two special
-        // values that indicate GCref and ByRef
-
-        if (EA_IS_GCREF(attr))
-        {
-            // A special value indicates a GCref pointer value
-
-            id->idGCref(GCT_GCREF);
-            id->idOpSize(EA_PTRSIZE);
-        }
-        else if (EA_IS_BYREF(attr))
-        {
-            // A special value indicates a Byref pointer value
-
-            id->idGCref(GCT_BYREF);
-            id->idOpSize(EA_PTRSIZE);
-        }
-        else
-        {
-            id->idGCref(GCT_NONE);
-            id->idOpSize(EA_SIZE(attr));
-        }
-
-        id->idSmallCns(imm);
-    }
+    instrDesc* id = emitNewInstrCns(attr, imm);
 
     id->idIns(ins);
     id->idInsFmt(fmt);
@@ -6987,15 +6941,8 @@ void emitter::emitIns_R_R_R_I(instruction ins,
         }
     }
 
-    assert((reuseInstr == nullptr) || (emitSizeOfInsDsc(reuseInstr) == reusedInstrSize));
-
-    // Now the instruction is EITHER emitted OR used to overwrite the previously-emitted instruction.
-    if (reuseInstr == nullptr)
-    {
-        // Then this is the standard exit path and the instruction is to be appended to the instruction group.
-        dispIns(id);
-        appendToCurIG(id);
-    }
+    dispIns(id);
+    appendToCurIG(id);
 }
 
 /*****************************************************************************
@@ -7733,15 +7680,12 @@ void emitter::emitIns_R_S(instruction ins, emitAttr attr, regNumber reg1, int va
 
     // This handles LDR duplicate instructions
 
-    // If we have replaced an LDR or STR instruction with
-    // an LDP or STP then we do not want to carry on to
+    // If we have replaced an LDR instruction with an LDP then we do not want to carry on to
     // emit the second instruction.
     if (ReplacedLdrStr(ins, attr, reg1, reg2, imm, size, fmt))
     {
         return;
     }
-
-    // We need to simply emit the instruction unchanged
 
     instrDesc* id = emitNewInstrCns(attr, imm);
 
@@ -7974,8 +7918,7 @@ void emitter::emitIns_S_R(instruction ins, emitAttr attr, regNumber reg1, int va
 
     assert(fmt != IF_NONE);
 
-    // If we have replaced an LDR or STR instruction with
-    // an LDP or STP then we do not want to carry on to
+    // If we have replaced an STR instruction with a STP then we do not want to carry on to
     // emit the second instruction.
     if (ReplacedLdrStr(ins, attr, reg1, reg2, imm, size, fmt))
     {
@@ -16132,7 +16075,7 @@ bool emitter::IsRedundantMov(instruction ins, emitAttr size, regNumber dst, regN
 //
 //    str x1,  [x2, #56]
 //    ldr x1,  [x2, #56]   <-- redundant
-
+//
 // Arguments:
 //    ins  - The current instruction
 //    dst  - The current destination
@@ -16140,15 +16083,16 @@ bool emitter::IsRedundantMov(instruction ins, emitAttr size, regNumber dst, regN
 //    imm  - Immediate offset
 //    size - Operand size
 //    fmt  - Format of instruction
+//
 // Return Value:
 //    true if previous instruction already has desired value in register/memory location.
-
+//
 bool emitter::IsRedundantLdStr(
     instruction ins, regNumber reg1, regNumber reg2, ssize_t imm, emitAttr size, insFormat fmt)
 {
     bool isFirstInstrInBlock = (emitCurIGinsCnt == 0) && ((emitCurIG->igFlags & IGF_EXTEND) == 0);
 
-    if (((ins != INS_ldr) && (ins != INS_str)) || (isFirstInstrInBlock) || (emitLastIns == nullptr))
+    if (((ins != INS_ldr) && (ins != INS_str)) || isFirstInstrInBlock || (emitLastIns == nullptr))
     {
         return false;
     }
@@ -16157,7 +16101,7 @@ bool emitter::IsRedundantLdStr(
     regNumber prevReg2   = emitLastIns->idReg2();
     insFormat lastInsfmt = emitLastIns->idInsFmt();
     emitAttr  prevSize   = emitLastIns->idOpSize();
-    ssize_t prevImm = emitLastIns->idIsLargeCns() ? ((instrDescCns*)emitLastIns)->idcCnsVal : emitLastIns->idSmallCns();
+    ssize_t   prevImm    = emitGetInsSC(emitLastIns);
 
     // Only optimize if:
     // 1. "base" or "base plus immediate offset" addressing modes.
@@ -16216,25 +16160,26 @@ bool emitter::IsRedundantLdStr(
 //                 "stp" instruction.
 //
 // Arguments:
-//     ins  - The instruction code
-//     attr - The emit attribute for the next instruction
-//     reg1 - Register 1 number
-//     reg2 - Register 2 number
-//     imm  - Immediate offset, prior to scaling by operand size
-//     size - Operand size
-//     fmt  - Instruction format
+//     ins      - The instruction code
+//     reg2Attr - The emit attribute for the next instruction
+//     reg1     - Register 1
+//     reg2     - Encoded register 2
+//     imm      - Immediate offset, prior to scaling by operand size
+//     size     - Operand size
+//     fmt      - Instruction format
 //
 // Return Value:
 //    "true" if the previous instruction HAS been overwritten.
-
+//
 bool emitter::ReplacedLdrStr(
     instruction ins, emitAttr reg2Attr, regNumber reg1, regNumber reg2, ssize_t imm, emitAttr size, insFormat fmt)
 {
     if (emitComp->opts.OptimizationEnabled() && IsOptimisableLdrStr(ins, reg1, reg2, imm, size, fmt))
     {
-        regNumber oldReg1 = emitLastIns->idReg1();
-        ssize_t   oldImm =
-            emitLastIns->idIsLargeCns() ? ((instrDescCns*)emitLastIns)->idcCnsVal : emitLastIns->idSmallCns();
+        assert(emitLastIns != nullptr);
+
+        regNumber   oldReg1      = emitLastIns->idReg1();
+        ssize_t     oldImm       = emitGetInsSC(emitLastIns);
         instruction optIns       = (ins == INS_ldr) ? INS_ldp : INS_stp;
         ssize_t     scaledOldImm = oldImm * size;
 
@@ -16252,9 +16197,12 @@ bool emitter::ReplacedLdrStr(
                 break;
         }
 
-        // Overwrite the "sub-optimal" instruction with the *optimised* instruction, directly
-        // into the output buffer.
-        emitIns_R_R_R_I(optIns, reg1Attr, oldReg1, reg1, reg2, scaledOldImm, INS_OPTS_NONE, reg2Attr, emitLastIns);
+        // Remove the last instruction written.
+        emitRemoveLastInstruction();
+
+        // Need to decode reg2 so we can pass it on to the encoding function that expects the unencoded register.
+        reg2 = encodingZRtoSP(reg2);
+        emitIns_R_R_R_I(optIns, reg1Attr, oldReg1, reg1, reg2, scaledOldImm, INS_OPTS_NONE, reg2Attr);
 
         // And now return true, to indicate that the second instruction descriptor is no longer to be emitted.
         return true;
@@ -16272,18 +16220,17 @@ bool emitter::ReplacedLdrStr(
 // Arguments:
 //     ins  - The instruction code
 //     reg1 - Register 1 number
-//     reg2 - Register 2 number
+//     reg2 - Encoded register 2 number
 //     imm  - Immediate offset, prior to scaling by operand size
 //     size - Operand size
 //     fmt  - Instruction format
 //
-
 bool emitter::IsOptimisableLdrStr(
     instruction ins, regNumber reg1, regNumber reg2, ssize_t imm, emitAttr size, insFormat fmt)
 {
     bool isFirstInstrInBlock = (emitCurIGinsCnt == 0) && ((emitCurIG->igFlags & IGF_EXTEND) == 0);
 
-    if (((ins != INS_ldr) && (ins != INS_str)) || (isFirstInstrInBlock) || (emitLastIns == nullptr))
+    if (((ins != INS_ldr) && (ins != INS_str)) || isFirstInstrInBlock || (emitLastIns == nullptr))
     {
         return false;
     }
@@ -16294,20 +16241,14 @@ bool emitter::IsOptimisableLdrStr(
         return false;
     }
 
-    if (emitSizeOfInsDsc(emitLastIns) != sizeof(instrDesc))
-    {
-        // Not instruction descriptors of the same, standard size.
-        return false;
-    }
-
     regNumber prevReg1   = emitLastIns->idReg1();
     regNumber prevReg2   = emitLastIns->idReg2();
     insFormat lastInsFmt = emitLastIns->idInsFmt();
     emitAttr  prevSize   = emitLastIns->idOpSize();
-    ssize_t prevImm = emitLastIns->idIsLargeCns() ? ((instrDescCns*)emitLastIns)->idcCnsVal : emitLastIns->idSmallCns();
+    ssize_t   prevImm    = emitGetInsSC(emitLastIns);
 
-    // Signed, *raw* immediate value fits in 7 bits, so for LDP/ STP the raw value is from -64 to +63.
-    // For LDR/ STR, there are 9 bits, so we need to limit the range explicitly in software.
+    // Signed, *raw* immediate value fits in 7 bits, so for LDP/STP the raw value is from -64 to +63.
+    // For LDR/STR, there are 9 bits, so we need to limit the range explicitly in software.
     if ((imm < -64) || (imm > 63) || (prevImm < -64) || (prevImm > 63))
     {
         // Then one or more of the immediate values is out of range, so we cannot optimise.
@@ -16327,7 +16268,7 @@ bool emitter::IsOptimisableLdrStr(
         return false;
     }
 
-    if ((emitInsIsLoad(ins)) && (reg1 == prevReg1))
+    if (emitInsIsLoad(ins) && (reg1 == prevReg1))
     {
         // Cannot load to the same register twice.
         return false;
@@ -16345,10 +16286,10 @@ bool emitter::IsOptimisableLdrStr(
         return false;
     }
 
-    if ((reg2 != prevReg2) || !isGeneralRegisterOrSP(reg2))
+    if ((reg2 != prevReg2) || !isGeneralRegisterOrZR(reg2))
     {
         // The "register 2" should be same as previous instruction and should either be a general register or stack
-        // pointer.
+        // pointer (which is already encoded as ZR here).
         return false;
     }
     return true;
