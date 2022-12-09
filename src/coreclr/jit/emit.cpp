@@ -679,10 +679,10 @@ void emitter::emitGenIG(insGroup* ig)
         emitIGbuffSize = (SC_IG_BUFFER_NUM_SMALL_DESCS * (SMALL_IDSC_SIZE + m_debugInfoSize)) +
                          (SC_IG_BUFFER_NUM_LARGE_DESCS * (sizeof(emitter::instrDesc) + m_debugInfoSize));
         emitCurIGfreeBase = (BYTE*)emitGetMem(emitIGbuffSize);
+        emitCurIGfreeEndp = emitCurIGfreeBase + emitIGbuffSize;
     }
 
     emitCurIGfreeNext = emitCurIGfreeBase;
-    emitCurIGfreeEndp = emitCurIGfreeBase + emitIGbuffSize;
 }
 
 /*****************************************************************************
@@ -690,7 +690,7 @@ void emitter::emitGenIG(insGroup* ig)
  *  Finish and save the current IG.
  */
 
-insGroup* emitter::emitSavIG(bool emitAdd)
+void emitter::emitSavIG()
 {
     insGroup* ig;
     BYTE*     id;
@@ -698,21 +698,36 @@ insGroup* emitter::emitSavIG(bool emitAdd)
     size_t sz;
     size_t gs;
 
-    assert(emitCurIGfreeNext <= emitCurIGfreeEndp);
-
     // Get hold of the IG descriptor
 
     ig = emitCurIG;
     assert(ig);
 
-#ifdef TARGET_ARMARCH
-    // Reset emitLastMemBarrier for new IG
-    emitLastMemBarrier = nullptr;
-#endif
-
     // Compute how much code we've generated
 
+    assert(emitCurIGfreeNext <= emitCurIGfreeEndp);
     sz = emitCurIGfreeNext - emitCurIGfreeBase;
+    assert((sz > 0) || ((ig->igFlags & IGF_EXTEND) == 0));
+
+#if 0
+    if ((sz == 0) && (ig->igFlags & IGF_EXTEND))
+    {
+        // An empty EXTEND IG has nothing to save.
+        assert(!emitForceStoreGCState);
+
+        // Nobody should have set the GC flags.
+        assert((ig->igFlags & (IGF_GC_VARS | IGF_BYREF_REGS)) == 0);
+
+#if FEATURE_LOOP_ALIGN
+        assert(emitCurIGAlignList == nullptr);
+#endif
+
+        assert(emitCurIGjmpList == nullptr);
+
+        JITDUMP("Empty IGF_EXTEND IG not saved: %s\n", emitLabelString(ig));
+        return;
+    }
+#endif
 
     // Compute the total size we need to allocate
 
@@ -737,6 +752,9 @@ insGroup* emitter::emitSavIG(bool emitAdd)
             // We'll allocate extra space to record the liveset
 
             gs += sizeof(VARSET_TP);
+
+            // If we forced this, no need to keep forcing it.
+            emitForceStoreGCState = false;
         }
 
         // Is the initial set of live Byref regs different from the previous one?
@@ -748,6 +766,10 @@ insGroup* emitter::emitSavIG(bool emitAdd)
         // We'll allocate extra space (DWORD aligned) to record the GC regs
 
         gs += sizeof(int);
+
+        // Record the live GC register set. This is stored as a field of the IG, since it is always stored,
+        // and not as special data prepended to the instruction data.
+        ig->igGCregs = (regMaskSmall)emitInitGCrefRegs;
     }
 
     // Allocate space for the instructions and optional liveset
@@ -822,31 +844,6 @@ insGroup* emitter::emitSavIG(bool emitAdd)
     }
 #endif
 
-    // Record the live GC register set - if and only if it is not an extension
-    // block, in which case the GC register sets are inherited from the previous
-    // block.
-
-    if (!(ig->igFlags & IGF_EXTEND))
-    {
-        ig->igGCregs = (regMaskSmall)emitInitGCrefRegs;
-    }
-
-    if (!emitAdd)
-    {
-        // Update the previous recorded live GC ref sets, but not if if we are
-        // starting an "overflow" buffer. Note that this is only used to
-        // determine whether we need to store or not store the GC ref sets for
-        // the next IG, which is dependent on exactly what the state of the
-        // emitter GC ref sets will be when the next IG is processed in the
-        // emitter.
-
-        VarSetOps::Assign(emitComp, emitPrevGCrefVars, emitThisGCrefVars);
-        emitPrevGCrefRegs = emitThisGCrefRegs;
-        emitPrevByrefRegs = emitThisByrefRegs;
-
-        emitForceStoreGCState = false;
-    }
-
 #ifdef DEBUG
     if (emitComp->opts.dspCode)
     {
@@ -863,7 +860,7 @@ insGroup* emitter::emitSavIG(bool emitAdd)
         }
         printf("\n");
     }
-#endif
+#endif // DEBUG
 
 #if FEATURE_LOOP_ALIGN
     // Did we have any align instructions in this group?
@@ -901,17 +898,15 @@ insGroup* emitter::emitSavIG(bool emitAdd)
 
         // Should have at least one align instruction
         assert(last);
+        assert(last->idaNext == nullptr);
 
         if (emitAlignList == nullptr)
         {
             assert(emitAlignLast == nullptr);
-
-            last->idaNext = emitAlignList;
             emitAlignList = list;
         }
         else
         {
-            last->idaNext          = nullptr;
             emitAlignLast->idaNext = list;
         }
 
@@ -921,12 +916,12 @@ insGroup* emitter::emitSavIG(bool emitAdd)
         // align instruction(s) added.
         //
         // Since emitCurIGAlignList is created in inverse of
-        // program order, the `list` reverses that in forms it
+        // program order, the `list` reverses that and puts it
         // in correct order.
         emitAlignLastGroup = list;
     }
+#endif // FEATURE_LOOP_ALIGN
 
-#endif
     // Did we have any jumps in this group?
 
     if (emitCurIGjmpList)
@@ -1003,6 +998,8 @@ insGroup* emitter::emitSavIG(bool emitAdd)
 
     // Fix the last instruction field
 
+    assert((emitLastIns == nullptr) == (emitLastInsIG == nullptr));
+
     if (sz != 0)
     {
         assert(emitLastIns != nullptr);
@@ -1010,21 +1007,19 @@ insGroup* emitter::emitSavIG(bool emitAdd)
         assert((BYTE*)emitLastIns < emitCurIGfreeBase + sz);
 
 #if defined(TARGET_XARCH)
-        assert(emitLastIns != nullptr);
         if (emitLastIns->idIns() == INS_jmp)
         {
             ig->igFlags |= IGF_HAS_REMOVABLE_JMP;
         }
 #endif
 
-        emitLastIns = (instrDesc*)((BYTE*)id + ((BYTE*)emitLastIns - (BYTE*)emitCurIGfreeBase));
+        emitLastIns   = (instrDesc*)((BYTE*)id + ((BYTE*)emitLastIns - (BYTE*)emitCurIGfreeBase));
+        emitLastInsIG = ig;
     }
 
     // Reset the buffer free pointers
 
     emitCurIGfreeNext = emitCurIGfreeBase;
-
-    return ig;
 }
 
 /*****************************************************************************
@@ -1084,7 +1079,6 @@ void emitter::emitBegFN(bool hasFramePtr
     emitFwdJumps                       = false;
     emitNoGCRequestCount               = 0;
     emitNoGCIG                         = false;
-    emitForceNewIG                     = false;
     emitContainsRemovableJmpCandidates = false;
 
 #if FEATURE_LOOP_ALIGN
@@ -1166,7 +1160,8 @@ void emitter::emitBegFN(bool hasFramePtr
 
     emitPrologIG = emitIGlist = emitIGlast = emitCurIG = ig = emitAllocIG();
 
-    emitLastIns = nullptr;
+    emitLastIns   = nullptr;
+    emitLastInsIG = nullptr;
 
 #ifdef TARGET_ARMARCH
     emitLastMemBarrier = nullptr;
@@ -1480,7 +1475,7 @@ void* emitter::emitAllocAnyInstr(size_t sz, emitAttr opsz)
 
     size_t fullSize = sz + m_debugInfoSize;
 
-    if ((emitCurIGfreeNext + fullSize >= emitCurIGfreeEndp) || emitForceNewIG || (emitCurIGinsCnt >= 255))
+    if ((emitCurIGfreeNext + fullSize >= emitCurIGfreeEndp) || (emitCurIGinsCnt >= 255))
     {
         emitNxtIG(true);
     }
@@ -1488,6 +1483,7 @@ void* emitter::emitAllocAnyInstr(size_t sz, emitAttr opsz)
     /* Grab the space for the instruction */
 
     emitLastIns = id = (instrDesc*)(emitCurIGfreeNext + m_debugInfoSize);
+    emitLastInsIG    = emitCurIG;
     emitCurIGfreeNext += fullSize;
 
     assert(sz >= sizeof(void*));
@@ -1642,7 +1638,6 @@ void emitter::emitBegProlog()
 
     emitNoGCRequestCount = 1;
     emitNoGCIG           = true;
-    emitForceNewIG       = false;
 
     /* Switch to the pre-allocated prolog IG */
 
@@ -1736,11 +1731,13 @@ void emitter::emitCreatePlaceholderIG(insGroupPlaceholderType igType,
 
     bool extend = false;
 
-    if (igType == IGPT_EPILOG
+    const bool igTypeIsEpilog = (igType == IGPT_EPILOG)
 #if defined(FEATURE_EH_FUNCLETS)
-        || igType == IGPT_FUNCLET_EPILOG
+        || (igType == IGPT_FUNCLET_EPILOG)
 #endif // FEATURE_EH_FUNCLETS
-        )
+        ;
+
+    if (igTypeIsEpilog)
     {
 #ifdef TARGET_AMD64
         emitOutputPreEpilogNOP();
@@ -1749,10 +1746,7 @@ void emitter::emitCreatePlaceholderIG(insGroupPlaceholderType igType,
         extend = true;
     }
 
-    if (emitCurIGnonEmpty())
-    {
-        emitNxtIG(extend);
-    }
+    emitNxtIG(extend);
 
     /* Update GC tracking for the beginning of the placeholder IG */
 
@@ -1864,11 +1858,7 @@ void emitter::emitCreatePlaceholderIG(insGroupPlaceholderType igType,
     }
     else
     {
-        if (igType == IGPT_EPILOG
-#if defined(FEATURE_EH_FUNCLETS)
-            || igType == IGPT_FUNCLET_EPILOG
-#endif // FEATURE_EH_FUNCLETS
-            )
+        if (igTypeIsEpilog)
         {
             // If this was an epilog, then assume this is the end of any currently in progress
             // no-GC region. If a block after the epilog needs to be no-GC, it needs to call
@@ -2054,7 +2044,6 @@ void emitter::emitBegPrologEpilog(insGroup* igPh)
     igPh->igFlags &= ~IGF_PLACEHOLDER;
     emitNoGCRequestCount = 1;
     emitNoGCIG           = true;
-    emitForceNewIG       = false;
 
     /* Set up the GC info that we stored in the placeholder */
 
@@ -2577,19 +2566,7 @@ void* emitter::emitAddLabel(VARSET_VALARG_TP GCvars,
                             regMaskTP        byrefRegs,
                             bool isFinallyTarget DEBUG_ARG(BasicBlock* block))
 {
-    /* Create a new IG if the current one is non-empty */
-
-    if (emitCurIGnonEmpty())
-    {
-        emitNxtIG();
-    }
-#if defined(DEBUG) || defined(LATE_DISASM)
-    else
-    {
-        emitCurIG->igWeight    = getCurrentBlockWeight();
-        emitCurIG->igPerfScore = 0.0;
-    }
-#endif
+    emitNxtIG();
 
     VarSetOps::Assign(emitComp, emitThisGCrefVars, GCvars);
     VarSetOps::Assign(emitComp, emitInitGCrefVars, GCvars);
@@ -2625,11 +2602,7 @@ void* emitter::emitAddLabel(VARSET_VALARG_TP GCvars,
 
 void* emitter::emitAddInlineLabel()
 {
-    if (emitCurIGnonEmpty())
-    {
-        emitNxtIG(true);
-    }
-
+    emitNxtIG(true);
     return emitCurIG;
 }
 
@@ -5108,26 +5081,26 @@ AGAIN:
 #if FEATURE_LOOP_ALIGN
 
 //-----------------------------------------------------------------------------
-//  emitCheckAlignFitInCurIG: Check if adding current align instruction will
-//    create new 'ig'. For multi align instructions, this sets `emitForceNewIG` so
-//    so all 'align' instructions are under same IG.
+//  emitEnsureAlignFitInCurIG: Ensure that all align instructions to be added will
+//    fit in the one IG, creating a new IG if necessary.
 //
 //  Arguments:
 //       nAlignInstr - Number of align instructions about to be added.
 //
-void emitter::emitCheckAlignFitInCurIG(unsigned nAlignInstr)
+void emitter::emitEnsureAlignFitInCurIG(unsigned nAlignInstr)
 {
     size_t instrDescSize = nAlignInstr * (m_debugInfoSize + sizeof(instrDescAlign));
 
     // Ensure that all align instructions fall in same IG.
+    // Note: there is an assumption here that `nAlignInstr` will always fit in a single
+    // IG. This may not be true for stress scenarios where each IG contains only one instruction.
     if (emitCurIGfreeNext + instrDescSize >= emitCurIGfreeEndp)
     {
-        emitForceNewIG = true;
+        emitNxtIG(true);
     }
 }
 
 //-----------------------------------------------------------------------------
-//
 //  emitLoopAlign: The next instruction will be a loop head entry point
 //                 So insert an alignment instruction of "paddingBytes" to ensure that
 //                 the code is properly aligned.
@@ -5138,32 +5111,12 @@ void emitter::emitCheckAlignFitInCurIG(unsigned nAlignInstr)
 //
 void emitter::emitLoopAlign(unsigned paddingBytes, bool isFirstAlign DEBUG_ARG(bool isPlacedBehindJmp))
 {
-    // Determine if 'align' instruction about to be generated will
-    // fall in current IG or next.
-    bool alignInstrInNewIG = emitForceNewIG;
+    // Mark that the current IG contains alignment instruction at the end.
+    emitCurIG->igFlags |= IGF_HAS_ALIGN;
 
-    if (!alignInstrInNewIG)
-    {
-        // If align fits in current IG, then mark that it contains alignment
-        // instruction in the end.
-        emitCurIG->igFlags |= IGF_HAS_ALIGN;
-    }
-
-    /* Insert a pseudo-instruction to ensure that we align
-       the next instruction properly */
+    // Insert a pseudo-instruction to ensure that we align the next instruction properly.
     instrDescAlign* id = emitNewInstrAlign();
-
-    if (alignInstrInNewIG)
-    {
-        // Mark this IG has alignment in the end, so during emitter we can check the instruction count
-        // heuristics of all IGs that follows this IG that participate in a loop.
-        emitCurIG->igFlags |= IGF_HAS_ALIGN;
-    }
-    else
-    {
-        // Otherwise, make sure it was already marked such.
-        assert(emitCurIG->endsWithAlignInstr());
-    }
+    assert(emitCurIG->endsWithAlignInstr());
 
 #if defined(TARGET_XARCH)
     assert(paddingBytes <= MAX_ENCODED_SIZE);
@@ -5225,10 +5178,9 @@ void emitter::emitLongLoopAlign(unsigned alignmentBoundary DEBUG_ARG(bool isPlac
     unsigned paddingBytes  = INSTR_ENCODED_SIZE;
 #endif
 
-    emitCheckAlignFitInCurIG(nAlignInstr);
+    emitEnsureAlignFitInCurIG(nAlignInstr);
 
-    /* Insert a pseudo-instruction to ensure that we align
-    the next instruction properly */
+    // Insert a pseudo-instruction to ensure that we align the next instruction properly.
 
     bool isFirstAlign = true;
     while (insAlignCount)
@@ -5256,12 +5208,13 @@ void emitter::emitConnectAlignInstrWithCurIG()
 {
     JITDUMP("Mapping 'align' instruction in IG%02u to target IG%02u\n", emitAlignLastGroup->idaIG->igNum,
             emitCurIG->igNum);
+
     // Since we never align overlapping instructions, it is always guaranteed that
     // the emitAlignLastGroup points to the loop that is in process of getting aligned.
 
     emitAlignLastGroup->idaLoopHeadPredIG = emitCurIG;
 
-    // For a new IG to ensure that loop doesn't start from IG that idaLoopHeadPredIG points to.
+    // Create a new IG to ensure that loop doesn't start from IG that idaLoopHeadPredIG points to.
     emitNxtIG();
 }
 
@@ -5284,7 +5237,7 @@ void emitter::emitLoopAlignment(DEBUG_ARG1(bool isPlacedBehindJmp))
     }
     else
     {
-        emitCheckAlignFitInCurIG(1);
+        emitEnsureAlignFitInCurIG(1);
         paddingBytes = MAX_ENCODED_SIZE;
         emitLoopAlign(paddingBytes, true DEBUG_ARG(isPlacedBehindJmp));
     }
@@ -8956,6 +8909,10 @@ insGroup* emitter::emitAllocIG()
 
     emitInitIG(ig);
 
+    /* Assign the next available index to the instruction group */
+
+    ig->igNum = emitNxtIGnum++;
+
     return ig;
 }
 
@@ -8966,12 +8923,6 @@ insGroup* emitter::emitAllocIG()
 
 void emitter::emitInitIG(insGroup* ig)
 {
-    /* Assign the next available index to the instruction group */
-
-    ig->igNum = emitNxtIGnum;
-
-    emitNxtIGnum++;
-
     /* Record the (estimated) code offset of the group */
 
     ig->igOffs = emitCurCodeOffset;
@@ -9004,7 +8955,7 @@ void emitter::emitInitIG(insGroup* ig)
 #ifdef DEBUG
     ig->lastGeneratedBlock = nullptr;
     // Explicitly call init, since IGs don't actually have a constructor.
-    ig->igBlocks.jitstd::list<BasicBlock*>::init(emitComp->getAllocator(CMK_LoopOpt));
+    ig->igBlocks.jitstd::list<BasicBlock*>::init(emitComp->getAllocator(CMK_DebugOnly));
 #endif
 }
 
@@ -9028,26 +8979,59 @@ void emitter::emitInsertIGAfter(insGroup* insertAfterIG, insGroup* ig)
     }
 }
 
-/*****************************************************************************
- *
- *  Save the current IG and start a new one.
- */
 
+//------------------------------------------------------------------------
+// emitNxtIG: Prepare a new, empty IG.
+//
+// If the existing IG is non-empty, then save the current IG and create a new IG.
+// If the existing IG is empty, we reuse it. There are a few cases to consider:
+//      - If the existing IG is an EXTEND IG, then convert it to an EXTEND or non-EXTEND IG based on the `extend`
+//        argument.
+//      - If the existing IG is NOT an EXTEND IG, then it was already created due to a label.
+//        Leave it as a non-EXTEND IG. If the caller requested an `extend` group, that's fine -- but don't mark
+//        the IG as EXTEND, since we need to save the GC info for this IG. If the caller did not request an
+//        EXTEND IG, then we've got two consecutive labels with no intervening code. Overwrite the GC
+//        info we've saved already.
+//
+// Arguments:
+//   extend - true to create an "EXTEND" IG that doesn't store new GC state.
+//
 void emitter::emitNxtIG(bool extend)
 {
-    /* Right now we don't allow multi-IG prologs */
+    // Right now we don't allow multi-IG prologs.
 
     assert(emitCurIG != emitPrologIG);
 
-    /* First save the current group */
+    // Save the current group if there is anything to save.
 
-    emitSavIG(extend);
+    bool reuseEmptyIG;
+    if (emitCurIGnonEmpty())
+    {
+        emitSavIG();
+        reuseEmptyIG = false;
+    }
+    else
+    {
+        reuseEmptyIG = true;
+    }
 
-    /* Update the GC live sets for the group's start
-     * Do it only if not an extension block */
+    // Update the "previous" and "initial" recorded live GC ref sets, but not if we are
+    // starting an "overflow" buffer. Note that this is only used to determine whether we
+    // need to store or not store the GC ref sets for the next IG, which is dependent on
+    // exactly what the state of the emitter GC ref sets will be when the next IG is
+    // processed in the emitter.
 
     if (!extend)
     {
+#ifdef TARGET_ARMARCH
+        // Reset emitLastMemBarrier for new IG if it's a non-EXTEND block IG.
+        emitLastMemBarrier = nullptr;
+#endif
+
+        VarSetOps::Assign(emitComp, emitPrevGCrefVars, emitThisGCrefVars);
+        emitPrevGCrefRegs = emitThisGCrefRegs;
+        emitPrevByrefRegs = emitThisByrefRegs;
+
         VarSetOps::Assign(emitComp, emitInitGCrefVars, emitThisGCrefVars);
         emitInitGCrefRegs = emitThisGCrefRegs;
         emitInitByrefRegs = emitThisByrefRegs;
@@ -9055,7 +9039,24 @@ void emitter::emitNxtIG(bool extend)
 
     /* Start generating the new group */
 
-    emitNewIG();
+    if (reuseEmptyIG)
+    {
+        if ((emitCurIG->igFlags & IGF_EXTEND) == 0)
+        {
+            // It's currently a non-EXTEND group. Don't mark it as an EXTEND group (and lose the GC info).
+            extend = false;
+        }
+
+        unsigned short propagateFlags = emitCurIG->igFlags & IGF_PROPAGATE_MASK;
+        assert(emitCurIG->igNum != 0);
+        emitInitIG(emitCurIG);
+        emitGenIG(emitCurIG);
+        emitCurIG->igFlags |= propagateFlags;
+    }
+    else
+    {
+        emitNewIG();
+    }
 
     /* If this is an emitter added block, flag it */
 
@@ -9067,14 +9068,6 @@ void emitter::emitNxtIG(bool extend)
         emitTotalIGExtend++;
 #endif // EMITTER_STATS
     }
-
-    // We've created a new IG; no need to force another one.
-    emitForceNewIG = false;
-
-#ifdef DEBUG
-    // We haven't written any code into the IG yet, so clear our record of the last block written to the IG.
-    emitCurIG->lastGeneratedBlock = nullptr;
-#endif
 }
 
 /*****************************************************************************
@@ -9785,15 +9778,7 @@ void emitter::emitDisableGC()
         assert(!emitNoGCIG);
 
         emitNoGCIG = true;
-
-        if (emitCurIGnonEmpty())
-        {
-            emitNxtIG(true);
-        }
-        else
-        {
-            emitCurIG->igFlags |= IGF_NOGCINTERRUPT;
-        }
+        emitNxtIG(true);
     }
     else
     {
@@ -9813,16 +9798,11 @@ void emitter::emitEnableGC()
     {
         JITDUMP("Enable GC\n");
 
+        // Create a new IG with the no-GC flag missing (thus, GC is allowed). Note that we might create
+        // a new IG here into which no instruction will be placed, if the next thing we see is a label,
+        // which in turn creates a new (non-EXTEND) IG.
         emitNoGCIG = false;
-
-        // The next time an instruction needs to be generated, force a new instruction group.
-        // It will be an emitAdd group in that case. Note that the next thing we see might be
-        // a label, which will force a non-emitAdd group.
-        //
-        // Note that we can't just create a new instruction group here, because we don't know
-        // if there are going to be any instructions added to it, and we don't support empty
-        // instruction groups.
-        emitForceNewIG = true;
+        emitNxtIG(true);
     }
     else
     {

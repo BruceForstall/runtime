@@ -1712,7 +1712,7 @@ public:
     enum BarrierKind
     {
         BARRIER_FULL,      // full barrier
-        BARRIER_LOAD_ONLY, // load barier
+        BARRIER_LOAD_ONLY, // load barrier
     };
 
     void instGen_MemoryBarrier(BarrierKind barrierKind = BARRIER_FULL);

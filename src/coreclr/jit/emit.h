@@ -276,7 +276,7 @@ struct insGroup
 #define IGF_EXTEND 0x0200         // this block is conceptually an extension of the previous block
                                   // and the emitter should continue to track GC info as if there was no new block.
 #define IGF_HAS_ALIGN 0x0400      // this group contains an alignment instruction(s) at the end to align either the next
-                                  // IG, or, if this IG contains with an unconditional branch, some subsequent IG.
+                                  // IG, or, if this IG contains an unconditional branch, some subsequent IG.
 #define IGF_REMOVED_ALIGN 0x0800  // IG was marked as having an alignment instruction(s), but was later unmarked
                                   // without updating the IG's size/offsets.
 #define IGF_HAS_REMOVABLE_JMP 0x1000 // this group ends with an unconditional jump which is a candidate for removal
@@ -1566,7 +1566,7 @@ protected:
             idaIG->igFlags |= IGF_REMOVED_ALIGN;
         }
     };
-    void emitCheckAlignFitInCurIG(unsigned nAlignInstr);
+    void emitEnsureAlignFitInCurIG(unsigned nAlignInstr);
 #endif // FEATURE_LOOP_ALIGN
 
 #if !defined(TARGET_ARM64) // This shouldn't be needed for ARM32, either, but I don't want to touch the ARM32 JIT.
@@ -2060,8 +2060,6 @@ private:
     bool     emitFwdJumps;         // forward jumps present?
     unsigned emitNoGCRequestCount; // Count of number of nested "NO GC" region requests we have.
     bool     emitNoGCIG;           // Are we generating IGF_NOGCINTERRUPT insGroups (for prologs, epilogs, etc.)
-    bool emitForceNewIG; // If we generate an instruction, and not another instruction group, force create a new emitAdd
-                         // instruction group.
 
     BYTE* emitCurIGfreeNext; // next available byte in buffer
     BYTE* emitCurIGfreeEndp; // one byte past the last available byte in buffer
@@ -2165,7 +2163,7 @@ private:
 #endif
 
     void emitGenIG(insGroup* ig);
-    insGroup* emitSavIG(bool emitAdd = false);
+    void emitSavIG();
     void emitNxtIG(bool extend = false);
 
     bool emitCurIGnonEmpty()
@@ -2174,19 +2172,22 @@ private:
     }
 
     instrDesc* emitLastIns;
+    insGroup*  emitLastInsIG;
 
     // Check if a peephole optimization involving emitLastIns is safe.
     //
     // We must have a lastInstr to consult.
-    // The emitForceNewIG check here prevents peepholes from crossing nogc boundaries.
-    // The final check prevents looking across an IG boundary unless we're in an extension IG.
+    // We can't look across an IG boundary unless we're in an extension IG.
     bool emitCanPeepholeLastIns()
     {
-        return (emitLastIns != nullptr) &&                 // there is an emitLastInstr
-               !emitForceNewIG &&                          // and we're not about to start a new IG
-               ((emitCurIGinsCnt > 0) ||                   // and we're not at the start of a new IG
-                ((emitCurIG->igFlags & IGF_EXTEND) != 0)); //    or we are at the start of a new IG,
-                                                           //    and it's an extension IG
+        assert((emitLastIns == nullptr) == (emitLastInsIG == nullptr));
+
+        return (emitLastIns != nullptr) &&                   // there is an emitLastInstr
+               ((emitCurIGinsCnt > 0) ||                     // and we're not at the start of a new IG
+                ((emitCurIG->igFlags & IGF_EXTEND) != 0)) && //    or we are at the start of a new IG,
+                                                             //    and it's an extension IG
+               // and the last instr IG has the same GC interrupt status as the current IG
+               ((emitLastInsIG->igFlags & IGF_NOGCINTERRUPT) == (emitCurIG->igFlags & IGF_NOGCINTERRUPT));
     }
 
 #ifdef TARGET_ARMARCH
