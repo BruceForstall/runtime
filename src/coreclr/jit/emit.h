@@ -3378,20 +3378,6 @@ inline BYTE* emitter::emitCodeWithInstructionSize(BYTE* codePtrBefore, BYTE* new
     return newCodePointer;
 }
 
-/*****************************************************************************
- *
- *  Add a new IG to the current list, and get it ready to receive code.
- */
-
-inline void emitter::emitNewIG()
-{
-    insGroup* ig = emitAllocAndLinkIG();
-
-    /* It's linked in. Now, set it up to accept code */
-
-    emitGenIG(ig);
-}
-
 /*****************************************************************************/
 #endif // _EMIT_H_
 /*****************************************************************************/

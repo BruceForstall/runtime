@@ -861,24 +861,6 @@ insGroup* emitter::emitSavIG(bool emitAdd)
         emitForceStoreGCState = false;
     }
 
-#ifdef DEBUG
-    if (emitComp->opts.dspCode)
-    {
-        printf("\n      %s:", emitLabelString(ig));
-        if (emitComp->verbose)
-        {
-            printf("        ; offs=%06XH, funclet=%02u, bbWeight=%s", ig->igOffs, ig->igFuncIdx,
-                   refCntWtd2str(ig->igWeight));
-            emitDispIGflags(ig->igFlags);
-        }
-        else
-        {
-            printf("        ; funclet=%02u", ig->igFuncIdx);
-        }
-        printf("\n");
-    }
-#endif
-
 #if FEATURE_LOOP_ALIGN
     // Did we have any align instructions in this group?
     if (emitCurIGAlignList)
@@ -1042,6 +1024,29 @@ insGroup* emitter::emitSavIG(bool emitAdd)
     // Reset the buffer free pointers
 
     emitCurIGfreeNext = emitCurIGfreeBase;
+
+#ifdef DEBUG
+    if (emitComp->opts.dspCode)
+    {
+        printf("\n");
+        if (emitComp->verbose)
+        {
+            printf("Saved:");
+        }
+        printf("      %s:", emitLabelString(ig));
+        if (emitComp->verbose)
+        {
+            printf("        ; offs=%06XH, funclet=%02u, bbWeight=%s", ig->igOffs, ig->igFuncIdx,
+                   refCntWtd2str(ig->igWeight));
+            emitDispIGflags(ig->igFlags);
+        }
+        else
+        {
+            printf("        ; funclet=%02u", ig->igFuncIdx);
+        }
+        printf("\n");
+    }
+#endif
 
     return ig;
 }
@@ -2625,11 +2630,9 @@ void* emitter::emitAddLabel(VARSET_VALARG_TP GCvars,
 #endif // defined(FEATURE_EH_FUNCLETS) && defined(TARGET_ARM)
 
 #ifdef DEBUG
-    JITDUMP("Mapped " FMT_BB " to %s\n", block->bbNum, emitLabelString(emitCurIG));
-
     if (EMIT_GC_VERBOSE)
     {
-        printf("Label: IG%02u, GCvars=%s ", emitCurIG->igNum, VarSetOps::ToString(emitComp, GCvars));
+        printf("Label: %s, GCvars=%s ", emitLabelString(emitCurIG), VarSetOps::ToString(emitComp, GCvars));
         dumpConvertedVarSet(emitComp, GCvars);
         printf(", gcrefRegs=");
         printRegMaskInt(gcrefRegs);
@@ -2639,6 +2642,8 @@ void* emitter::emitAddLabel(VARSET_VALARG_TP GCvars,
         emitDispRegSet(byrefRegs);
         printf("\n");
     }
+
+    JITDUMP("Mapped " FMT_BB " to %s\n", block->bbNum, emitLabelString(emitCurIG));
 #endif
 
     return emitCurIG;
@@ -9046,6 +9051,30 @@ void emitter::emitInsertIGAfter(insGroup* insertAfterIG, insGroup* ig)
         // If we are inserting at the end, then update the 'last' pointer
         emitIGlast = ig;
     }
+}
+
+/*****************************************************************************
+ *
+ *  Add a new IG to the current list, and get it ready to receive code.
+ */
+
+void emitter::emitNewIG()
+{
+    insGroup* ig = emitAllocAndLinkIG();
+
+    /* It's linked in. Now, set it up to accept code */
+
+    emitGenIG(ig);
+
+#ifdef DEBUG
+    if (emitComp->verbose)
+    {
+        printf("Created:    %s:        ; offs=%06XH, funclet=%02u, bbWeight=%s",
+                emitLabelString(ig), ig->igOffs, ig->igFuncIdx, refCntWtd2str(ig->igWeight));
+        emitDispIGflags(ig->igFlags);
+        printf("\n");
+    }
+#endif // DEBUG
 }
 
 /*****************************************************************************
