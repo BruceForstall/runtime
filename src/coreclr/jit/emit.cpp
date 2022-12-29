@@ -687,6 +687,30 @@ void emitter::emitGenIG(insGroup* ig)
 
 /*****************************************************************************
  *
+ *  Add a new IG to the current list, and get it ready to receive code.
+ */
+
+void emitter::emitNewIG()
+{
+    insGroup* ig = emitAllocAndLinkIG();
+
+    /* It's linked in. Now, set it up to accept code */
+
+    emitGenIG(ig);
+
+#ifdef DEBUG
+    if (emitComp->verbose)
+    {
+        printf("Created:    %s:        ; offs=%06XH, funclet=%02u, bbWeight=%s",
+                emitLabelString(ig), ig->igOffs, ig->igFuncIdx, refCntWtd2str(ig->igWeight));
+        emitDispIGflags(ig->igFlags);
+        printf("\n");
+    }
+#endif // DEBUG
+}
+
+/*****************************************************************************
+ *
  *  Finish and save the current IG.
  */
 
@@ -850,6 +874,10 @@ insGroup* emitter::emitSavIG(bool emitAdd)
 #ifdef DEBUG
     if (emitComp->opts.dspCode)
     {
+        if (emitComp->verbose)
+        {
+            printf("Saved:");
+        }
         printf("\n      %s:", emitLabelString(ig));
         if (emitComp->verbose)
         {
