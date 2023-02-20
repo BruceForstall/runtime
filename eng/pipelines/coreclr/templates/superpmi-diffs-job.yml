@@ -26,8 +26,11 @@ jobs:
     timeoutInMinutes: ${{ parameters.timeoutInMinutes }}
     helixQueues: ${{ parameters.helixQueues }}
     dependsOn:
-     - ${{ format('coreclr_jit_build_{0}{1}_{2}_checked', parameters.osGroup, parameters.osSubgroup, parameters.archType) }}
-     - ${{ format('coreclr_jit_build_{0}{1}_{2}_release', parameters.osGroup, parameters.osSubgroup, parameters.archType) }}
+     # We depend on the Checked builds for asm diffs, and Release builds for TP diffs.
+     - ${{ format('coreclr_jit_build_windows_x64_checked') }}
+     - ${{ format('coreclr_jit_build_windows_x86_checked') }}
+     - ${{ format('coreclr_jit_build_windows_x64_release') }}
+     - ${{ format('coreclr_jit_build_windows_x86_release') }}
 
     variables:
 
@@ -38,25 +41,54 @@ jobs:
       - ${{ if ne(variable.group, '') }}:
         - group: ${{ variable.group }}
 
-    - name: releaseProductRootFolderPath
-      value: '$(Build.SourcesDirectory)/artifacts/bin/coreclr/$(osGroup).$(archType).Release'
-    - name: releaseProductArtifactName
-      value: 'CoreCLRProduct_${{ parameters.pgoType }}_${{ parameters.runtimeVariant }}_$(osGroup)$(osSubgroup)_$(archType)_release'
+    - name: ProductRootFolderPath_x64_checked
+      value: '$(Build.SourcesDirectory)/artifacts/bin/coreclr/windows.x64.Checked'
+    - name: ProductArtifactName_x64_checked
+      value: 'CoreCLRProduct___windows_x64_checked'
+
+    - name: ProductRootFolderPath_x64_release
+      value: '$(Build.SourcesDirectory)/artifacts/bin/coreclr/windows.x64.Release'
+    - name: ProductArtifactName_x64_release
+      value: 'CoreCLRProduct___windows_x64_release'
+
+    - name: ProductRootFolderPath_x86_checked
+      value: '$(Build.SourcesDirectory)/artifacts/bin/coreclr/windows.x86.Checked'
+    - name: ProductArtifactName_x86_checked
+      value: 'CoreCLRProduct___windows_x86_checked'
+
+    - name: ProductRootFolderPath_x86_release
+      value: '$(Build.SourcesDirectory)/artifacts/bin/coreclr/windows.x86.Release'
+    - name: ProductArtifactName_x86_release
+      value: 'CoreCLRProduct___windows_x86_release'
 
     steps:
 
-    # Download jit checked builds
-    - template: /eng/pipelines/common/download-artifact-step.yml
-      parameters:
-        unpackFolder: $(buildProductRootFolderPath)
-        artifactFileName: '$(buildProductArtifactName)$(archiveExtension)'
-        artifactName: '$(buildProductArtifactName)'
-        displayName: 'JIT checked build'
+    # Download and unpack JIT builds
 
-    #Download jit release builds
     - template: /eng/pipelines/common/download-artifact-step.yml
       parameters:
-        unpackFolder: $(releaseProductRootFolderPath)
-        artifactFileName: '$(releaseProductArtifactName)$(archiveExtension)'
-        artifactName: '$(releaseProductArtifactName)'
-        displayName: 'JIT release build'
+        unpackFolder: $(ProductRootFolderPath_x64_checked)
+        artifactFileName: '$(ProductArtifactName_x64_checked)$(archiveExtension)'
+        artifactName: '$(ProductArtifactName_x64_checked)'
+        displayName: 'JIT x64 checked build'
+
+    - template: /eng/pipelines/common/download-artifact-step.yml
+      parameters:
+        unpackFolder: $(ProductRootFolderPath_x86_checked)
+        artifactFileName: '$(ProductArtifactName_x86_checked)$(archiveExtension)'
+        artifactName: '$(ProductArtifactName_x86_checked)'
+        displayName: 'JIT x86 checked build'
+
+    - template: /eng/pipelines/common/download-artifact-step.yml
+      parameters:
+        unpackFolder: $(ProductRootFolderPath_x64_release)
+        artifactFileName: '$(ProductArtifactName_x64_release)$(archiveExtension)'
+        artifactName: '$(ProductArtifactName_x64_release)'
+        displayName: 'JIT x64 release build'
+
+    - template: /eng/pipelines/common/download-artifact-step.yml
+      parameters:
+        unpackFolder: $(ProductRootFolderPath_x86_release)
+        artifactFileName: '$(ProductArtifactName_x86_release)$(archiveExtension)'
+        artifactName: '$(ProductArtifactName_x86_release)'
+        displayName: 'JIT x86 release build'

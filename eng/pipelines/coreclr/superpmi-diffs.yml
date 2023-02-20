@@ -61,7 +61,6 @@ extends:
           buildConfig: checked
           platforms:
           - windows_x64
-          - windows_x86
           helixQueueGroup: ci
           helixQueuesTemplate: /eng/pipelines/coreclr/templates/helix-queues-setup.yml
           jobParameters:
