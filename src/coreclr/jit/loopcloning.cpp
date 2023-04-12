@@ -47,14 +47,14 @@ void ArrIndex::PrintBoundsCheckNodes(unsigned dim /* = -1 */)
 #endif // DEBUG
 
 //--------------------------------------------------------------------------------------------------
-// ToGenTree - Convert an arrLen operation into a gentree node.
+// ToGenTree - Convert an arrLen operation into a GenTree node.
 //
 // Arguments:
 //      comp    Compiler instance to allocate trees
 //      bb      Basic block of the new tree
 //
 // Return Values:
-//      Returns the gen tree representation for arrLen or MD Array node as defined by
+//      Returns the GenTree representation for arrLen or MD Array node as defined by
 //      the "type" member
 //
 // Notes:
@@ -111,15 +111,14 @@ GenTree* LC_Array::ToGenTree(Compiler* comp, BasicBlock* bb)
 }
 
 //--------------------------------------------------------------------------------------------------
-// ToGenTree - Convert an "identifier" into a gentree node.
+// ToGenTree - Convert an "identifier" into a GenTree node.
 //
 // Arguments:
 //      comp    Compiler instance to allocate trees
 //      bb      Basic block of the new tree
 //
 // Return Values:
-//      Returns the gen tree representation for either a constant or a variable or an arrLen operation
-//      defined by the "type" member
+//      Returns the GenTree representation for the "identifier" defined by the "type" member
 //
 GenTree* LC_Ident::ToGenTree(Compiler* comp, BasicBlock* bb)
 {
@@ -170,19 +169,17 @@ GenTree* LC_Ident::ToGenTree(Compiler* comp, BasicBlock* bb)
 }
 
 //--------------------------------------------------------------------------------------------------
-// ToGenTree - Convert an "expression" into a gentree node.
+// ToGenTree - Convert an "expression" into a GenTree node.
 //
 // Arguments:
 //      comp    Compiler instance to allocate trees
 //      bb      Basic block of the new tree
 //
 // Return Values:
-//      Returns the gen tree representation for either a constant or a variable or an arrLen operation
-//      defined by the "type" member
+//      Returns the GenTree representation for the "expression" defined by the "type" member
 //
 GenTree* LC_Expr::ToGenTree(Compiler* comp, BasicBlock* bb)
 {
-    // Convert to GenTree nodes.
     switch (type)
     {
         case Ident:
@@ -195,7 +192,7 @@ GenTree* LC_Expr::ToGenTree(Compiler* comp, BasicBlock* bb)
 }
 
 //--------------------------------------------------------------------------------------------------
-// ToGenTree - Convert a "condition" into a gentree node.
+// ToGenTree - Convert a "condition" into a GenTree node.
 //
 // Arguments:
 //      comp    Compiler instance to allocate trees
@@ -2618,68 +2615,137 @@ bool Compiler::optReconstructArrIndex(GenTree* tree, ArrIndex* result)
 //
 Compiler::fgWalkResult Compiler::optCanOptimizeByLoopCloning(GenTree* tree, LoopCloneVisitorInfo* info)
 {
-    ArrIndex arrIndex(getAllocator(CMK_LoopClone));
-
     // Check if array index can be optimized.
     //
-    if (info->cloneForArrayBounds && optReconstructArrIndex(tree, &arrIndex))
+    if (info->cloneForArrayBounds)
     {
-        assert(tree->gtOper == GT_COMMA);
+        ArrIndex arrIndex(getAllocator(CMK_LoopClone));
+        if (optReconstructArrIndex(tree, &arrIndex))
+        {
+            assert(tree->gtOper == GT_COMMA);
 
 #ifdef DEBUG
-        if (verbose)
-        {
-            printf("Found ArrIndex at " FMT_BB " " FMT_STMT " tree ", arrIndex.useBlock->bbNum, info->stmt->GetID());
-            printTreeID(tree);
-            printf(" which is equivalent to: ");
-            arrIndex.Print();
-            printf(", bounds check nodes: ");
-            arrIndex.PrintBoundsCheckNodes();
-            printf("\n");
-        }
+            if (verbose)
+            {
+                printf("Found ArrIndex at " FMT_BB " " FMT_STMT " tree ", arrIndex.useBlock->bbNum, info->stmt->GetID());
+                printTreeID(tree);
+                printf(" which is equivalent to: ");
+                arrIndex.Print();
+                printf(", bounds check nodes: ");
+                arrIndex.PrintBoundsCheckNodes();
+                printf("\n");
+            }
 #endif
 
-        // Check that the array object local variable is invariant within the loop body.
-        if (!optIsStackLocalInvariant(info->loopNum, arrIndex.arrLcl))
-        {
-            JITDUMP("V%02d is not loop invariant\n", arrIndex.arrLcl);
+            // Check that the array object local variable is invariant within the loop body.
+            if (!optIsStackLocalInvariant(info->loopNum, arrIndex.arrLcl))
+            {
+                JITDUMP("V%02d is not loop invariant\n", arrIndex.arrLcl);
+                return WALK_SKIP_SUBTREES;
+            }
+
+            // Walk the dimensions and see if iterVar of the loop is used as index.
+            for (unsigned dim = 0; dim < arrIndex.rank; ++dim)
+            {
+                // Is index variable also used as the loop iter var?
+                if (arrIndex.indLcls[dim] == optLoopTable[info->loopNum].lpIterVar())
+                {
+                    // Check the previous indices are all loop invariant.
+                    for (unsigned dim2 = 0; dim2 < dim; ++dim2)
+                    {
+                        if (optIsVarAssgLoop(info->loopNum, arrIndex.indLcls[dim2]))
+                        {
+                            JITDUMP("V%02d is assigned in loop\n", arrIndex.indLcls[dim2]);
+                            return WALK_SKIP_SUBTREES;
+                        }
+                    }
+#ifdef DEBUG
+                    if (verbose)
+                    {
+                        printf("Loop " FMT_LP " can be cloned for ArrIndex ", info->loopNum);
+                        arrIndex.Print();
+                        printf(" on dim %d\n", dim);
+                    }
+#endif
+                    // Update the loop context.
+                    info->context->EnsureLoopOptInfo(info->loopNum)
+                        ->Push(new (this, CMK_LoopOpt) LcJaggedArrayOptInfo(arrIndex, dim, info->stmt));
+                }
+                else
+                {
+                    JITDUMP("Induction V%02d is not used as index on dim %d\n", optLoopTable[info->loopNum].lpIterVar(),
+                            dim);
+                }
+            }
             return WALK_SKIP_SUBTREES;
         }
+    }
 
-        // Walk the dimensions and see if iterVar of the loop is used as index.
-        for (unsigned dim = 0; dim < arrIndex.rank; ++dim)
+    // Check if Span<T>.get_Item can be optimized.
+    //
+    if (info->cloneForSpanGetItem)
+    {
+        *****
+        ArrIndex arrIndex(getAllocator(CMK_LoopClone));
+        if (optReconstructArrIndex(tree, &arrIndex))
         {
-            // Is index variable also used as the loop iter var?
-            if (arrIndex.indLcls[dim] == optLoopTable[info->loopNum].lpIterVar())
-            {
-                // Check the previous indices are all loop invariant.
-                for (unsigned dim2 = 0; dim2 < dim; ++dim2)
-                {
-                    if (optIsVarAssgLoop(info->loopNum, arrIndex.indLcls[dim2]))
-                    {
-                        JITDUMP("V%02d is assigned in loop\n", arrIndex.indLcls[dim2]);
-                        return WALK_SKIP_SUBTREES;
-                    }
-                }
+            assert(tree->gtOper == GT_COMMA);
+
 #ifdef DEBUG
-                if (verbose)
-                {
-                    printf("Loop " FMT_LP " can be cloned for ArrIndex ", info->loopNum);
-                    arrIndex.Print();
-                    printf(" on dim %d\n", dim);
-                }
-#endif
-                // Update the loop context.
-                info->context->EnsureLoopOptInfo(info->loopNum)
-                    ->Push(new (this, CMK_LoopOpt) LcJaggedArrayOptInfo(arrIndex, dim, info->stmt));
-            }
-            else
+            if (verbose)
             {
-                JITDUMP("Induction V%02d is not used as index on dim %d\n", optLoopTable[info->loopNum].lpIterVar(),
-                        dim);
+                printf("Found ArrIndex at " FMT_BB " " FMT_STMT " tree ", arrIndex.useBlock->bbNum, info->stmt->GetID());
+                printTreeID(tree);
+                printf(" which is equivalent to: ");
+                arrIndex.Print();
+                printf(", bounds check nodes: ");
+                arrIndex.PrintBoundsCheckNodes();
+                printf("\n");
             }
+#endif
+
+            // Check that the array object local variable is invariant within the loop body.
+            if (!optIsStackLocalInvariant(info->loopNum, arrIndex.arrLcl))
+            {
+                JITDUMP("V%02d is not loop invariant\n", arrIndex.arrLcl);
+                return WALK_SKIP_SUBTREES;
+            }
+
+            // Walk the dimensions and see if iterVar of the loop is used as index.
+            for (unsigned dim = 0; dim < arrIndex.rank; ++dim)
+            {
+                // Is index variable also used as the loop iter var?
+                if (arrIndex.indLcls[dim] == optLoopTable[info->loopNum].lpIterVar())
+                {
+                    // Check the previous indices are all loop invariant.
+                    for (unsigned dim2 = 0; dim2 < dim; ++dim2)
+                    {
+                        if (optIsVarAssgLoop(info->loopNum, arrIndex.indLcls[dim2]))
+                        {
+                            JITDUMP("V%02d is assigned in loop\n", arrIndex.indLcls[dim2]);
+                            return WALK_SKIP_SUBTREES;
+                        }
+                    }
+#ifdef DEBUG
+                    if (verbose)
+                    {
+                        printf("Loop " FMT_LP " can be cloned for ArrIndex ", info->loopNum);
+                        arrIndex.Print();
+                        printf(" on dim %d\n", dim);
+                    }
+#endif
+                    // Update the loop context.
+                    info->context->EnsureLoopOptInfo(info->loopNum)
+                        ->Push(new (this, CMK_LoopOpt) LcSpanGetItemOptInfo(info->stmt, <get_Item tree>));
+                }
+                else
+                {
+                    JITDUMP("Induction V%02d is not used as index on dim %d\n", optLoopTable[info->loopNum].lpIterVar(),
+                            dim);
+                }
+            }
+            return WALK_SKIP_SUBTREES;
         }
-        return WALK_SKIP_SUBTREES;
     }
 
     if (info->cloneForGDVTests && tree->OperIs(GT_JTRUE))
@@ -2981,24 +3047,28 @@ bool Compiler::optIdentifyLoopOptInfo(unsigned loopNum, LoopCloneContext* contex
     const bool     canCloneForArrayBounds =
         ((optMethodFlags & OMF_HAS_ARRAYREF) != 0) && ((loop.lpFlags & LPFLG_ITER) != 0);
     const bool canCloneForTypeTests = ((optMethodFlags & OMF_HAS_GUARDEDDEVIRT) != 0);
+    const bool canCloneForSpanGetItem = ((optMethodFlags & OMF_HAS_SPAN_GET_ITEM) != 0);
 
-    if (!canCloneForArrayBounds && !canCloneForTypeTests)
+    if (!canCloneForArrayBounds && !canCloneForTypeTests && !canCloneForSpanGetItem)
     {
-        JITDUMP("Not checking loop " FMT_LP " -- no array bounds or type tests in this method\n", loopNum);
+        JITDUMP("Not checking loop " FMT_LP " -- no array bounds, type tests, or [ReadOnly]Span<T>.get_Item in this method\n", loopNum);
         return false;
     }
 
     bool shouldCloneForArrayBounds = canCloneForArrayBounds;
     bool shouldCloneForGdvTests    = canCloneForTypeTests;
+    bool shouldCloneForSpanGetItem = canCloneForSpanGetItem;
 
 #ifdef DEBUG
     shouldCloneForGdvTests &= JitConfig.JitCloneLoopsWithGdvTests() != 0;
 #endif
 
-    JITDUMP("Checking loop " FMT_LP " for optimization candidates%s%s\n", loopNum,
-            shouldCloneForArrayBounds ? " (array bounds)" : "", shouldCloneForGdvTests ? " (GDV tests)" : "");
+    JITDUMP("Checking loop " FMT_LP " for optimization candidates%s%s%s\n", loopNum,
+            shouldCloneForArrayBounds ? " (array bounds)" : "",
+            shouldCloneForGdvTests ? " (GDV tests)" : "",
+            shouldCloneForSpanGetItem ? " (Span<T>.getItem)" : "");
 
-    LoopCloneVisitorInfo info(context, loopNum, nullptr, shouldCloneForArrayBounds, shouldCloneForGdvTests);
+    LoopCloneVisitorInfo info(context, loopNum, nullptr, shouldCloneForArrayBounds, shouldCloneForGdvTests, shouldCloneForSpanGetItem);
     for (BasicBlock* const block : loop.LoopBlocks())
     {
         compCurBB = block;

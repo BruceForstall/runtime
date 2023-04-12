@@ -2918,6 +2918,7 @@ GenTree* Compiler::impIntrinsic(GenTree*                newobjThis,
                 result->gtFlags |= GTF_ORDER_SIDEEFF;
                 retNode = gtNewOperNode(GT_COMMA, resultType, boundsCheck, result);
 
+                optMethodFlags |= OMF_HAS_SPAN_GET_ITEM;
                 break;
             }
 

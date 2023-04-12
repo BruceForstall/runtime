@@ -184,7 +184,7 @@ exception occurs.
     2. All loop cloning choice conditions will automatically be "AND"-ed. These are bitwise AND operations.
 
     3. Perform short circuit AND for (array != null) side effect check
-      before hoisting (limit <= a.length) check.
+       before hoisting (limit <= a.length) check.
 
 */
 #pragma once
@@ -365,6 +365,21 @@ struct LcMethodAddrTestOptInfo : public LcOptInfo
     }
 };
 
+// Optimization info for a Span<T>.get_Item
+//
+struct LcSpanGetItemOptInfo : public LcOptInfo
+{
+    // statement where the opportunity occurs
+    Statement* stmt;
+    // The GT_COMMA node under which are the bounds check and field access nodes.
+    GenTree* gtGetItem;
+
+    LcSpanGetItemOptInfo(Statement* stmt, GenTree* gtGetItem)
+        : LcOptInfo(LcSpanGetItem), stmt(stmt), gtGetItem(gtGetItem)
+    {
+    }
+};
+
 /**
  *
  * Symbolic representation of a.length, or a[i][j].length or a[i,j].length and so on.
@@ -472,18 +487,29 @@ struct LC_Ident
         IndirOfLocal,
         MethodAddr,
         IndirOfMethodAddrSlot,
+        // TODO: Span?
     };
 
 private:
     union {
+
+        // type: IdentType::Const
         unsigned constant;
+
+        // type: IdentType::Var (only `lclNum` field), IdentType::IndirOfLocal
         struct
         {
             unsigned lclNum;
             unsigned indirOffs;
         };
+
+        // type: IdentType::ArrAccess
         LC_Array             arrAccess;
+
+        // type: IdentType::ClassHandle
         CORINFO_CLASS_HANDLE clsHnd;
+
+        // type: IdentType::MethodAddr, IdentType::IndirOfMethodAddrSlot
         struct
         {
             void* methAddr;
