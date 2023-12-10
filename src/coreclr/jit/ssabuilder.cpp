@@ -784,13 +784,6 @@ void SsaBuilder::AddMemoryDefToEHSuccessorPhis(MemoryKind memoryKind, BasicBlock
 {
     assert(block->HasPotentialEHSuccs(m_pCompiler));
 
-    // Don't do anything for a compiler-inserted BBJ_ALWAYS that is a "leave helper".
-    if (block->HasFlag(BBF_INTERNAL) && block->isBBCallAlwaysPairTail())
-    {
-        return;
-    }
-
-    // Otherwise...
     DBG_SSA_JITDUMP("Definition of %s/d:%d in block " FMT_BB
                     " has potential EH successors; adding as phi arg to EH successors.\n",
                     memoryKindNames[memoryKind], ssaNum, block->bbNum);

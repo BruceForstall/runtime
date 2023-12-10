@@ -132,8 +132,6 @@ void Compiler::fgDebugCheckUpdate()
             }
         }
 
-        bool prevIsCallAlwaysPair = block->isBBCallAlwaysPairTail();
-
         // Check for an unnecessary jumps to the next block
         bool doAssertOnJumpToNextBlock = false; // unless we have a BBJ_COND or BBJ_ALWAYS we can not assert
 
@@ -150,21 +148,6 @@ void Compiler::fgDebugCheckUpdate()
             {
                 noway_assert(!"Unnecessary jump to the next block!");
             }
-        }
-
-        /* Make sure BBF_KEEP_BBJ_ALWAYS is set correctly */
-
-        if (block->KindIs(BBJ_ALWAYS) && prevIsCallAlwaysPair)
-        {
-            noway_assert(block->HasFlag(BBF_KEEP_BBJ_ALWAYS));
-        }
-
-        /* For a BBJ_CALLFINALLY block we make sure that we are followed by */
-        /* an BBJ_ALWAYS block with BBF_INTERNAL set */
-        /* or that it's a BBF_RETLESS_CALL */
-        if (block->KindIs(BBJ_CALLFINALLY))
-        {
-            assert(block->HasFlag(BBF_RETLESS_CALL) || block->isBBCallAlwaysPair());
         }
 
         /* no un-compacted blocks */
@@ -1984,8 +1967,17 @@ void Compiler::fgTableDispBasicBlock(BasicBlock* block, int ibcColWidth /* = 0 *
                 break;
 
             case BBJ_CALLFINALLY:
-                printf("-> " FMT_BB "%*s (callf )", block->GetJumpDest()->bbNum,
-                       maxBlockNumWidth - max(CountDigits(block->GetJumpDest()->bbNum), 2), "");
+                if (block->GetFinallyContinuation() == nullptr)
+                {
+                    printf("-> " FMT_BB " C-> *%*s (callf )", block->GetJumpDest()->bbNum,
+                           maxBlockNumWidth - max(CountDigits(block->GetJumpDest()->bbNum), 2), "");
+                }
+                else
+                {
+                    printf("-> " FMT_BB " C-> " FMT_BB "%*s (callf)", block->GetJumpDest()->bbNum,
+                           block->GetFinallyContinuation()->bbNum,
+                        maxBlockNumWidth - max(CountDigits(block->GetJumpDest()->bbNum), 2), "");
+                }
                 break;
 
             case BBJ_ALWAYS:
@@ -2609,7 +2601,7 @@ private:
     bool CheckEhTryDsc(BasicBlock* block, BasicBlock* blockPred, EHblkDsc* ehTryDsc);
     bool CheckEhHndDsc(BasicBlock* block, BasicBlock* blockPred, EHblkDsc* ehHndlDsc);
     bool CheckJump(BasicBlock* blockPred, BasicBlock* block);
-    bool CheckEHFinallyRet(BasicBlock* blockPred, BasicBlock* block);
+    void CheckEHFinallyRet(BasicBlock* blockPred, BasicBlock* block);
 
 private:
     Compiler* comp;
@@ -2690,16 +2682,6 @@ bool BBPredsChecker::CheckEhTryDsc(BasicBlock* block, BasicBlock* blockPred, EHb
         return true;
     }
 
-    // The end of a finally region is a BBJ_EHFINALLYRET block (during importing, BBJ_LEAVE) which
-    // is marked as "returning" to the BBJ_ALWAYS block following the BBJ_CALLFINALLY
-    // block that does a local call to the finally. This BBJ_ALWAYS is within
-    // the try region protected by the finally (for x86, ARM), but that's ok.
-    BasicBlock* prevBlock = block->Prev();
-    if (prevBlock->KindIs(BBJ_CALLFINALLY) && block->KindIs(BBJ_ALWAYS) && blockPred->KindIs(BBJ_EHFINALLYRET))
-    {
-        return true;
-    }
-
     // If this is an OSR method and we haven't run post-importation cleanup, we may see a branch
     // from fgFirstBB to the middle of a try. Those get fixed during cleanup. Tolerate.
     //
@@ -2762,7 +2744,7 @@ bool BBPredsChecker::CheckJump(BasicBlock* blockPred, BasicBlock* block)
             return true;
 
         case BBJ_EHFINALLYRET:
-            assert(CheckEHFinallyRet(blockPred, block));
+            CheckEHFinallyRet(blockPred, block);
             return true;
 
         case BBJ_EHFAULTRET:
@@ -2798,12 +2780,17 @@ bool BBPredsChecker::CheckJump(BasicBlock* blockPred, BasicBlock* block)
     return false;
 }
 
-bool BBPredsChecker::CheckEHFinallyRet(BasicBlock* blockPred, BasicBlock* block)
+void BBPredsChecker::CheckEHFinallyRet(BasicBlock* blockPred, BasicBlock* block)
 {
-    // If the current block is a successor to a BBJ_EHFINALLYRET (return from finally),
-    // then the lexically previous block should be a call to the same finally.
-    // Also, `block` should be in the explicit successors list of `blockPred`.
-    // Verify all of that.
+    assert(blockPred->KindIs(BBJ_EHFINALLYRET));
+
+    // If `block` is a successor to a BBJ_EHFINALLYRET (return from finally):
+    // 1. `block` should be in the explicit successors list of `blockPred`.
+    // 2. Some BBJ_CALLFINALLY that calls the finally must have a continuation
+    // pointing to `block`. However, if the finally is unreachable -- it has
+    // no predecessors -- then we don't have to find the BBJ_CALLFINALLY.
+    // (In this case, some phase should delete all the finally blocks and
+    // that should clean up the BBJ_EHFINALLYRET successors.)
 
     bool found = false;
     for (BasicBlock* const succ : blockPred->EHFinallyRetSuccs())
@@ -2816,48 +2803,54 @@ bool BBPredsChecker::CheckEHFinallyRet(BasicBlock* blockPred, BasicBlock* block)
     }
     assert(found && "BBJ_EHFINALLYRET successor not found");
 
-    unsigned    hndIndex = blockPred->getHndIndex();
-    EHblkDsc*   ehDsc    = comp->ehGetDsc(hndIndex);
-    BasicBlock* finBeg   = ehDsc->ebdHndBeg;
-
-    BasicBlock* firstBlock;
-    BasicBlock* lastBlock;
-    comp->ehGetCallFinallyBlockRange(hndIndex, &firstBlock, &lastBlock);
-
-    found = false;
-    for (BasicBlock* const bcall : comp->Blocks(firstBlock, lastBlock))
+    if (comp->mostRecentlyActivePhase >= PHASE_UPDATE_CALLFINALLY)
     {
-        if (bcall->KindIs(BBJ_CALLFINALLY) && bcall->HasJumpTo(finBeg) && bcall->NextIs(block))
+        unsigned    hndIndex = blockPred->getHndIndex();
+        EHblkDsc*   ehDsc    = comp->ehGetDsc(hndIndex);
+        BasicBlock* finBeg   = ehDsc->ebdHndBeg;
+
+        if (finBeg->bbPreds != nullptr)
         {
-            found = true;
-            break;
-        }
-    }
+            found = false;
+
+            BasicBlock* firstBlock;
+            BasicBlock* lastBlock;
+            comp->ehGetCallFinallyBlockRange(hndIndex, &firstBlock, &lastBlock);
+
+            for (BasicBlock* const bcall : comp->Blocks(firstBlock, lastBlock))
+            {
+                if (bcall->KindIs(BBJ_CALLFINALLY) && bcall->HasJumpTo(finBeg) && (bcall->GetFinallyContinuation() == block))
+                {
+                    found = true;
+                    break;
+                }
+            }
 
 #if defined(FEATURE_EH_FUNCLETS)
 
-    if (!found && comp->fgFuncletsCreated)
-    {
-        // There is no easy way to search just the funclets that were pulled out of
-        // the corresponding try body, so instead we search all the funclets, and if
-        // we find a potential 'hit' we check if the funclet we're looking at is
-        // from the correct try region.
-
-        for (BasicBlock* const bcall : comp->Blocks(comp->fgFirstFuncletBB))
-        {
-            if (bcall->KindIs(BBJ_CALLFINALLY) && bcall->HasJumpTo(finBeg) && bcall->NextIs(block) &&
-                comp->ehCallFinallyInCorrectRegion(bcall, hndIndex))
+            if (!found && comp->fgFuncletsCreated)
             {
-                found = true;
-                break;
+                // There is no easy way to search just the funclets that were pulled out of
+                // the corresponding try body, so instead we search all the funclets, and if
+                // we find a potential 'hit' we check if the funclet we're looking at is
+                // from the correct try region.
+
+                for (BasicBlock* const bcall : comp->Blocks(comp->fgFirstFuncletBB))
+                {
+                    if (bcall->KindIs(BBJ_CALLFINALLY) && bcall->HasJumpTo(finBeg) && (bcall->GetFinallyContinuation() == block) &&
+                        comp->ehCallFinallyInCorrectRegion(bcall, hndIndex))
+                    {
+                        found = true;
+                        break;
+                    }
+                }
             }
-        }
-    }
 
 #endif // FEATURE_EH_FUNCLETS
 
-    assert(found && "BBJ_EHFINALLYRET predecessor of block that doesn't follow a BBJ_CALLFINALLY!");
-    return found;
+            assert(found && "BBJ_EHFINALLYRET predecessor of block that isn't a target of a BBJ_CALLFINALLY continuation!");
+        }
+    }
 }
 
 //------------------------------------------------------------------------------

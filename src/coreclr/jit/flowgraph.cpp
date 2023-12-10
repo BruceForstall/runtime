@@ -289,12 +289,9 @@ BasicBlock* Compiler::fgCreateGCPoll(GCPollType pollType, BasicBlock* block)
 
         // We are allowed to split loops and we need to keep a few other flags...
         //
-        noway_assert(
-            (originalFlags & (BBF_SPLIT_NONEXIST & ~(BBF_LOOP_HEAD | BBF_LOOP_PREHEADER | BBF_RETLESS_CALL))) == 0);
-        top->SetFlagsRaw(originalFlags &
-                         (~(BBF_SPLIT_LOST | BBF_LOOP_PREHEADER | BBF_RETLESS_CALL) | BBF_GC_SAFE_POINT));
-        bottom->SetFlags(originalFlags &
-                         (BBF_SPLIT_GAINED | BBF_IMPORTED | BBF_GC_SAFE_POINT | BBF_LOOP_PREHEADER | BBF_RETLESS_CALL));
+        noway_assert((originalFlags & (BBF_SPLIT_NONEXIST & ~(BBF_LOOP_HEAD | BBF_LOOP_PREHEADER))) == 0);
+        top->SetFlagsRaw(originalFlags & (~(BBF_SPLIT_LOST | BBF_LOOP_PREHEADER) | BBF_GC_SAFE_POINT));
+        bottom->SetFlags(originalFlags & (BBF_SPLIT_GAINED | BBF_IMPORTED | BBF_GC_SAFE_POINT | BBF_LOOP_PREHEADER));
         bottom->inheritWeight(top);
         poll->SetFlags(originalFlags & (BBF_SPLIT_GAINED | BBF_IMPORTED | BBF_GC_SAFE_POINT | BBF_NONE_QUIRK));
 
@@ -624,6 +621,71 @@ PhaseStatus Compiler::fgImport()
     if (compIsForInlining())
     {
         compInlineResult->SetImportedILSize(info.compILImportSize);
+    }
+
+    return PhaseStatus::MODIFIED_EVERYTHING;
+}
+
+//------------------------------------------------------------------------
+// fgUpdateCallFinally: For BBJ_CALLFINALLY/BBJ_ALWAYS pairs, remove BBJ_ALWAYS and put its
+// target in BBJ_CALLFINALLY's `bbFinallyContinuation` field.
+//
+// This should be temporary. Later, fix impImportLeave to do this directly.
+//
+// Returns:
+//    phase status
+//
+PhaseStatus Compiler::fgUpdateCallFinally()
+{
+    if (info.compXcptnsCount == 0)
+    {
+        return PhaseStatus::MODIFIED_NOTHING;
+    }
+
+    for (BasicBlock* block = fgFirstBB; block != nullptr; )
+    {
+        if (block->KindIs(BBJ_CALLFINALLY))
+        {
+            // There are no ret-less callfinally yet (this is run early), so there must be a matching
+            // BBJ_ALWAYS block.
+            BasicBlock* blockAlways = block->Next();
+            assert(blockAlways != nullptr);
+            assert(blockAlways->KindIs(BBJ_ALWAYS));
+            assert(blockAlways->isEmpty());
+            assert(blockAlways->HasFlag(BBF_KEEP_BBJ_ALWAYS));
+
+            BasicBlock* blockContinuation = blockAlways->GetJumpDest();
+            assert(blockContinuation != nullptr);
+
+            assert(block->GetFinallyContinuation() == nullptr);
+            block->SetFinallyContinuation(blockContinuation);
+
+            // Fix the predecessor/successor edges.
+
+            assert(blockAlways->bbPreds != nullptr); // At least one predecessor
+            assert(blockAlways->bbPreds->getNextPredEdge() == nullptr); // Exactly one pred edge
+            BasicBlock* blockFinallyRet = blockAlways->bbPreds->getSourceBlock();
+            assert(blockFinallyRet->KindIs(BBJ_EHFINALLYRET));
+            fgRemoveRefPred(blockContinuation, blockAlways);
+
+            // Point the EH_FINALLYRET predecessor of the BBJ_ALWAYS at the continuation block.
+            fgReplaceEhfSuccessor(blockFinallyRet, blockAlways, blockContinuation);
+
+            // Move the iteration ahead before we remove `blockAlways`.
+            block = blockAlways->Next();
+
+            // Remove the BBJ_ALWAYS. Don't call fgRemoveBlock(); it does too much
+            // (including marking the BBJ_CALLFINALLY as ret-less).
+            blockAlways->RemoveFlags(BBF_KEEP_BBJ_ALWAYS);
+            fgUnlinkBlockForRemoval(blockAlways);
+
+            JITDUMP("Removed BBJ_ALWAYS " FMT_BB " of BBJ_CALLFINALLY " FMT_BB " pair.\n",
+                blockAlways->bbNum, block->bbNum);
+        }
+        else
+        {
+            block = block->Next();
+        }
     }
 
     return PhaseStatus::MODIFIED_EVERYTHING;
@@ -3213,15 +3275,6 @@ PhaseStatus Compiler::fgDetermineFirstColdBlock()
             {
                 default:
                     noway_assert(!"Unhandled jumpkind in fgDetermineFirstColdBlock()");
-                    break;
-
-                case BBJ_CALLFINALLY:
-                    // A BBJ_CALLFINALLY that falls through is always followed
-                    // by an empty BBJ_ALWAYS.
-                    //
-                    assert(prevToFirstColdBlock->isBBCallAlwaysPair());
-                    firstColdBlock =
-                        firstColdBlock->Next(); // Note that this assignment could make firstColdBlock == nullptr
                     break;
 
                 case BBJ_COND:

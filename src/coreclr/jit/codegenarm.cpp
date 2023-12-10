@@ -119,10 +119,11 @@ BasicBlock* CodeGen::genCallFinally(BasicBlock* block)
 {
     GetEmitter()->emitIns_J(INS_bl, block->GetJumpDest());
 
-    BasicBlock* nextBlock = block->Next();
+    BasicBlock* finallyContinuation = block->GetFinallyContinuation();
 
-    if (block->HasFlag(BBF_RETLESS_CALL))
+    if (finallyContinuation == nullptr)
     {
+        BasicBlock* nextBlock = block->Next();
         if ((nextBlock == nullptr) || !BasicBlock::sameEHRegion(block, nextBlock))
         {
             instGen(INS_BREAKPOINT);
@@ -130,41 +131,25 @@ BasicBlock* CodeGen::genCallFinally(BasicBlock* block)
     }
     else
     {
-        assert((nextBlock != nullptr) && nextBlock->isBBCallAlwaysPairTail());
-
         // Because of the way the flowgraph is connected, the liveness info for this one instruction
         // after the call is not (can not be) correct in cases where a variable has a last use in the
         // handler.  So turn off GC reporting for this single instruction.
         GetEmitter()->emitDisableGC();
 
-        BasicBlock* const jumpDest = nextBlock->GetJumpDest();
-
         // Now go to where the finally funclet needs to return to.
-        if (nextBlock->NextIs(jumpDest) && !compiler->fgInDifferentRegions(nextBlock, jumpDest))
+        if (block->NextIs(finallyContinuation) && !compiler->fgInDifferentRegions(block, finallyContinuation))
         {
             // Fall-through.
-            // TODO-ARM-CQ: Can we get rid of this instruction, and just have the call return directly
-            // to the next instruction? This would depend on stack walking from within the finally
-            // handler working without this instruction being in this special EH region.
             instGen(INS_nop);
         }
         else
         {
-            GetEmitter()->emitIns_J(INS_b, jumpDest);
+            GetEmitter()->emitIns_J(INS_b, finallyContinuation);
         }
 
         GetEmitter()->emitEnableGC();
     }
 
-    // The BBJ_ALWAYS is used because the BBJ_CALLFINALLY can't point to the
-    // jump target using bbJumpDest - that is already used to point
-    // to the finally block. So just skip past the BBJ_ALWAYS unless the
-    // block is RETLESS.
-    if (!block->HasFlag(BBF_RETLESS_CALL))
-    {
-        assert(block->isBBCallAlwaysPair());
-        block = nextBlock;
-    }
     return block;
 }
 

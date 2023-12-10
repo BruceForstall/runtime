@@ -12204,7 +12204,7 @@ void Compiler::impFixPredLists()
                     {
                         // We only care about preds that are callfinallies.
                         //
-                        if (!predBlock->isBBCallAlwaysPair())
+                        if (!predBlock->KindIs(BBJ_CALLFINALLY))
                         {
                             continue;
                         }
@@ -12228,7 +12228,7 @@ void Compiler::impFixPredLists()
                     {
                         // We only care about preds that are callfinallies.
                         //
-                        if (!predBlock->isBBCallAlwaysPair())
+                        if (!predBlock->KindIs(BBJ_CALLFINALLY))
                         {
                             continue;
                         }

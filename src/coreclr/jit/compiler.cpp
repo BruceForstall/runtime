@@ -4529,6 +4529,11 @@ void Compiler::compCompile(void** methodCodePtr, uint32_t* methodCodeSize, JitFl
         return;
     }
 
+    // Convert BBJ_CALLFINALLY/BBJ_ALWAYS pairs to BBJ_CALLFINALLY w/ bbFinallyTarget set.
+    // Temporary: eventually, do this immediately in impImportLeave
+    //
+    DoPhase(this, PHASE_UPDATE_CALLFINALLY, &Compiler::fgUpdateCallFinally);
+
     // If instrumenting, add block and class probes.
     //
     if (compileFlags->IsSet(JitFlags::JIT_FLAG_BBINSTR))
@@ -5274,9 +5279,8 @@ PhaseStatus Compiler::placeLoopAlignInstructions()
             }
         }
 
-        // If there is an unconditional jump (which is not part of callf/always pair, and isn't to the next block)
-        if (opts.compJitHideAlignBehindJmp && block->KindIs(BBJ_ALWAYS) && !block->isBBCallAlwaysPairTail() &&
-            !block->HasFlag(BBF_NONE_QUIRK))
+        // If there is an unconditional jump (which is not to the next block)
+        if (opts.compJitHideAlignBehindJmp && block->KindIs(BBJ_ALWAYS) && !block->HasFlag(BBF_NONE_QUIRK))
         {
             // Track the lower weight blocks
             if (block->bbWeight < minBlockSoFar)
@@ -5297,15 +5301,12 @@ PhaseStatus Compiler::placeLoopAlignInstructions()
             // Loop alignment is disabled for cold blocks
             assert(!block->HasFlag(BBF_COLD));
             BasicBlock* const loopTop              = block->Next();
-            bool              isSpecialCallFinally = block->isBBCallAlwaysPairTail();
+            bool              isSpecialCallFinally = false;
             bool              unmarkedLoopAlign    = false;
 
 #if FEATURE_EH_CALLFINALLY_THUNKS
             if (block->KindIs(BBJ_CALLFINALLY))
             {
-                // It must be a retless BBJ_CALLFINALLY if we get here.
-                assert(!block->isBBCallAlwaysPair());
-
                 // In the case of FEATURE_EH_CALLFINALLY_THUNKS, we can't put the align instruction in a retless
                 // BBJ_CALLFINALLY either, because it alters the "cloned finally" region reported to the VM.
                 // In the x86 case (the only !FEATURE_EH_CALLFINALLY_THUNKS that supports retless
@@ -5316,16 +5317,12 @@ PhaseStatus Compiler::placeLoopAlignInstructions()
 
             if (isSpecialCallFinally)
             {
-                // There are two special cases:
-                // 1. If the block before the loop start is a retless BBJ_CALLFINALLY with
-                //    FEATURE_EH_CALLFINALLY_THUNKS, we can't add alignment because it will affect reported EH
-                //    region range.
-                // 2. If the previous block is the BBJ_ALWAYS of a BBJ_CALLFINALLY/BBJ_ALWAYS pair, then we
-                //    can't add alignment because we can't add instructions in that block. In the
-                //    FEATURE_EH_CALLFINALLY_THUNKS case, it would affect the reported EH, as above.
-                // Currently, we don't align loops for these cases.
+                // If the block before the loop start is a retless BBJ_CALLFINALLY with
+                // FEATURE_EH_CALLFINALLY_THUNKS, we can't add alignment because it will affect reported EH
+                // region range.
+                // Currently, we don't align loops for this case.
 
-                loopTop->unmarkLoopAlign(this DEBUG_ARG("block before loop is special callfinally/always block"));
+                loopTop->unmarkLoopAlign(this DEBUG_ARG("block before loop is special callfinally block"));
                 madeChanges       = true;
                 unmarkedLoopAlign = true;
             }

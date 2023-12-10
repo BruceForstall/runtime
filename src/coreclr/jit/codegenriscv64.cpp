@@ -1159,8 +1159,9 @@ BasicBlock* CodeGen::genCallFinally(BasicBlock* block)
     GetEmitter()->emitIns_J(INS_jal, block->GetJumpDest());
 
     BasicBlock* const nextBlock = block->Next();
+    BasicBlock* const blockContinuation = block->GetFinallyContinuation();
 
-    if (block->HasFlag(BBF_RETLESS_CALL))
+    if (blockContinuation == nullptr)
     {
         // We have a retless call, and the last instruction generated was a call.
         // If the next block is in a different EH region (or is the end of the code
@@ -1179,10 +1180,8 @@ BasicBlock* CodeGen::genCallFinally(BasicBlock* block)
         // handler.  So turn off GC reporting for this single instruction.
         GetEmitter()->emitDisableGC();
 
-        BasicBlock* const jumpDest = nextBlock->GetJumpDest();
-
         // Now go to where the finally funclet needs to return to.
-        if (nextBlock->NextIs(jumpDest) && !compiler->fgInDifferentRegions(nextBlock, jumpDest))
+        if (nextBlock->NextIs(blockContinuation) && !compiler->fgInDifferentRegions(nextBlock, blockContinuation))
         {
             // Fall-through.
             // TODO-RISCV64-CQ: Can we get rid of this instruction, and just have the call return directly
@@ -1192,21 +1191,12 @@ BasicBlock* CodeGen::genCallFinally(BasicBlock* block)
         }
         else
         {
-            inst_JMP(EJ_jmp, jumpDest);
+            inst_JMP(EJ_jmp, blockContinuation);
         }
 
         GetEmitter()->emitEnableGC();
     }
 
-    // The BBJ_ALWAYS is used because the BBJ_CALLFINALLY can't point to the
-    // jump target using bbJumpDest - that is already used to point
-    // to the finally block. So just skip past the BBJ_ALWAYS unless the
-    // block is RETLESS.
-    if (!block->HasFlag(BBF_RETLESS_CALL))
-    {
-        assert(block->isBBCallAlwaysPair());
-        block = nextBlock;
-    }
     return block;
 }
 

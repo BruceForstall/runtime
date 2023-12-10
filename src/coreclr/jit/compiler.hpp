@@ -610,22 +610,9 @@ BasicBlockVisit BasicBlock::VisitAllSuccs(Compiler* comp, TFunc func)
         case BBJ_EHCATCHRET:
         case BBJ_EHFILTERRET:
         case BBJ_LEAVE:
-            RETURN_ON_ABORT(func(bbJumpDest));
-            return VisitEHSuccs(comp, func);
-
         case BBJ_ALWAYS:
             RETURN_ON_ABORT(func(bbJumpDest));
-
-            // If this is a "leave helper" block (the empty BBJ_ALWAYS block
-            // that pairs with a preceding BBJ_CALLFINALLY block to implement a
-            // "leave" IL instruction), then no exceptions can occur within it
-            // and we skip its normal EH successors.
-            if (!isBBCallAlwaysPairTail())
-            {
-                RETURN_ON_ABORT(VisitEHSuccs(comp, func));
-            }
-
-            return BasicBlockVisit::Continue;
+            return VisitEHSuccs(comp, func);
 
         case BBJ_COND:
             RETURN_ON_ABORT(func(bbNext));

@@ -542,17 +542,7 @@ void CodeGen::genCodeForBBlist()
 
         /* Is this the last block, and are there any open scopes left ? */
 
-        bool isLastBlockProcessed;
-        if (block->isBBCallAlwaysPair())
-        {
-            isLastBlockProcessed = block->Next()->IsLast();
-        }
-        else
-        {
-            isLastBlockProcessed = block->IsLast();
-        }
-
-        if (compiler->opts.compDbgInfo && isLastBlockProcessed)
+        if (compiler->opts.compDbgInfo && block->IsLast())
         {
             varLiveKeeper->siEndAllVariableLiveRange(compiler->compCurLife);
         }
@@ -812,7 +802,6 @@ void CodeGen::genCodeForBBlist()
             // and 16 bytes for arm64.
 
             assert(ShouldAlignLoops());
-            assert(!block->isBBCallAlwaysPairTail());
 #if FEATURE_EH_CALLFINALLY_THUNKS
             assert(!block->KindIs(BBJ_CALLFINALLY));
 #endif // FEATURE_EH_CALLFINALLY_THUNKS

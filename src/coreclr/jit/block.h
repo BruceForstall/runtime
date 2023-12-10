@@ -405,11 +405,10 @@ enum BasicBlockFlags : unsigned __int64
     BBF_HAS_MDARRAYREF       = MAKE_BBFLAG(22), // Block has a multi-dimensional array reference
     BBF_HAS_NEWOBJ           = MAKE_BBFLAG(23), // BB contains 'new' of an object type.
 
-    BBF_RETLESS_CALL                   = MAKE_BBFLAG(24), // BBJ_CALLFINALLY that will never return (and therefore, won't need a paired
-                                                          // BBJ_ALWAYS); see isBBCallAlwaysPair().
     BBF_LOOP_PREHEADER                 = MAKE_BBFLAG(25), // BB is a loop preheader block
     BBF_COLD                           = MAKE_BBFLAG(26), // BB is cold
     BBF_PROF_WEIGHT                    = MAKE_BBFLAG(27), // BB weight is computed from profile data
+    // TODO-CALLFINALLY: remove BBF_KEEP_BBJ_ALWAYS?
     BBF_KEEP_BBJ_ALWAYS                = MAKE_BBFLAG(28), // A special BBJ_ALWAYS block, used by EH code generation. Keep the jump kind
                                                           // as BBJ_ALWAYS. Used for the paired BBJ_ALWAYS block following the
                                                           // BBJ_CALLFINALLY block, as well as, on x86, the final step block out of a
@@ -444,7 +443,7 @@ enum BasicBlockFlags : unsigned __int64
 
     // Flags a block should not have had before it is split.
 
-    BBF_SPLIT_NONEXIST = BBF_LOOP_HEAD | BBF_RETLESS_CALL | BBF_LOOP_PREHEADER | BBF_COLD,
+    BBF_SPLIT_NONEXIST = BBF_LOOP_HEAD | BBF_LOOP_PREHEADER | BBF_COLD,
 
     // Flags lost by the top block when a block is split.
     // Note, this is a conservative guess.
@@ -531,6 +530,8 @@ private:
         BBswtDesc*  bbJumpSwt;  // switch descriptor
         BBehfDesc*  bbJumpEhf;  // BBJ_EHFINALLYRET descriptor
     };
+
+    BasicBlock* bbFinallyContinuation; // Only used by BBJ_CALLFINALLY. Where the called `finally` should return.
 
 public:
     static BasicBlock* New(Compiler* compiler);
@@ -698,6 +699,26 @@ public:
         assert(jumpEhf != nullptr);
         bbJumpKind = jumpKind;
         bbJumpEhf  = jumpEhf;
+    }
+
+    // Which block types can have a non-null `bbFinallyContinuation`.
+    bool HasFinallyContinuation() const
+    {
+        return KindIs(BBJ_CALLFINALLY);
+    }
+
+    // Note that a finally continuation can be null for "retless" callfinally (the called finally
+    // is known to never return due to an unconditional `throw`).
+    BasicBlock* GetFinallyContinuation() const
+    {
+        assert(HasFinallyContinuation());
+        return bbFinallyContinuation;
+    }
+
+    void SetFinallyContinuation(BasicBlock* finallyContinuation)
+    {
+        assert(HasFinallyContinuation());
+        bbFinallyContinuation = finallyContinuation;
     }
 
 private:
@@ -942,14 +963,6 @@ public:
     bool isEmpty() const;
 
     bool isValid() const;
-
-    // Returns "true" iff "this" is the first block of a BBJ_CALLFINALLY/BBJ_ALWAYS pair --
-    // a block corresponding to an exit from the try of a try/finally.
-    bool isBBCallAlwaysPair() const;
-
-    // Returns "true" iff "this" is the last block of a BBJ_CALLFINALLY/BBJ_ALWAYS pair --
-    // a block corresponding to an exit from the try of a try/finally.
-    bool isBBCallAlwaysPairTail() const;
 
     bool KindIs(BBjumpKinds kind) const
     {
@@ -1578,6 +1591,9 @@ public:
     // in the block are cloned successfully, false (with partially-populated `to` block) if one fails.
     static bool CloneBlockState(
         Compiler* compiler, BasicBlock* to, const BasicBlock* from, unsigned varNum = (unsigned)-1, int varVal = 0);
+
+    // Copy the block kind and targets.
+    void CopyTarget(Compiler* compiler, const BasicBlock* from);
 
     void MakeLIR(GenTree* firstNode, GenTree* lastNode);
     bool IsLIR() const;

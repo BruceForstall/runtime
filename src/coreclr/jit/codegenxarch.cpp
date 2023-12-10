@@ -206,6 +206,7 @@ void CodeGen::genEmitGSCookieCheck(bool pushReg)
 BasicBlock* CodeGen::genCallFinally(BasicBlock* block)
 {
     BasicBlock* const nextBlock = block->Next();
+    BasicBlock* const blockContinuation = block->GetFinallyContinuation();
 
 #if defined(FEATURE_EH_FUNCLETS)
     // Generate a call to the finally, like this:
@@ -230,7 +231,7 @@ BasicBlock* CodeGen::genCallFinally(BasicBlock* block)
     }
     GetEmitter()->emitIns_J(INS_call, block->GetJumpDest());
 
-    if (block->HasFlag(BBF_RETLESS_CALL))
+    if (blockContinuation == nullptr)
     {
         // We have a retless call, and the last instruction generated was a call.
         // If the next block is in a different EH region (or is the end of the code
@@ -253,10 +254,8 @@ BasicBlock* CodeGen::genCallFinally(BasicBlock* block)
         GetEmitter()->emitDisableGC();
 #endif // JIT32_GCENCODER
 
-        BasicBlock* const jumpDest = nextBlock->GetJumpDest();
-
         // Now go to where the finally funclet needs to return to.
-        if (nextBlock->NextIs(jumpDest) && !compiler->fgInDifferentRegions(nextBlock, jumpDest))
+        if (nextBlock->NextIs(blockContinuation) && !compiler->fgInDifferentRegions(nextBlock, blockContinuation))
         {
             // Fall-through.
             // TODO-XArch-CQ: Can we get rid of this instruction, and just have the call return directly
@@ -266,7 +265,7 @@ BasicBlock* CodeGen::genCallFinally(BasicBlock* block)
         }
         else
         {
-            inst_JMP(EJ_jmp, jumpDest);
+            inst_JMP(EJ_jmp, blockContinuation);
         }
 
 #ifndef JIT32_GCENCODER
@@ -280,7 +279,7 @@ BasicBlock* CodeGen::genCallFinally(BasicBlock* block)
     // corresponding to the finally's nesting level. When invoked in response to an exception, the
     // EE does this.
     //
-    // We have a BBJ_CALLFINALLY followed by a BBJ_ALWAYS.
+    // We have a BBJ_CALLFINALLY.
     //
     // We will emit :
     //      mov [ebp - (n + 1)], 0
@@ -313,10 +312,9 @@ BasicBlock* CodeGen::genCallFinally(BasicBlock* block)
     GetEmitter()->emitIns_S_I(INS_mov, EA_PTRSIZE, compiler->lvaShadowSPslotsVar, curNestingSlotOffs, LCL_FINALLY_MARK);
 
     // Now push the address where the finally funclet should return to directly.
-    if (!block->HasFlag(BBF_RETLESS_CALL))
+    if (blockContinuation != nullptr)
     {
-        assert(block->isBBCallAlwaysPair());
-        GetEmitter()->emitIns_J(INS_push_hide, nextBlock->GetJumpDest());
+        GetEmitter()->emitIns_J(INS_push_hide, blockContinuation);
     }
     else
     {
@@ -329,15 +327,6 @@ BasicBlock* CodeGen::genCallFinally(BasicBlock* block)
 
 #endif // !FEATURE_EH_FUNCLETS
 
-    // The BBJ_ALWAYS is used because the BBJ_CALLFINALLY can't point to the
-    // jump target using bbJumpDest - that is already used to point
-    // to the finally block. So just skip past the BBJ_ALWAYS unless the
-    // block is RETLESS.
-    if (!block->HasFlag(BBF_RETLESS_CALL))
-    {
-        assert(block->isBBCallAlwaysPair());
-        block = nextBlock;
-    }
     return block;
 }
 

@@ -889,18 +889,9 @@ void Compiler::fgExtendDbgLifetimes()
         switch (block->GetJumpKind())
         {
             case BBJ_ALWAYS:
+            case BBJ_CALLFINALLY:
             case BBJ_EHCATCHRET:
             case BBJ_EHFILTERRET:
-                VarSetOps::UnionD(this, initVars, block->GetJumpDest()->bbScope);
-                break;
-
-            case BBJ_CALLFINALLY:
-                if (!block->HasFlag(BBF_RETLESS_CALL))
-                {
-                    assert(block->isBBCallAlwaysPair());
-                    PREFIX_ASSUME(!block->IsLast());
-                    VarSetOps::UnionD(this, initVars, block->Next()->bbScope);
-                }
                 VarSetOps::UnionD(this, initVars, block->GetJumpDest()->bbScope);
                 break;
 

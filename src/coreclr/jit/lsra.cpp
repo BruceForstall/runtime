@@ -944,14 +944,6 @@ void LinearScan::setBlockSequence()
         }
 #endif // TRACK_LSRA_STATS
 
-        // We treat BBCallAlwaysPairTail blocks as having EH flow, since we can't
-        // insert resolution moves into those blocks.
-        if (block->isBBCallAlwaysPairTail())
-        {
-            blockInfo[block->bbNum].hasEHBoundaryIn  = true;
-            blockInfo[block->bbNum].hasEHBoundaryOut = true;
-        }
-
         bool hasUniquePred = (block->GetUniquePred(compiler) != nullptr);
         for (BasicBlock* const predBlock : block->PredBlocks())
         {
@@ -968,11 +960,8 @@ void LinearScan::setBlockSequence()
                 }
             }
 
-            if (!block->isBBCallAlwaysPairTail() &&
-                (predBlock->hasEHBoundaryOut() || predBlock->isBBCallAlwaysPairTail()))
+            if (predBlock->hasEHBoundaryOut())
             {
-                assert(!block->isBBCallAlwaysPairTail());
-
                 if (hasUniquePred)
                 {
                     // A unique pred with an EH out edge won't allow us to keep any variables enregistered.
@@ -1482,16 +1471,6 @@ void LinearScan::recordVarLocationsAtStartOfBB(BasicBlock* bb)
             count++;
 
             BasicBlock* prevReportedBlock = bb->Prev();
-            if (!bb->IsFirst() && bb->Prev()->isBBCallAlwaysPairTail())
-            {
-                // For callf+always pair we generate the code for the always
-                // block in genCallFinally and skip it, so we don't report
-                // anything for it (it has only trivial instructions, so that
-                // does not matter much). So whether we need to rehome or not
-                // depends on what we reported at the end of the callf block.
-                prevReportedBlock = bb->Prev()->Prev();
-            }
-
             if (prevReportedBlock != nullptr && VarSetOps::IsMember(compiler, prevReportedBlock->bbLiveOut, varIndex))
             {
                 // varDsc was alive on previous block end so it has an open
@@ -8106,9 +8085,6 @@ void LinearScan::addResolution(BasicBlock* block,
     }
     JITDUMP(": move V%02u from %s to %s (%s)\n", interval->varNum, getRegName(fromReg), getRegName(toReg), reason);
 #endif // DEBUG
-
-    // We should never add resolution move inside BBCallAlwaysPairTail.
-    noway_assert(!block->isBBCallAlwaysPairTail());
 
     insertMove(block, insertionPoint, interval->varNum, fromReg, toReg);
     if (fromReg == REG_STK || toReg == REG_STK)

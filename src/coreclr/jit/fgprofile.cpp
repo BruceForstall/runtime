@@ -488,7 +488,7 @@ void BlockCountInstrumentor::RelocateProbes()
 
             BasicBlock* const succ = pred->GetUniqueSucc();
 
-            if ((succ == nullptr) || pred->isBBCallAlwaysPairTail())
+            if (succ == nullptr)
             {
                 // Route pred through the intermediary.
                 //
@@ -937,31 +937,6 @@ void Compiler::WalkSpanningTree(SpanningTreeVisitor* visitor)
 
         switch (block->GetJumpKind())
         {
-            case BBJ_CALLFINALLY:
-            {
-                // Just queue up the continuation block,
-                // unless the finally doesn't return, in which
-                // case we really should treat this block as a throw,
-                // and so this block would get instrumented.
-                //
-                // Since our keying scheme is IL based and this
-                // block has no IL offset, we'd need to invent
-                // some new keying scheme. For now we just
-                // ignore this (rare) case.
-                //
-                if (block->isBBCallAlwaysPair())
-                {
-                    // This block should be the only pred of the continuation.
-                    //
-                    BasicBlock* const target = block->Next();
-                    assert(!BlockSetOps::IsMember(this, marked, target->bbNum));
-                    visitor->VisitTreeEdge(block, target);
-                    stack.Push(target);
-                    BlockSetOps::AddElemD(this, marked, target->bbNum);
-                }
-            }
-            break;
-
             case BBJ_THROW:
 
                 // Ignore impact of throw blocks on flow,  if we're doing minimal
@@ -1076,13 +1051,7 @@ void Compiler::WalkSpanningTree(SpanningTreeVisitor* visitor)
                     BasicBlock* const target = block->GetSucc(0, this);
                     if (BlockSetOps::IsMember(this, marked, target->bbNum))
                     {
-                        // We can't instrument in the call always pair tail block
-                        // so treat this as a critical edge.
-                        //
-                        visitor->VisitNonTreeEdge(block, target,
-                                                  block->isBBCallAlwaysPairTail()
-                                                      ? SpanningTreeVisitor::EdgeKind::CriticalEdge
-                                                      : SpanningTreeVisitor::EdgeKind::PostdominatesSource);
+                        visitor->VisitNonTreeEdge(block, target, SpanningTreeVisitor::EdgeKind::PostdominatesSource);
                     }
                     else
                     {
@@ -1656,12 +1625,11 @@ void EfficientEdgeCountInstrumentor::RelocateProbes()
         criticalPreds.Reset();
         for (BasicBlock* const pred : block->PredBlocks())
         {
-            // Does this pred reach along a critical edge,
-            // or is the pred the tail of a callfinally pair?
+            // Does this pred reach along a critical edge?
             //
             BasicBlock* const succ = pred->GetUniqueSucc();
 
-            if ((succ == nullptr) || pred->isBBCallAlwaysPairTail())
+            if (succ == nullptr)
             {
                 // Route pred through the intermediary.
                 //
