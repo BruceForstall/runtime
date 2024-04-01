@@ -750,7 +750,7 @@ void Compiler::lvaInitUserArgs(InitVarDscInfo* varDscInfo, unsigned skipArgs, un
                 if (varDscInfo->canEnreg(TYP_INT, 1) &&     // The beginning of the struct can go in a register
                     !varDscInfo->canEnreg(TYP_INT, cSlots)) // The end of the struct can't fit in a register
                 {
-                    cSlotsToEnregister = 1; // Force the split
+                    cSlotsToEnregister = 1;                 // Force the split
                 }
             }
         }
@@ -811,8 +811,8 @@ void Compiler::lvaInitUserArgs(InitVarDscInfo* varDscInfo, unsigned skipArgs, un
                 !varDscInfo->canEnreg(TYP_INT, cSlots) && // The end of the struct can't fit in a register
                 varDscInfo->existAnyFloatStackArgs())     // There's at least one stack-based FP arg already
             {
-                varDscInfo->setAllRegArgUsed(TYP_INT); // Prevent all future use of integer registers
-                preSpill = false;                      // This struct won't be prespilled, since it will go on the stack
+                varDscInfo->setAllRegArgUsed(TYP_INT);    // Prevent all future use of integer registers
+                preSpill = false; // This struct won't be prespilled, since it will go on the stack
             }
         }
 
@@ -1814,7 +1814,7 @@ unsigned Compiler::compMap2ILvarNum(unsigned varNum) const
     {
         return (unsigned)ICorDebugInfo::UNKNOWN_ILNUM; // Cannot be mapped
     }
-#endif // FEATURE_FIXED_OUT_ARGS
+#endif                                                 // FEATURE_FIXED_OUT_ARGS
 
     // Now mutate varNum to remove extra parameters from the count.
     if ((info.compMethodInfo->args.callConv & CORINFO_CALLCONV_PARAMTYPE) && varNum > info.compTypeCtxtArg)
@@ -1886,7 +1886,9 @@ void Compiler::lvSetMinOptsDoNotEnreg()
 // Arguments:
 //   compiler - pointer to a compiler to get access to an allocator, compHandle etc.
 //
-Compiler::StructPromotionHelper::StructPromotionHelper(Compiler* compiler) : compiler(compiler), structPromotionInfo()
+Compiler::StructPromotionHelper::StructPromotionHelper(Compiler* compiler)
+    : compiler(compiler)
+    , structPromotionInfo()
 {
 }
 
@@ -2508,8 +2510,9 @@ void Compiler::StructPromotionHelper::SortStructFields()
     if (!structPromotionInfo.fieldsSorted)
     {
         jitstd::sort(structPromotionInfo.fields, structPromotionInfo.fields + structPromotionInfo.fieldCnt,
-                     [](const lvaStructFieldInfo& lhs, const lvaStructFieldInfo& rhs)
-                     { return lhs.fldOffset < rhs.fldOffset; });
+                     [](const lvaStructFieldInfo& lhs, const lvaStructFieldInfo& rhs) {
+                         return lhs.fldOffset < rhs.fldOffset;
+                     });
         structPromotionInfo.fieldsSorted = true;
     }
 }
@@ -3210,8 +3213,7 @@ void Compiler::makeExtraStructQueries(CORINFO_CLASS_HANDLE structHandle, int lev
 #endif
 
     // In a lambda since this requires a lot of stack and this function is recursive.
-    auto queryLayout = [this, structHandle]()
-    {
+    auto queryLayout = [this, structHandle]() {
         CORINFO_TYPE_LAYOUT_NODE nodes[256];
         size_t                   numNodes = ArrLen(nodes);
         info.compCompHnd->getTypeLayout(structHandle, nodes, &numNodes);
@@ -3509,201 +3511,201 @@ unsigned Compiler::lvaLclExactSize(unsigned varNum)
 // LclVarDsc "less" comparer used to compare the weight of two locals, when optimizing for small code.
 class LclVarDsc_SmallCode_Less
 {
-    const LclVarDsc* m_lvaTable;
-    RefCountState    m_rcs;
-    INDEBUG(unsigned m_lvaCount;)
+        const LclVarDsc* m_lvaTable;
+        RefCountState    m_rcs;
+        INDEBUG(unsigned m_lvaCount;)
 
-public:
-    LclVarDsc_SmallCode_Less(const LclVarDsc* lvaTable, RefCountState rcs DEBUGARG(unsigned lvaCount))
-        : m_lvaTable(lvaTable)
-        , m_rcs(rcs)
+    public:
+        LclVarDsc_SmallCode_Less(const LclVarDsc* lvaTable, RefCountState rcs DEBUGARG(unsigned lvaCount))
+            : m_lvaTable(lvaTable)
+            , m_rcs(rcs)
 #ifdef DEBUG
-        , m_lvaCount(lvaCount)
+            , m_lvaCount(lvaCount)
 #endif
-    {
-    }
+        {
+        }
 
-    bool operator()(unsigned n1, unsigned n2)
-    {
-        assert(n1 < m_lvaCount);
-        assert(n2 < m_lvaCount);
+        bool operator()(unsigned n1, unsigned n2)
+        {
+            assert(n1 < m_lvaCount);
+            assert(n2 < m_lvaCount);
 
-        const LclVarDsc* dsc1 = &m_lvaTable[n1];
-        const LclVarDsc* dsc2 = &m_lvaTable[n2];
+            const LclVarDsc* dsc1 = &m_lvaTable[n1];
+            const LclVarDsc* dsc2 = &m_lvaTable[n2];
 
-        // We should not be sorting untracked variables
-        assert(dsc1->lvTracked);
-        assert(dsc2->lvTracked);
-        // We should not be sorting after registers have been allocated
-        assert(!dsc1->lvRegister);
-        assert(!dsc2->lvRegister);
+            // We should not be sorting untracked variables
+            assert(dsc1->lvTracked);
+            assert(dsc2->lvTracked);
+            // We should not be sorting after registers have been allocated
+            assert(!dsc1->lvRegister);
+            assert(!dsc2->lvRegister);
 
-        unsigned weight1 = dsc1->lvRefCnt(m_rcs);
-        unsigned weight2 = dsc2->lvRefCnt(m_rcs);
+            unsigned weight1 = dsc1->lvRefCnt(m_rcs);
+            unsigned weight2 = dsc2->lvRefCnt(m_rcs);
 
 #ifndef TARGET_ARM
-        // ARM-TODO: this was disabled for ARM under !FEATURE_FP_REGALLOC; it was probably a left-over from
-        // legacy backend. It should be enabled and verified.
+            // ARM-TODO: this was disabled for ARM under !FEATURE_FP_REGALLOC; it was probably a left-over from
+            // legacy backend. It should be enabled and verified.
 
-        // Force integer candidates to sort above float candidates.
-        const bool isFloat1 = isFloatRegType(dsc1->lvType);
-        const bool isFloat2 = isFloatRegType(dsc2->lvType);
+            // Force integer candidates to sort above float candidates.
+            const bool isFloat1 = isFloatRegType(dsc1->lvType);
+            const bool isFloat2 = isFloatRegType(dsc2->lvType);
 
-        if (isFloat1 != isFloat2)
-        {
-            if ((weight2 != 0) && isFloat1)
+            if (isFloat1 != isFloat2)
             {
-                return false;
-            }
+                if ((weight2 != 0) && isFloat1)
+                {
+                    return false;
+                }
 
-            if ((weight1 != 0) && isFloat2)
-            {
-                return true;
+                if ((weight1 != 0) && isFloat2)
+                {
+                    return true;
+                }
             }
-        }
 #endif
 
-        if (weight1 != weight2)
-        {
-            return weight1 > weight2;
-        }
-
-        // If the weighted ref counts are different then use their difference.
-        if (dsc1->lvRefCntWtd() != dsc2->lvRefCntWtd())
-        {
-            return dsc1->lvRefCntWtd() > dsc2->lvRefCntWtd();
-        }
-
-        // We have equal ref counts and weighted ref counts.
-        // Break the tie by:
-        //   - Increasing the weight by 2   if we are a register arg.
-        //   - Increasing the weight by 0.5 if we are a GC type.
-        //
-        // Review: seems odd that this is mixing counts and weights.
-
-        if (weight1 != 0)
-        {
-            if (dsc1->lvIsRegArg)
+            if (weight1 != weight2)
             {
-                weight1 += 2 * BB_UNITY_WEIGHT_UNSIGNED;
+                return weight1 > weight2;
             }
 
-            if (varTypeIsGC(dsc1->TypeGet()))
+            // If the weighted ref counts are different then use their difference.
+            if (dsc1->lvRefCntWtd() != dsc2->lvRefCntWtd())
             {
-                weight1 += BB_UNITY_WEIGHT_UNSIGNED / 2;
-            }
-        }
-
-        if (weight2 != 0)
-        {
-            if (dsc2->lvIsRegArg)
-            {
-                weight2 += 2 * BB_UNITY_WEIGHT_UNSIGNED;
+                return dsc1->lvRefCntWtd() > dsc2->lvRefCntWtd();
             }
 
-            if (varTypeIsGC(dsc2->TypeGet()))
+            // We have equal ref counts and weighted ref counts.
+            // Break the tie by:
+            //   - Increasing the weight by 2   if we are a register arg.
+            //   - Increasing the weight by 0.5 if we are a GC type.
+            //
+            // Review: seems odd that this is mixing counts and weights.
+
+            if (weight1 != 0)
             {
-                weight2 += BB_UNITY_WEIGHT_UNSIGNED / 2;
+                if (dsc1->lvIsRegArg)
+                {
+                    weight1 += 2 * BB_UNITY_WEIGHT_UNSIGNED;
+                }
+
+                if (varTypeIsGC(dsc1->TypeGet()))
+                {
+                    weight1 += BB_UNITY_WEIGHT_UNSIGNED / 2;
+                }
             }
-        }
 
-        if (weight1 != weight2)
-        {
-            return weight1 > weight2;
-        }
+            if (weight2 != 0)
+            {
+                if (dsc2->lvIsRegArg)
+                {
+                    weight2 += 2 * BB_UNITY_WEIGHT_UNSIGNED;
+                }
 
-        // To achieve a stable sort we use the LclNum (by way of the pointer address).
-        return dsc1 < dsc2;
-    }
+                if (varTypeIsGC(dsc2->TypeGet()))
+                {
+                    weight2 += BB_UNITY_WEIGHT_UNSIGNED / 2;
+                }
+            }
+
+            if (weight1 != weight2)
+            {
+                return weight1 > weight2;
+            }
+
+            // To achieve a stable sort we use the LclNum (by way of the pointer address).
+            return dsc1 < dsc2;
+        }
 };
 
 // LclVarDsc "less" comparer used to compare the weight of two locals, when optimizing for blended code.
 class LclVarDsc_BlendedCode_Less
 {
-    const LclVarDsc* m_lvaTable;
-    RefCountState    m_rcs;
-    INDEBUG(unsigned m_lvaCount;)
+        const LclVarDsc* m_lvaTable;
+        RefCountState    m_rcs;
+        INDEBUG(unsigned m_lvaCount;)
 
-public:
-    LclVarDsc_BlendedCode_Less(const LclVarDsc* lvaTable, RefCountState rcs DEBUGARG(unsigned lvaCount))
-        : m_lvaTable(lvaTable)
-        , m_rcs(rcs)
+    public:
+        LclVarDsc_BlendedCode_Less(const LclVarDsc* lvaTable, RefCountState rcs DEBUGARG(unsigned lvaCount))
+            : m_lvaTable(lvaTable)
+            , m_rcs(rcs)
 #ifdef DEBUG
-        , m_lvaCount(lvaCount)
+            , m_lvaCount(lvaCount)
 #endif
-    {
-    }
+        {
+        }
 
-    bool operator()(unsigned n1, unsigned n2)
-    {
-        assert(n1 < m_lvaCount);
-        assert(n2 < m_lvaCount);
+        bool operator()(unsigned n1, unsigned n2)
+        {
+            assert(n1 < m_lvaCount);
+            assert(n2 < m_lvaCount);
 
-        const LclVarDsc* dsc1 = &m_lvaTable[n1];
-        const LclVarDsc* dsc2 = &m_lvaTable[n2];
+            const LclVarDsc* dsc1 = &m_lvaTable[n1];
+            const LclVarDsc* dsc2 = &m_lvaTable[n2];
 
-        // We should not be sorting untracked variables
-        assert(dsc1->lvTracked);
-        assert(dsc2->lvTracked);
-        // We should not be sorting after registers have been allocated
-        assert(!dsc1->lvRegister);
-        assert(!dsc2->lvRegister);
+            // We should not be sorting untracked variables
+            assert(dsc1->lvTracked);
+            assert(dsc2->lvTracked);
+            // We should not be sorting after registers have been allocated
+            assert(!dsc1->lvRegister);
+            assert(!dsc2->lvRegister);
 
-        weight_t weight1 = dsc1->lvRefCntWtd(m_rcs);
-        weight_t weight2 = dsc2->lvRefCntWtd(m_rcs);
+            weight_t weight1 = dsc1->lvRefCntWtd(m_rcs);
+            weight_t weight2 = dsc2->lvRefCntWtd(m_rcs);
 
 #ifndef TARGET_ARM
-        // ARM-TODO: this was disabled for ARM under !FEATURE_FP_REGALLOC; it was probably a left-over from
-        // legacy backend. It should be enabled and verified.
+            // ARM-TODO: this was disabled for ARM under !FEATURE_FP_REGALLOC; it was probably a left-over from
+            // legacy backend. It should be enabled and verified.
 
-        // Force integer candidates to sort above float candidates.
-        const bool isFloat1 = isFloatRegType(dsc1->lvType);
-        const bool isFloat2 = isFloatRegType(dsc2->lvType);
+            // Force integer candidates to sort above float candidates.
+            const bool isFloat1 = isFloatRegType(dsc1->lvType);
+            const bool isFloat2 = isFloatRegType(dsc2->lvType);
 
-        if (isFloat1 != isFloat2)
-        {
-            if (!Compiler::fgProfileWeightsEqual(weight2, 0) && isFloat1)
+            if (isFloat1 != isFloat2)
             {
-                return false;
-            }
+                if (!Compiler::fgProfileWeightsEqual(weight2, 0) && isFloat1)
+                {
+                    return false;
+                }
 
-            if (!Compiler::fgProfileWeightsEqual(weight1, 0) && isFloat2)
-            {
-                return true;
+                if (!Compiler::fgProfileWeightsEqual(weight1, 0) && isFloat2)
+                {
+                    return true;
+                }
             }
-        }
 #endif
 
-        if (!Compiler::fgProfileWeightsEqual(weight1, 0) && dsc1->lvIsRegArg)
-        {
-            weight1 += 2 * BB_UNITY_WEIGHT;
-        }
+            if (!Compiler::fgProfileWeightsEqual(weight1, 0) && dsc1->lvIsRegArg)
+            {
+                weight1 += 2 * BB_UNITY_WEIGHT;
+            }
 
-        if (!Compiler::fgProfileWeightsEqual(weight2, 0) && dsc2->lvIsRegArg)
-        {
-            weight2 += 2 * BB_UNITY_WEIGHT;
-        }
+            if (!Compiler::fgProfileWeightsEqual(weight2, 0) && dsc2->lvIsRegArg)
+            {
+                weight2 += 2 * BB_UNITY_WEIGHT;
+            }
 
-        if (!Compiler::fgProfileWeightsEqual(weight1, weight2))
-        {
-            return weight1 > weight2;
-        }
+            if (!Compiler::fgProfileWeightsEqual(weight1, weight2))
+            {
+                return weight1 > weight2;
+            }
 
-        // If the weighted ref counts are different then try the unweighted ref counts.
-        if (dsc1->lvRefCnt(m_rcs) != dsc2->lvRefCnt(m_rcs))
-        {
-            return dsc1->lvRefCnt(m_rcs) > dsc2->lvRefCnt(m_rcs);
-        }
+            // If the weighted ref counts are different then try the unweighted ref counts.
+            if (dsc1->lvRefCnt(m_rcs) != dsc2->lvRefCnt(m_rcs))
+            {
+                return dsc1->lvRefCnt(m_rcs) > dsc2->lvRefCnt(m_rcs);
+            }
 
-        // If one is a GC type and the other is not the GC type wins.
-        if (varTypeIsGC(dsc1->TypeGet()) != varTypeIsGC(dsc2->TypeGet()))
-        {
-            return varTypeIsGC(dsc1->TypeGet());
-        }
+            // If one is a GC type and the other is not the GC type wins.
+            if (varTypeIsGC(dsc1->TypeGet()) != varTypeIsGC(dsc2->TypeGet()))
+            {
+                return varTypeIsGC(dsc1->TypeGet());
+            }
 
-        // To achieve a stable sort we use the LclNum (by way of the pointer address).
-        return dsc1 < dsc2;
-    }
+            // To achieve a stable sort we use the LclNum (by way of the pointer address).
+            return dsc1 < dsc2;
+        }
 };
 
 /*****************************************************************************
@@ -4028,7 +4030,7 @@ size_t LclVarDsc::lvArgStackSize() const
         }
 #endif // defined(TARGET_ARM64) || defined(TARGET_LOONGARCH64) || defined(TARGET_RISCV64)
 
-#else // !TARGET_ARM64 !WINDOWS_AMD64_ABI !UNIX_AMD64_ABI !TARGET_LOONGARCH64 !TARGET_RISCV64
+#else  // !TARGET_ARM64 !WINDOWS_AMD64_ABI !UNIX_AMD64_ABI !TARGET_LOONGARCH64 !TARGET_RISCV64
 
         NYI("Unsupported target.");
         unreached();
@@ -4411,29 +4413,31 @@ void Compiler::lvaMarkLocalVars(BasicBlock* block, bool isRecompute)
 {
     class MarkLocalVarsVisitor final : public GenTreeVisitor<MarkLocalVarsVisitor>
     {
-    private:
-        BasicBlock* m_block;
-        Statement*  m_stmt;
-        bool        m_isRecompute;
+        private:
+            BasicBlock* m_block;
+            Statement*  m_stmt;
+            bool        m_isRecompute;
 
-    public:
-        enum
-        {
-            DoPreOrder = true,
-        };
+        public:
+            enum {
+                DoPreOrder = true,
+            };
 
-        MarkLocalVarsVisitor(Compiler* compiler, BasicBlock* block, Statement* stmt, bool isRecompute)
-            : GenTreeVisitor<MarkLocalVarsVisitor>(compiler), m_block(block), m_stmt(stmt), m_isRecompute(isRecompute)
-        {
-        }
+            MarkLocalVarsVisitor(Compiler* compiler, BasicBlock* block, Statement* stmt, bool isRecompute)
+                : GenTreeVisitor<MarkLocalVarsVisitor>(compiler)
+                , m_block(block)
+                , m_stmt(stmt)
+                , m_isRecompute(isRecompute)
+            {
+            }
 
-        Compiler::fgWalkResult PreOrderVisit(GenTree** use, GenTree* user)
-        {
-            // TODO: Stop passing isRecompute once we are sure that this assert is never hit.
-            assert(!m_isRecompute);
-            m_compiler->lvaMarkLclRefs(*use, m_block, m_stmt, m_isRecompute);
-            return WALK_CONTINUE;
-        }
+            Compiler::fgWalkResult PreOrderVisit(GenTree** use, GenTree* user)
+            {
+                // TODO: Stop passing isRecompute once we are sure that this assert is never hit.
+                assert(!m_isRecompute);
+                m_compiler->lvaMarkLclRefs(*use, m_block, m_stmt, m_isRecompute);
+                return WALK_CONTINUE;
+            }
     };
 
     JITDUMP("\n*** %s local variables in block " FMT_BB " (weight=%s)\n", isRecompute ? "recomputing" : "marking",
@@ -6040,34 +6044,35 @@ int Compiler::lvaAssignVirtualFrameOffsetToArg(unsigned    lclNum,
 
                 case TYP_DOUBLE:
                 case TYP_LONG:
-                {
-                    //
-                    // Let's assign offsets to arg1, a double in r2. argOffs has to be 4 not 8.
-                    //
-                    // ------- CALLER SP -------
-                    // r3
-                    // r2 double   -- argOffs = 4, but it doesn't need to be skipped, because there is no skipping.
-                    // r1 VACookie -- argOffs = 0
-                    // -------------------------
-                    //
-                    // Consider argOffs as if it accounts for number of prespilled registers before the current
-                    // register. In the above example, for r2, it is r1 that is prespilled, but since r1 is
-                    // accounted for by argOffs being 4, there should have been no skipping. Instead, if we didn't
-                    // assign r1 to any variable, then argOffs would still be 0 which implies it is not accounting
-                    // for r1, equivalently r1 is skipped.
-                    //
-                    // If prevRegsSize is unaccounted for by a corresponding argOffs, we must have skipped a register.
-                    int prevRegsSize =
-                        genCountBits(codeGen->regSet.rsMaskPreSpillRegArg & (regMask - 1)) * TARGET_POINTER_SIZE;
-                    if (argOffs < prevRegsSize)
                     {
-                        // We must align up the argOffset to a multiple of 8 to account for skipped registers.
-                        argOffs = roundUp((unsigned)argOffs, 2 * TARGET_POINTER_SIZE);
+                        //
+                        // Let's assign offsets to arg1, a double in r2. argOffs has to be 4 not 8.
+                        //
+                        // ------- CALLER SP -------
+                        // r3
+                        // r2 double   -- argOffs = 4, but it doesn't need to be skipped, because there is no skipping.
+                        // r1 VACookie -- argOffs = 0
+                        // -------------------------
+                        //
+                        // Consider argOffs as if it accounts for number of prespilled registers before the current
+                        // register. In the above example, for r2, it is r1 that is prespilled, but since r1 is
+                        // accounted for by argOffs being 4, there should have been no skipping. Instead, if we didn't
+                        // assign r1 to any variable, then argOffs would still be 0 which implies it is not accounting
+                        // for r1, equivalently r1 is skipped.
+                        //
+                        // If prevRegsSize is unaccounted for by a corresponding argOffs, we must have skipped a
+                        // register.
+                        int prevRegsSize =
+                            genCountBits(codeGen->regSet.rsMaskPreSpillRegArg & (regMask - 1)) * TARGET_POINTER_SIZE;
+                        if (argOffs < prevRegsSize)
+                        {
+                            // We must align up the argOffset to a multiple of 8 to account for skipped registers.
+                            argOffs = roundUp((unsigned)argOffs, 2 * TARGET_POINTER_SIZE);
+                        }
+                        // We should've skipped only a single register.
+                        assert(argOffs == prevRegsSize);
                     }
-                    // We should've skipped only a single register.
-                    assert(argOffs == prevRegsSize);
-                }
-                break;
+                    break;
 
                 default:
                     // No alignment of argOffs required
@@ -6087,7 +6092,7 @@ int Compiler::lvaAssignVirtualFrameOffsetToArg(unsigned    lclNum,
             argOffs += TARGET_POINTER_SIZE;
         }
 
-#else // TARGET*
+#else  // TARGET*
 #error Unsupported or unset target architecture
 #endif // TARGET*
     }
@@ -6286,7 +6291,7 @@ void Compiler::lvaAssignVirtualFrameOffsetsToLocals()
     {
         codeGen->SetSaveFpLrWithAllCalleeSavedRegisters(true); // Force using new frames
     }
-#endif // TARGET_ARM64
+#endif                                                         // TARGET_ARM64
 
 #ifdef TARGET_XARCH
     // On x86/amd64, the return address has already been pushed by the call instruction in the caller.
@@ -6629,8 +6634,7 @@ void Compiler::lvaAssignVirtualFrameOffsetsToLocals()
             non-pointer temps
      */
 
-    enum Allocation
-    {
+    enum Allocation {
         ALLOC_NON_PTRS                 = 0x1, // assign offsets to non-ptr
         ALLOC_PTRS                     = 0x2, // Second pass, assign offsets to tracked ptrs
         ALLOC_UNSAFE_BUFFERS           = 0x4,
@@ -6927,7 +6931,7 @@ void Compiler::lvaAssignVirtualFrameOffsetsToLocals()
 
             /* Need to align the offset? */
 
-            if (mustDoubleAlign && (varDsc->lvType == TYP_DOUBLE // Align doubles for ARM and x86
+            if (mustDoubleAlign && (varDsc->lvType == TYP_DOUBLE  // Align doubles for ARM and x86
 #ifdef TARGET_ARM
                                     || varDsc->lvType == TYP_LONG // Align longs for ARM
 #endif
@@ -7131,7 +7135,7 @@ void Compiler::lvaAssignVirtualFrameOffsetsToLocals()
     {
         pushedCount += 1; // pushed EBP (frame pointer)
     }
-    pushedCount += 1; // pushed PC (return address)
+    pushedCount += 1;     // pushed PC (return address)
 #endif
 
     noway_assert(compLclFrameSize + originalFrameSize ==
@@ -7902,7 +7906,7 @@ void Compiler::lvaTableDump(FrameLayoutState curState)
 
     // Figure out some sizes, to help line things up
 
-    size_t refCntWtdWidth = 6; // Use 6 as the minimum width
+    size_t refCntWtdWidth = 6;            // Use 6 as the minimum width
 
     if (curState != INITIAL_FRAME_LAYOUT) // don't need this info for INITIAL_FRAME_LAYOUT
     {

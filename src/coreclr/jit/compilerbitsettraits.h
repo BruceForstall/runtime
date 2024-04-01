@@ -19,11 +19,11 @@
 //
 class CompAllocBitSetTraits
 {
-public:
-    static inline void* Alloc(Compiler* comp, size_t byteSize);
+    public:
+        static inline void* Alloc(Compiler* comp, size_t byteSize);
 
 #ifdef DEBUG
-    static inline void* DebugAlloc(Compiler* comp, size_t byteSize);
+        static inline void* DebugAlloc(Compiler* comp, size_t byteSize);
 #endif // DEBUG
 };
 
@@ -37,14 +37,14 @@ public:
 //
 class TrackedVarBitSetTraits : public CompAllocBitSetTraits
 {
-public:
-    static inline unsigned GetSize(Compiler* comp);
+    public:
+        static inline unsigned GetSize(Compiler* comp);
 
-    static inline unsigned GetArrSize(Compiler* comp);
+        static inline unsigned GetArrSize(Compiler* comp);
 
-    static inline unsigned GetEpoch(class Compiler* comp);
+        static inline unsigned GetEpoch(class Compiler* comp);
 
-    static inline BitSetSupport::BitSetOpCounter* GetOpCounter(Compiler* comp);
+        static inline BitSetSupport::BitSetOpCounter* GetOpCounter(Compiler* comp);
 };
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -59,14 +59,14 @@ public:
 //
 class AllVarBitSetTraits : public CompAllocBitSetTraits
 {
-public:
-    static inline unsigned GetSize(Compiler* comp);
+    public:
+        static inline unsigned GetSize(Compiler* comp);
 
-    static inline unsigned GetArrSize(Compiler* comp);
+        static inline unsigned GetArrSize(Compiler* comp);
 
-    static inline unsigned GetEpoch(class Compiler* comp);
+        static inline unsigned GetEpoch(class Compiler* comp);
 
-    static inline BitSetSupport::BitSetOpCounter* GetOpCounter(Compiler* comp);
+        static inline BitSetSupport::BitSetOpCounter* GetOpCounter(Compiler* comp);
 };
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -83,14 +83,14 @@ public:
 //
 class BasicBlockBitSetTraits : public CompAllocBitSetTraits
 {
-public:
-    static inline unsigned GetSize(Compiler* comp);
+    public:
+        static inline unsigned GetSize(Compiler* comp);
 
-    static inline unsigned GetArrSize(Compiler* comp);
+        static inline unsigned GetArrSize(Compiler* comp);
 
-    static inline unsigned GetEpoch(class Compiler* comp);
+        static inline unsigned GetEpoch(class Compiler* comp);
 
-    static inline BitSetSupport::BitSetOpCounter* GetOpCounter(Compiler* comp);
+        static inline BitSetSupport::BitSetOpCounter* GetOpCounter(Compiler* comp);
 };
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -101,31 +101,33 @@ public:
 //
 struct BitVecTraits
 {
-private:
-    unsigned  size;
-    unsigned  arraySize; // pre-computed to avoid computation in GetArrSize
-    Compiler* comp;
+    private:
+        unsigned  size;
+        unsigned  arraySize; // pre-computed to avoid computation in GetArrSize
+        Compiler* comp;
 
-public:
-    BitVecTraits(unsigned size, Compiler* comp) : size(size), comp(comp)
-    {
-        const unsigned elemBits = 8 * sizeof(size_t);
-        arraySize               = roundUp(size, elemBits) / elemBits;
-    }
+    public:
+        BitVecTraits(unsigned size, Compiler* comp)
+            : size(size)
+            , comp(comp)
+        {
+            const unsigned elemBits = 8 * sizeof(size_t);
+            arraySize               = roundUp(size, elemBits) / elemBits;
+        }
 
-    static inline void* Alloc(BitVecTraits* b, size_t byteSize);
+        static inline void* Alloc(BitVecTraits* b, size_t byteSize);
 
 #ifdef DEBUG
-    static inline void* DebugAlloc(BitVecTraits* b, size_t byteSize);
+        static inline void* DebugAlloc(BitVecTraits* b, size_t byteSize);
 #endif // DEBUG
 
-    static inline unsigned GetSize(BitVecTraits* b);
+        static inline unsigned GetSize(BitVecTraits* b);
 
-    static inline unsigned GetArrSize(BitVecTraits* b);
+        static inline unsigned GetArrSize(BitVecTraits* b);
 
-    static inline unsigned GetEpoch(BitVecTraits* b);
+        static inline unsigned GetEpoch(BitVecTraits* b);
 
-    static inline BitSetSupport::BitSetOpCounter* GetOpCounter(BitVecTraits* b);
+        static inline BitSetSupport::BitSetOpCounter* GetOpCounter(BitVecTraits* b);
 };
 
 #endif // CompilerBitSetTraits_DEFINED

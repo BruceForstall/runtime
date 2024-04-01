@@ -27,8 +27,7 @@ void JitMetadata::report(Compiler* comp, const char* key, const void* data, size
 //   key   - The key
 //   value - Value to report back
 //
-template <typename T>
-static void reportValue(Compiler* comp, const char* key, T value)
+template <typename T> static void reportValue(Compiler* comp, const char* key, T value)
 {
     JitMetadata::report(comp, key, &value, sizeof(value));
 }

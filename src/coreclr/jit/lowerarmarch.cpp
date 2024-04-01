@@ -1088,8 +1088,7 @@ void Lowering::LowerHWIntrinsicFusedMultiplyAddScalar(GenTreeHWIntrinsic* node)
     GenTree* op2 = node->Op(2);
     GenTree* op3 = node->Op(3);
 
-    auto lowerOperand = [this](GenTree* op)
-    {
+    auto lowerOperand = [this](GenTree* op) {
         bool wasNegated = false;
 
         if (op->OperIsHWIntrinsic() &&
@@ -1154,54 +1153,54 @@ GenTree* Lowering::LowerHWIntrinsic(GenTreeHWIntrinsic* node)
         case NI_Vector128_Create:
         case NI_Vector64_CreateScalar:
         case NI_Vector128_CreateScalar:
-        {
-            // We don't directly support the Vector64.Create or Vector128.Create methods in codegen
-            // and instead lower them to other intrinsic nodes in LowerHWIntrinsicCreate so we expect
-            // that the node is modified to either not be a HWIntrinsic node or that it is no longer
-            // the same intrinsic as when it came in.
+            {
+                // We don't directly support the Vector64.Create or Vector128.Create methods in codegen
+                // and instead lower them to other intrinsic nodes in LowerHWIntrinsicCreate so we expect
+                // that the node is modified to either not be a HWIntrinsic node or that it is no longer
+                // the same intrinsic as when it came in.
 
-            return LowerHWIntrinsicCreate(node);
-        }
+                return LowerHWIntrinsicCreate(node);
+            }
 
         case NI_Vector64_Dot:
         case NI_Vector128_Dot:
-        {
-            return LowerHWIntrinsicDot(node);
-        }
+            {
+                return LowerHWIntrinsicDot(node);
+            }
 
         case NI_Vector64_op_Equality:
         case NI_Vector128_op_Equality:
-        {
-            return LowerHWIntrinsicCmpOp(node, GT_EQ);
-        }
+            {
+                return LowerHWIntrinsicCmpOp(node, GT_EQ);
+            }
 
         case NI_Vector64_op_Inequality:
         case NI_Vector128_op_Inequality:
-        {
-            return LowerHWIntrinsicCmpOp(node, GT_NE);
-        }
+            {
+                return LowerHWIntrinsicCmpOp(node, GT_NE);
+            }
 
         case NI_Vector128_WithLower:
         case NI_Vector128_WithUpper:
-        {
-            // Converts to equivalent managed code:
-            //   AdvSimd.InsertScalar(vector.AsUInt64(), 0, value.AsUInt64()).As<ulong, T>();
-            // -or-
-            //   AdvSimd.InsertScalar(vector.AsUInt64(), 1, value.AsUInt64()).As<ulong, T>();
+            {
+                // Converts to equivalent managed code:
+                //   AdvSimd.InsertScalar(vector.AsUInt64(), 0, value.AsUInt64()).As<ulong, T>();
+                // -or-
+                //   AdvSimd.InsertScalar(vector.AsUInt64(), 1, value.AsUInt64()).As<ulong, T>();
 
-            int index = (intrinsicId == NI_Vector128_WithUpper) ? 1 : 0;
+                int index = (intrinsicId == NI_Vector128_WithUpper) ? 1 : 0;
 
-            GenTree* op1 = node->Op(1);
-            GenTree* op2 = node->Op(2);
+                GenTree* op1 = node->Op(1);
+                GenTree* op2 = node->Op(2);
 
-            GenTree* op3 = comp->gtNewIconNode(index);
-            BlockRange().InsertBefore(node, op3);
-            LowerNode(op3);
+                GenTree* op3 = comp->gtNewIconNode(index);
+                BlockRange().InsertBefore(node, op3);
+                LowerNode(op3);
 
-            node->SetSimdBaseJitType(CORINFO_TYPE_ULONG);
-            node->ResetHWIntrinsicId(NI_AdvSimd_InsertScalar, comp, op1, op3, op2);
-            break;
-        }
+                node->SetSimdBaseJitType(CORINFO_TYPE_ULONG);
+                node->ResetHWIntrinsicId(NI_AdvSimd_InsertScalar, comp, op1, op3, op2);
+                break;
+            }
 
         case NI_AdvSimd_FusedMultiplyAddScalar:
             LowerHWIntrinsicFusedMultiplyAddScalar(node);
@@ -1390,23 +1389,23 @@ GenTree* Lowering::LowerHWIntrinsicCmpOp(GenTreeHWIntrinsic* node, genTreeOps cm
         case TYP_INT:
         case TYP_UINT:
         case TYP_FLOAT:
-        {
-            cmpIntrinsic = NI_AdvSimd_CompareEqual;
-            break;
-        }
+            {
+                cmpIntrinsic = NI_AdvSimd_CompareEqual;
+                break;
+            }
 
         case TYP_LONG:
         case TYP_ULONG:
         case TYP_DOUBLE:
-        {
-            cmpIntrinsic = (simdSize == 8) ? NI_AdvSimd_Arm64_CompareEqualScalar : NI_AdvSimd_Arm64_CompareEqual;
-            break;
-        }
+            {
+                cmpIntrinsic = (simdSize == 8) ? NI_AdvSimd_Arm64_CompareEqualScalar : NI_AdvSimd_Arm64_CompareEqual;
+                break;
+            }
 
         default:
-        {
-            unreached();
-        }
+            {
+                unreached();
+            }
     }
 
     GenTree* cmp = comp->gtNewSimdHWIntrinsicNode(simdType, op1, op2, cmpIntrinsic, simdBaseJitType, simdSize);
@@ -3115,25 +3114,25 @@ void Lowering::ContainCheckHWIntrinsic(GenTreeHWIntrinsic* node)
             case NI_AdvSimd_CompareEqual:
             case NI_AdvSimd_Arm64_CompareEqual:
             case NI_AdvSimd_Arm64_CompareEqualScalar:
-            {
-                if (intrin.op1->IsVectorZero())
                 {
-                    GenTree* op1 = intrin.op1;
-                    GenTree* op2 = intrin.op2;
+                    if (intrin.op1->IsVectorZero())
+                    {
+                        GenTree* op1 = intrin.op1;
+                        GenTree* op2 = intrin.op2;
 
-                    assert(HWIntrinsicInfo::IsCommutative(intrin.id));
-                    MakeSrcContained(node, op1);
+                        assert(HWIntrinsicInfo::IsCommutative(intrin.id));
+                        MakeSrcContained(node, op1);
 
-                    // Swap the operands here to make the containment checks in codegen simpler
-                    node->Op(1) = op2;
-                    node->Op(2) = op1;
+                        // Swap the operands here to make the containment checks in codegen simpler
+                        node->Op(1) = op2;
+                        node->Op(2) = op1;
+                    }
+                    else if (intrin.op2->IsVectorZero())
+                    {
+                        MakeSrcContained(node, intrin.op2);
+                    }
+                    break;
                 }
-                else if (intrin.op2->IsVectorZero())
-                {
-                    MakeSrcContained(node, intrin.op2);
-                }
-                break;
-            }
 
             case NI_AdvSimd_CompareGreaterThan:
             case NI_AdvSimd_CompareGreaterThanOrEqual:
@@ -3141,17 +3140,17 @@ void Lowering::ContainCheckHWIntrinsic(GenTreeHWIntrinsic* node)
             case NI_AdvSimd_Arm64_CompareGreaterThanOrEqual:
             case NI_AdvSimd_Arm64_CompareGreaterThanScalar:
             case NI_AdvSimd_Arm64_CompareGreaterThanOrEqualScalar:
-            {
-                // Containment is not supported for unsigned base types as the corresponding instructions:
-                //    - cmhi
-                //    - cmhs
-                // require both operands; they do not have a 'with zero'.
-                if (intrin.op2->IsVectorZero() && !varTypeIsUnsigned(intrin.baseType))
                 {
-                    MakeSrcContained(node, intrin.op2);
+                    // Containment is not supported for unsigned base types as the corresponding instructions:
+                    //    - cmhi
+                    //    - cmhs
+                    // require both operands; they do not have a 'with zero'.
+                    if (intrin.op2->IsVectorZero() && !varTypeIsUnsigned(intrin.baseType))
+                    {
+                        MakeSrcContained(node, intrin.op2);
+                    }
+                    break;
                 }
-                break;
-            }
 
             case NI_Vector64_CreateScalarUnsafe:
             case NI_Vector128_CreateScalarUnsafe:
@@ -3167,26 +3166,26 @@ void Lowering::ContainCheckHWIntrinsic(GenTreeHWIntrinsic* node)
 
             case NI_Vector64_GetElement:
             case NI_Vector128_GetElement:
-            {
-                assert(hasImmediateOperand);
-                assert(varTypeIsIntegral(intrin.op2));
-
-                if (intrin.op2->IsCnsIntOrI())
                 {
-                    MakeSrcContained(node, intrin.op2);
-                }
+                    assert(hasImmediateOperand);
+                    assert(varTypeIsIntegral(intrin.op2));
 
-                if (IsContainableMemoryOp(intrin.op1))
-                {
-                    MakeSrcContained(node, intrin.op1);
-
-                    if (intrin.op1->OperIs(GT_IND))
+                    if (intrin.op2->IsCnsIntOrI())
                     {
-                        intrin.op1->AsIndir()->Addr()->ClearContained();
+                        MakeSrcContained(node, intrin.op2);
                     }
+
+                    if (IsContainableMemoryOp(intrin.op1))
+                    {
+                        MakeSrcContained(node, intrin.op1);
+
+                        if (intrin.op1->OperIs(GT_IND))
+                        {
+                            intrin.op1->AsIndir()->Addr()->ClearContained();
+                        }
+                    }
+                    break;
                 }
-                break;
-            }
 
             case NI_Sve_CreateTrueMaskByte:
             case NI_Sve_CreateTrueMaskDouble:

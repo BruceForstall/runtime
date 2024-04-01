@@ -247,67 +247,67 @@ void CodeGen::genSetRegToConst(regNumber targetReg, var_types targetType, GenTre
     switch (tree->gtOper)
     {
         case GT_CNS_INT:
-        {
-            // relocatable values tend to come down as a CNS_INT of native int type
-            // so the line between these two opcodes is kind of blurry
-            GenTreeIntConCommon* con    = tree->AsIntConCommon();
-            ssize_t              cnsVal = con->IconValue();
-
-            emitAttr attr = emitActualTypeSize(targetType);
-
-            // TODO-CQ: Currently we cannot do this for all handles because of
-            // https://github.com/dotnet/runtime/issues/60712
-            if (con->ImmedValNeedsReloc(compiler))
             {
-                attr = EA_SET_FLG(attr, EA_CNS_RELOC_FLG);
-            }
+                // relocatable values tend to come down as a CNS_INT of native int type
+                // so the line between these two opcodes is kind of blurry
+                GenTreeIntConCommon* con    = tree->AsIntConCommon();
+                ssize_t              cnsVal = con->IconValue();
 
-            if (targetType == TYP_BYREF)
-            {
-                attr = EA_SET_FLG(attr, EA_BYREF_FLG);
-            }
+                emitAttr attr = emitActualTypeSize(targetType);
 
-            instGen_Set_Reg_To_Imm(attr, targetReg, cnsVal);
-            regSet.verifyRegUsed(targetReg);
-        }
-        break;
+                // TODO-CQ: Currently we cannot do this for all handles because of
+                // https://github.com/dotnet/runtime/issues/60712
+                if (con->ImmedValNeedsReloc(compiler))
+                {
+                    attr = EA_SET_FLG(attr, EA_CNS_RELOC_FLG);
+                }
+
+                if (targetType == TYP_BYREF)
+                {
+                    attr = EA_SET_FLG(attr, EA_BYREF_FLG);
+                }
+
+                instGen_Set_Reg_To_Imm(attr, targetReg, cnsVal);
+                regSet.verifyRegUsed(targetReg);
+            }
+            break;
 
         case GT_CNS_DBL:
-        {
-            GenTreeDblCon* dblConst   = tree->AsDblCon();
-            double         constValue = dblConst->AsDblCon()->DconValue();
-            // TODO-ARM-CQ: Do we have a faster/smaller way to generate 0.0 in thumb2 ISA ?
-            if (targetType == TYP_FLOAT)
             {
-                // Get a temp integer register
-                regNumber tmpReg = tree->GetSingleTempReg();
+                GenTreeDblCon* dblConst   = tree->AsDblCon();
+                double         constValue = dblConst->AsDblCon()->DconValue();
+                // TODO-ARM-CQ: Do we have a faster/smaller way to generate 0.0 in thumb2 ISA ?
+                if (targetType == TYP_FLOAT)
+                {
+                    // Get a temp integer register
+                    regNumber tmpReg = tree->GetSingleTempReg();
 
-                float f = forceCastToFloat(constValue);
-                instGen_Set_Reg_To_Imm(EA_4BYTE, tmpReg, *((int*)(&f)));
-                GetEmitter()->emitIns_Mov(INS_vmov_i2f, EA_4BYTE, targetReg, tmpReg, /* canSkip */ false);
+                    float f = forceCastToFloat(constValue);
+                    instGen_Set_Reg_To_Imm(EA_4BYTE, tmpReg, *((int*)(&f)));
+                    GetEmitter()->emitIns_Mov(INS_vmov_i2f, EA_4BYTE, targetReg, tmpReg, /* canSkip */ false);
+                }
+                else
+                {
+                    assert(targetType == TYP_DOUBLE);
+
+                    unsigned* cv = (unsigned*)&constValue;
+
+                    // Get two temp integer registers
+                    regNumber tmpReg1 = tree->ExtractTempReg();
+                    regNumber tmpReg2 = tree->GetSingleTempReg();
+
+                    instGen_Set_Reg_To_Imm(EA_4BYTE, tmpReg1, cv[0]);
+                    instGen_Set_Reg_To_Imm(EA_4BYTE, tmpReg2, cv[1]);
+
+                    GetEmitter()->emitIns_R_R_R(INS_vmov_i2d, EA_8BYTE, targetReg, tmpReg1, tmpReg2);
+                }
             }
-            else
-            {
-                assert(targetType == TYP_DOUBLE);
-
-                unsigned* cv = (unsigned*)&constValue;
-
-                // Get two temp integer registers
-                regNumber tmpReg1 = tree->ExtractTempReg();
-                regNumber tmpReg2 = tree->GetSingleTempReg();
-
-                instGen_Set_Reg_To_Imm(EA_4BYTE, tmpReg1, cv[0]);
-                instGen_Set_Reg_To_Imm(EA_4BYTE, tmpReg2, cv[1]);
-
-                GetEmitter()->emitIns_R_R_R(INS_vmov_i2d, EA_8BYTE, targetReg, tmpReg1, tmpReg2);
-            }
-        }
-        break;
+            break;
 
         case GT_CNS_VEC:
-        {
-            unreached();
-        }
+            {
+                unreached();
+            }
 
         default:
             unreached();
@@ -401,7 +401,7 @@ void CodeGen::genLclHeap(GenTree* tree)
     regNumber            regTmp                   = REG_NA;
     const target_ssize_t ILLEGAL_LAST_TOUCH_DELTA = (target_ssize_t)-1;
     target_ssize_t       lastTouchDelta =
-        ILLEGAL_LAST_TOUCH_DELTA; // The number of bytes from SP to the last stack address probed.
+        ILLEGAL_LAST_TOUCH_DELTA;       // The number of bytes from SP to the last stack address probed.
 
     noway_assert(isFramePointerUsed()); // localloc requires Frame Pointer to be established since SP changes
     noway_assert(genStackLevel == 0);   // Can't have anything on the stack
@@ -1931,7 +1931,7 @@ void CodeGen::genPushFltRegs(regMaskTP regMask)
     // regMask should be contiguously set
     regMaskTP tmpMask = ((regMask >> lowReg) + 1); // tmpMask should have a single bit set
     assert((tmpMask & (tmpMask - 1)) == 0);
-    assert(lowReg == REG_F16); // Currently we expect to start at F16 in the unwind codes
+    assert(lowReg == REG_F16);                     // Currently we expect to start at F16 in the unwind codes
 
     // Our calling convention requires that we only use vpush for TYP_DOUBLE registers
     noway_assert(floatRegCanHoldType(lowReg, TYP_DOUBLE));

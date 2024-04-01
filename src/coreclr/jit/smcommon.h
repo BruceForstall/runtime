@@ -23,20 +23,20 @@ static_assert_no_msg(SM_STATE_ID_START == 1); // Make sure nobody changes it. We
 
 struct JumpTableCell
 {
-    SM_STATE_ID srcState;
-    SM_STATE_ID destState;
+        SM_STATE_ID srcState;
+        SM_STATE_ID destState;
 };
 
 struct SMState
 {
-    bool        term;             // does this state terminate a code sequence?
-    BYTE        length;           // the length of currently matched opcodes
-    SM_STATE_ID longestTermState; // the ID of the longest matched terminate state
+        bool        term;             // does this state terminate a code sequence?
+        BYTE        length;           // the length of currently matched opcodes
+        SM_STATE_ID longestTermState; // the ID of the longest matched terminate state
 
-    SM_STATE_ID prevState; // previous state
-    SM_OPCODE   opc;       // opcode that leads from the previous state to current state
+        SM_STATE_ID prevState;        // previous state
+        SM_OPCODE   opc;              // opcode that leads from the previous state to current state
 
-    unsigned short jumpTableByteOffset;
+        unsigned short jumpTableByteOffset;
 };
 
 //
@@ -44,6 +44,6 @@ struct SMState
 //
 
 #define MAX_CODE_SEQUENCE_LENGTH 7
-#define CODE_SEQUENCE_END ((SM_OPCODE)(SM_COUNT + 1))
+#define CODE_SEQUENCE_END        ((SM_OPCODE)(SM_COUNT + 1))
 
 #endif /* __sm_common_h__ */

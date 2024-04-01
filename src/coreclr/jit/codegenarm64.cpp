@@ -59,144 +59,150 @@ void CodeGen::genPopCalleeSavedRegistersAndFreeLclFrame(bool jmpEpilog)
     switch (frameType)
     {
         case 1:
-        {
-            JITDUMP("Frame type 1. #outsz=0; #framesz=%d; localloc? %s\n", totalFrameSize,
-                    dspBool(compiler->compLocallocUsed));
-
-            if (compiler->compLocallocUsed)
             {
-                // Restore sp from fp
-                //      mov sp, fp
-                inst_Mov(TYP_I_IMPL, REG_SPBASE, REG_FPBASE, /* canSkip */ false);
-                compiler->unwindSetFrameReg(REG_FPBASE, 0);
-            }
+                JITDUMP("Frame type 1. #outsz=0; #framesz=%d; localloc? %s\n", totalFrameSize,
+                        dspBool(compiler->compLocallocUsed));
 
-            regsToRestoreMask &= ~(RBM_FP | RBM_LR); // We'll restore FP/LR at the end, and post-index SP.
-            break;
-        }
-
-        case 2:
-        {
-            JITDUMP("Frame type 2 (save FP/LR at bottom). #outsz=%d; #framesz=%d; localloc? %s\n",
-                    unsigned(compiler->lvaOutgoingArgSpaceSize), totalFrameSize, dspBool(compiler->compLocallocUsed));
-
-            assert(!genSaveFpLrWithAllCalleeSavedRegisters);
-
-            if (compiler->compLocallocUsed)
-            {
-                // Restore sp from fp
-                //      sub sp, fp, #outsz // Uses #outsz if FP/LR stored at bottom
-                int SPtoFPdelta = genSPtoFPdelta();
-                GetEmitter()->emitIns_R_R_I(INS_sub, EA_PTRSIZE, REG_SPBASE, REG_FPBASE, SPtoFPdelta);
-                compiler->unwindSetFrameReg(REG_FPBASE, SPtoFPdelta);
-            }
-
-            regsToRestoreMask &= ~(RBM_FP | RBM_LR); // We'll restore FP/LR at the end, and post-index SP.
-            break;
-        }
-
-        case 3:
-        {
-            JITDUMP("Frame type 3 (save FP/LR at bottom). #outsz=%d; #framesz=%d; localloc? %s\n",
-                    unsigned(compiler->lvaOutgoingArgSpaceSize), totalFrameSize, dspBool(compiler->compLocallocUsed));
-
-            assert(!genSaveFpLrWithAllCalleeSavedRegisters);
-
-            JITDUMP("    calleeSaveSpDelta=%d\n", calleeSaveSpDelta);
-
-            regsToRestoreMask &= ~(RBM_FP | RBM_LR); // We'll restore FP/LR at the end, and (hopefully) post-index SP.
-
-            int remainingFrameSz = totalFrameSize - calleeSaveSpDelta;
-            assert(remainingFrameSz > 0);
-
-            if (compiler->lvaOutgoingArgSpaceSize > 504)
-            {
-                // We can't do "ldp fp,lr,[sp,#outsz]" because #outsz is too big.
-                // If compiler->lvaOutgoingArgSpaceSize is not aligned, we need to align the SP adjustment.
-                assert(remainingFrameSz > (int)compiler->lvaOutgoingArgSpaceSize);
-                int spAdjustment2Unaligned = remainingFrameSz - compiler->lvaOutgoingArgSpaceSize;
-                int spAdjustment2          = (int)roundUp((unsigned)spAdjustment2Unaligned, STACK_ALIGN);
-                int alignmentAdjustment2   = spAdjustment2 - spAdjustment2Unaligned;
-                assert((alignmentAdjustment2 == 0) || (alignmentAdjustment2 == REGSIZE_BYTES));
-
-                // Restore sp from fp. No need to update sp after this since we've set up fp before adjusting sp
-                // in prolog.
-                //      sub sp, fp, #alignmentAdjustment2
-                GetEmitter()->emitIns_R_R_I(INS_sub, EA_PTRSIZE, REG_SPBASE, REG_FPBASE, alignmentAdjustment2);
-                compiler->unwindSetFrameReg(REG_FPBASE, alignmentAdjustment2);
-
-                // Generate:
-                //      ldp fp,lr,[sp]
-                //      add sp,sp,#remainingFrameSz
-
-                JITDUMP("    alignmentAdjustment2=%d\n", alignmentAdjustment2);
-                genEpilogRestoreRegPair(REG_FP, REG_LR, alignmentAdjustment2, spAdjustment2, false, REG_IP1, nullptr);
-            }
-            else
-            {
                 if (compiler->compLocallocUsed)
                 {
-                    // Restore sp from fp; here that's #outsz from SP
-                    //      sub sp, fp, #outsz
+                    // Restore sp from fp
+                    //      mov sp, fp
+                    inst_Mov(TYP_I_IMPL, REG_SPBASE, REG_FPBASE, /* canSkip */ false);
+                    compiler->unwindSetFrameReg(REG_FPBASE, 0);
+                }
+
+                regsToRestoreMask &= ~(RBM_FP | RBM_LR); // We'll restore FP/LR at the end, and post-index SP.
+                break;
+            }
+
+        case 2:
+            {
+                JITDUMP("Frame type 2 (save FP/LR at bottom). #outsz=%d; #framesz=%d; localloc? %s\n",
+                        unsigned(compiler->lvaOutgoingArgSpaceSize), totalFrameSize,
+                        dspBool(compiler->compLocallocUsed));
+
+                assert(!genSaveFpLrWithAllCalleeSavedRegisters);
+
+                if (compiler->compLocallocUsed)
+                {
+                    // Restore sp from fp
+                    //      sub sp, fp, #outsz // Uses #outsz if FP/LR stored at bottom
                     int SPtoFPdelta = genSPtoFPdelta();
-                    assert(SPtoFPdelta == (int)compiler->lvaOutgoingArgSpaceSize);
                     GetEmitter()->emitIns_R_R_I(INS_sub, EA_PTRSIZE, REG_SPBASE, REG_FPBASE, SPtoFPdelta);
                     compiler->unwindSetFrameReg(REG_FPBASE, SPtoFPdelta);
                 }
 
-                // Generate:
-                //      ldp fp,lr,[sp,#outsz]
-                //      add sp,sp,#remainingFrameSz     ; might need to load this constant in a scratch register if
-                //                                      ; it's large
-
-                JITDUMP("    remainingFrameSz=%d\n", remainingFrameSz);
-
-                genEpilogRestoreRegPair(REG_FP, REG_LR, compiler->lvaOutgoingArgSpaceSize, remainingFrameSz, false,
-                                        REG_IP1, nullptr);
+                regsToRestoreMask &= ~(RBM_FP | RBM_LR); // We'll restore FP/LR at the end, and post-index SP.
+                break;
             }
 
-            // Unlike frameType=1 or frameType=2 that restore SP at the end,
-            // frameType=3 already adjusted SP above to delete local frame.
-            // There is at most one alignment slot between SP and where we store the callee-saved registers.
-            assert((calleeSaveSpOffset == 0) || (calleeSaveSpOffset == REGSIZE_BYTES));
+        case 3:
+            {
+                JITDUMP("Frame type 3 (save FP/LR at bottom). #outsz=%d; #framesz=%d; localloc? %s\n",
+                        unsigned(compiler->lvaOutgoingArgSpaceSize), totalFrameSize,
+                        dspBool(compiler->compLocallocUsed));
 
-            break;
-        }
+                assert(!genSaveFpLrWithAllCalleeSavedRegisters);
+
+                JITDUMP("    calleeSaveSpDelta=%d\n", calleeSaveSpDelta);
+
+                regsToRestoreMask &=
+                    ~(RBM_FP | RBM_LR); // We'll restore FP/LR at the end, and (hopefully) post-index SP.
+
+                int remainingFrameSz = totalFrameSize - calleeSaveSpDelta;
+                assert(remainingFrameSz > 0);
+
+                if (compiler->lvaOutgoingArgSpaceSize > 504)
+                {
+                    // We can't do "ldp fp,lr,[sp,#outsz]" because #outsz is too big.
+                    // If compiler->lvaOutgoingArgSpaceSize is not aligned, we need to align the SP adjustment.
+                    assert(remainingFrameSz > (int)compiler->lvaOutgoingArgSpaceSize);
+                    int spAdjustment2Unaligned = remainingFrameSz - compiler->lvaOutgoingArgSpaceSize;
+                    int spAdjustment2          = (int)roundUp((unsigned)spAdjustment2Unaligned, STACK_ALIGN);
+                    int alignmentAdjustment2   = spAdjustment2 - spAdjustment2Unaligned;
+                    assert((alignmentAdjustment2 == 0) || (alignmentAdjustment2 == REGSIZE_BYTES));
+
+                    // Restore sp from fp. No need to update sp after this since we've set up fp before adjusting sp
+                    // in prolog.
+                    //      sub sp, fp, #alignmentAdjustment2
+                    GetEmitter()->emitIns_R_R_I(INS_sub, EA_PTRSIZE, REG_SPBASE, REG_FPBASE, alignmentAdjustment2);
+                    compiler->unwindSetFrameReg(REG_FPBASE, alignmentAdjustment2);
+
+                    // Generate:
+                    //      ldp fp,lr,[sp]
+                    //      add sp,sp,#remainingFrameSz
+
+                    JITDUMP("    alignmentAdjustment2=%d\n", alignmentAdjustment2);
+                    genEpilogRestoreRegPair(REG_FP, REG_LR, alignmentAdjustment2, spAdjustment2, false, REG_IP1,
+                                            nullptr);
+                }
+                else
+                {
+                    if (compiler->compLocallocUsed)
+                    {
+                        // Restore sp from fp; here that's #outsz from SP
+                        //      sub sp, fp, #outsz
+                        int SPtoFPdelta = genSPtoFPdelta();
+                        assert(SPtoFPdelta == (int)compiler->lvaOutgoingArgSpaceSize);
+                        GetEmitter()->emitIns_R_R_I(INS_sub, EA_PTRSIZE, REG_SPBASE, REG_FPBASE, SPtoFPdelta);
+                        compiler->unwindSetFrameReg(REG_FPBASE, SPtoFPdelta);
+                    }
+
+                    // Generate:
+                    //      ldp fp,lr,[sp,#outsz]
+                    //      add sp,sp,#remainingFrameSz     ; might need to load this constant in a scratch register if
+                    //                                      ; it's large
+
+                    JITDUMP("    remainingFrameSz=%d\n", remainingFrameSz);
+
+                    genEpilogRestoreRegPair(REG_FP, REG_LR, compiler->lvaOutgoingArgSpaceSize, remainingFrameSz, false,
+                                            REG_IP1, nullptr);
+                }
+
+                // Unlike frameType=1 or frameType=2 that restore SP at the end,
+                // frameType=3 already adjusted SP above to delete local frame.
+                // There is at most one alignment slot between SP and where we store the callee-saved registers.
+                assert((calleeSaveSpOffset == 0) || (calleeSaveSpOffset == REGSIZE_BYTES));
+
+                break;
+            }
 
         case 4:
-        {
-            JITDUMP("Frame type 4 (save FP/LR at top). #outsz=%d; #framesz=%d; localloc? %s\n",
-                    unsigned(compiler->lvaOutgoingArgSpaceSize), totalFrameSize, dspBool(compiler->compLocallocUsed));
-
-            assert(genSaveFpLrWithAllCalleeSavedRegisters);
-
-            if (compiler->compLocallocUsed)
             {
-                // Restore sp from fp
-                //      sub sp, fp, #outsz // Uses #outsz if FP/LR stored at bottom
-                int SPtoFPdelta = genSPtoFPdelta();
-                GetEmitter()->emitIns_R_R_I(INS_sub, EA_PTRSIZE, REG_SPBASE, REG_FPBASE, SPtoFPdelta);
-                compiler->unwindSetFrameReg(REG_FPBASE, SPtoFPdelta);
+                JITDUMP("Frame type 4 (save FP/LR at top). #outsz=%d; #framesz=%d; localloc? %s\n",
+                        unsigned(compiler->lvaOutgoingArgSpaceSize), totalFrameSize,
+                        dspBool(compiler->compLocallocUsed));
+
+                assert(genSaveFpLrWithAllCalleeSavedRegisters);
+
+                if (compiler->compLocallocUsed)
+                {
+                    // Restore sp from fp
+                    //      sub sp, fp, #outsz // Uses #outsz if FP/LR stored at bottom
+                    int SPtoFPdelta = genSPtoFPdelta();
+                    GetEmitter()->emitIns_R_R_I(INS_sub, EA_PTRSIZE, REG_SPBASE, REG_FPBASE, SPtoFPdelta);
+                    compiler->unwindSetFrameReg(REG_FPBASE, SPtoFPdelta);
+                }
+                break;
             }
-            break;
-        }
 
         case 5:
-        {
-            JITDUMP("Frame type 5 (save FP/LR at top). #outsz=%d; #framesz=%d; localloc? %s\n",
-                    unsigned(compiler->lvaOutgoingArgSpaceSize), totalFrameSize, dspBool(compiler->compLocallocUsed));
+            {
+                JITDUMP("Frame type 5 (save FP/LR at top). #outsz=%d; #framesz=%d; localloc? %s\n",
+                        unsigned(compiler->lvaOutgoingArgSpaceSize), totalFrameSize,
+                        dspBool(compiler->compLocallocUsed));
 
-            assert(genSaveFpLrWithAllCalleeSavedRegisters);
-            assert((calleeSaveSpOffset == 0) || (calleeSaveSpOffset == REGSIZE_BYTES));
+                assert(genSaveFpLrWithAllCalleeSavedRegisters);
+                assert((calleeSaveSpOffset == 0) || (calleeSaveSpOffset == REGSIZE_BYTES));
 
-            // Restore sp from fp:
-            //      sub sp, fp, #sp-to-fp-delta
-            // This is the same whether there is localloc or not. Note that we don't need to do anything to remove the
-            // "remainingFrameSz" to reverse the SUB of that amount in the prolog.
-            GetEmitter()->emitIns_R_R_I(INS_sub, EA_PTRSIZE, REG_SPBASE, REG_FPBASE, offsetSpToSavedFp);
-            compiler->unwindSetFrameReg(REG_FPBASE, offsetSpToSavedFp);
-            break;
-        }
+                // Restore sp from fp:
+                //      sub sp, fp, #sp-to-fp-delta
+                // This is the same whether there is localloc or not. Note that we don't need to do anything to remove
+                // the "remainingFrameSz" to reverse the SUB of that amount in the prolog.
+                GetEmitter()->emitIns_R_R_I(INS_sub, EA_PTRSIZE, REG_SPBASE, REG_FPBASE, offsetSpToSavedFp);
+                compiler->unwindSetFrameReg(REG_FPBASE, offsetSpToSavedFp);
+                break;
+            }
 
         default:
             unreached();
@@ -208,42 +214,42 @@ void CodeGen::genPopCalleeSavedRegistersAndFreeLclFrame(bool jmpEpilog)
     switch (frameType)
     {
         case 1:
-        {
-            // Generate:
-            //      ldp fp,lr,[sp],#framesz
+            {
+                // Generate:
+                //      ldp fp,lr,[sp],#framesz
 
-            GetEmitter()->emitIns_R_R_R_I(INS_ldp, EA_PTRSIZE, REG_FP, REG_LR, REG_SPBASE, totalFrameSize,
-                                          INS_OPTS_POST_INDEX);
-            compiler->unwindSaveRegPairPreindexed(REG_FP, REG_LR, -totalFrameSize);
-            break;
-        }
+                GetEmitter()->emitIns_R_R_R_I(INS_ldp, EA_PTRSIZE, REG_FP, REG_LR, REG_SPBASE, totalFrameSize,
+                                              INS_OPTS_POST_INDEX);
+                compiler->unwindSaveRegPairPreindexed(REG_FP, REG_LR, -totalFrameSize);
+                break;
+            }
 
         case 2:
-        {
-            // Generate:
-            //      ldp fp,lr,[sp,#outsz]
-            //      add sp,sp,#framesz
+            {
+                // Generate:
+                //      ldp fp,lr,[sp,#outsz]
+                //      add sp,sp,#framesz
 
-            GetEmitter()->emitIns_R_R_R_I(INS_ldp, EA_PTRSIZE, REG_FP, REG_LR, REG_SPBASE,
-                                          compiler->lvaOutgoingArgSpaceSize);
-            compiler->unwindSaveRegPair(REG_FP, REG_LR, compiler->lvaOutgoingArgSpaceSize);
+                GetEmitter()->emitIns_R_R_R_I(INS_ldp, EA_PTRSIZE, REG_FP, REG_LR, REG_SPBASE,
+                                              compiler->lvaOutgoingArgSpaceSize);
+                compiler->unwindSaveRegPair(REG_FP, REG_LR, compiler->lvaOutgoingArgSpaceSize);
 
-            GetEmitter()->emitIns_R_R_I(INS_add, EA_PTRSIZE, REG_SPBASE, REG_SPBASE, totalFrameSize);
-            compiler->unwindAllocStack(totalFrameSize);
-            break;
-        }
+                GetEmitter()->emitIns_R_R_I(INS_add, EA_PTRSIZE, REG_SPBASE, REG_SPBASE, totalFrameSize);
+                compiler->unwindAllocStack(totalFrameSize);
+                break;
+            }
         case 3:
         case 4:
         case 5:
-        {
-            // Nothing to do after restoring callee-saved registers.
-            break;
-        }
+            {
+                // Nothing to do after restoring callee-saved registers.
+                break;
+            }
 
         default:
-        {
-            unreached();
-        }
+            {
+                unreached();
+            }
     }
 
     // For OSR, we must also adjust the SP to remove the Tier0 frame.
@@ -1904,7 +1910,7 @@ void CodeGen::genCaptureFuncletPrologEpilogInfo()
                compiler->lvaGetCallerSPRelativeOffset(compiler->lvaPSPSym)); // same offset used in main function and
                                                                              // funclet!
     }
-#endif // DEBUG
+#endif                                                                       // DEBUG
 }
 
 void CodeGen::genSetPSPSym(regNumber initReg, bool* pInitRegZeroed)
@@ -2323,158 +2329,158 @@ void CodeGen::genSetRegToConst(regNumber targetReg, var_types targetType, GenTre
     switch (tree->gtOper)
     {
         case GT_CNS_INT:
-        {
-            GenTreeIntCon* con    = tree->AsIntCon();
-            ssize_t        cnsVal = con->IconValue();
-
-            emitAttr attr = emitActualTypeSize(targetType);
-            // TODO-CQ: Currently we cannot do this for all handles because of
-            // https://github.com/dotnet/runtime/issues/60712
-            if (con->ImmedValNeedsReloc(compiler))
             {
-                attr = EA_SET_FLG(attr, EA_CNS_RELOC_FLG);
-                if (tree->IsTlsIconHandle())
+                GenTreeIntCon* con    = tree->AsIntCon();
+                ssize_t        cnsVal = con->IconValue();
+
+                emitAttr attr = emitActualTypeSize(targetType);
+                // TODO-CQ: Currently we cannot do this for all handles because of
+                // https://github.com/dotnet/runtime/issues/60712
+                if (con->ImmedValNeedsReloc(compiler))
                 {
-                    // no need to generate because we generate it as part of GT_CALL
-                    break;
+                    attr = EA_SET_FLG(attr, EA_CNS_RELOC_FLG);
+                    if (tree->IsTlsIconHandle())
+                    {
+                        // no need to generate because we generate it as part of GT_CALL
+                        break;
+                    }
                 }
-            }
 
-            if (targetType == TYP_BYREF)
-            {
-                attr = EA_SET_FLG(attr, EA_BYREF_FLG);
-            }
+                if (targetType == TYP_BYREF)
+                {
+                    attr = EA_SET_FLG(attr, EA_BYREF_FLG);
+                }
 
-            instGen_Set_Reg_To_Imm(attr, targetReg, cnsVal,
-                                   INS_FLAGS_DONT_CARE DEBUGARG(con->gtTargetHandle) DEBUGARG(con->gtFlags));
-            regSet.verifyRegUsed(targetReg);
-        }
-        break;
+                instGen_Set_Reg_To_Imm(attr, targetReg, cnsVal,
+                                       INS_FLAGS_DONT_CARE DEBUGARG(con->gtTargetHandle) DEBUGARG(con->gtFlags));
+                regSet.verifyRegUsed(targetReg);
+            }
+            break;
 
         case GT_CNS_DBL:
-        {
-            emitter* emit       = GetEmitter();
-            emitAttr size       = emitActualTypeSize(tree);
-            double   constValue = tree->AsDblCon()->DconValue();
+            {
+                emitter* emit       = GetEmitter();
+                emitAttr size       = emitActualTypeSize(tree);
+                double   constValue = tree->AsDblCon()->DconValue();
 
-            // Make sure we use "movi reg, 0x00"  only for positive zero (0.0) and not for negative zero (-0.0)
-            if (*(__int64*)&constValue == 0)
-            {
-                // A faster/smaller way to generate 0.0
-                // We will just zero out the entire vector register for both float and double
-                emit->emitIns_R_I(INS_movi, EA_16BYTE, targetReg, 0x00, INS_OPTS_16B);
-            }
-            else if (emitter::emitIns_valid_imm_for_fmov(constValue))
-            {
-                // We can load the FP constant using the fmov FP-immediate for this constValue
-                emit->emitIns_R_F(INS_fmov, size, targetReg, constValue);
-            }
-            else
-            {
-                // Get a temp integer register to compute long address.
-                regNumber addrReg = tree->GetSingleTempReg();
+                // Make sure we use "movi reg, 0x00"  only for positive zero (0.0) and not for negative zero (-0.0)
+                if (*(__int64*)&constValue == 0)
+                {
+                    // A faster/smaller way to generate 0.0
+                    // We will just zero out the entire vector register for both float and double
+                    emit->emitIns_R_I(INS_movi, EA_16BYTE, targetReg, 0x00, INS_OPTS_16B);
+                }
+                else if (emitter::emitIns_valid_imm_for_fmov(constValue))
+                {
+                    // We can load the FP constant using the fmov FP-immediate for this constValue
+                    emit->emitIns_R_F(INS_fmov, size, targetReg, constValue);
+                }
+                else
+                {
+                    // Get a temp integer register to compute long address.
+                    regNumber addrReg = tree->GetSingleTempReg();
 
-                // We must load the FP constant from the constant pool
-                // Emit a data section constant for the float or double constant.
-                CORINFO_FIELD_HANDLE hnd = emit->emitFltOrDblConst(constValue, size);
-                // For long address (default): `adrp + ldr + fmov` will be emitted.
-                // For short address (proven later), `ldr` will be emitted.
-                emit->emitIns_R_C(INS_ldr, size, targetReg, addrReg, hnd, 0);
+                    // We must load the FP constant from the constant pool
+                    // Emit a data section constant for the float or double constant.
+                    CORINFO_FIELD_HANDLE hnd = emit->emitFltOrDblConst(constValue, size);
+                    // For long address (default): `adrp + ldr + fmov` will be emitted.
+                    // For short address (proven later), `ldr` will be emitted.
+                    emit->emitIns_R_C(INS_ldr, size, targetReg, addrReg, hnd, 0);
+                }
             }
-        }
-        break;
+            break;
 
         case GT_CNS_VEC:
-        {
-            GenTreeVecCon* vecCon = tree->AsVecCon();
-
-            emitter* emit = GetEmitter();
-            emitAttr attr = emitTypeSize(targetType);
-
-            switch (tree->TypeGet())
             {
+                GenTreeVecCon* vecCon = tree->AsVecCon();
+
+                emitter* emit = GetEmitter();
+                emitAttr attr = emitTypeSize(targetType);
+
+                switch (tree->TypeGet())
+                {
 #if defined(FEATURE_SIMD)
-                case TYP_SIMD8:
-                {
-                    if (vecCon->IsAllBitsSet())
-                    {
-                        emit->emitIns_R_I(INS_mvni, attr, targetReg, 0, INS_OPTS_2S);
-                    }
-                    else if (vecCon->IsZero())
-                    {
-                        emit->emitIns_R_I(INS_movi, attr, targetReg, 0, INS_OPTS_2S);
-                    }
-                    else
-                    {
-                        // Get a temp integer register to compute long address.
-                        regNumber addrReg = tree->GetSingleTempReg();
+                    case TYP_SIMD8:
+                        {
+                            if (vecCon->IsAllBitsSet())
+                            {
+                                emit->emitIns_R_I(INS_mvni, attr, targetReg, 0, INS_OPTS_2S);
+                            }
+                            else if (vecCon->IsZero())
+                            {
+                                emit->emitIns_R_I(INS_movi, attr, targetReg, 0, INS_OPTS_2S);
+                            }
+                            else
+                            {
+                                // Get a temp integer register to compute long address.
+                                regNumber addrReg = tree->GetSingleTempReg();
 
-                        simd8_t constValue;
-                        memcpy(&constValue, &vecCon->gtSimdVal, sizeof(simd8_t));
+                                simd8_t constValue;
+                                memcpy(&constValue, &vecCon->gtSimdVal, sizeof(simd8_t));
 
-                        CORINFO_FIELD_HANDLE hnd = emit->emitSimd8Const(constValue);
-                        emit->emitIns_R_C(INS_ldr, attr, targetReg, addrReg, hnd, 0);
-                    }
-                    break;
-                }
+                                CORINFO_FIELD_HANDLE hnd = emit->emitSimd8Const(constValue);
+                                emit->emitIns_R_C(INS_ldr, attr, targetReg, addrReg, hnd, 0);
+                            }
+                            break;
+                        }
 
-                case TYP_SIMD12:
-                {
-                    if (vecCon->IsAllBitsSet())
-                    {
-                        emit->emitIns_R_I(INS_mvni, attr, targetReg, 0, INS_OPTS_4S);
-                    }
-                    else if (vecCon->IsZero())
-                    {
-                        emit->emitIns_R_I(INS_movi, attr, targetReg, 0, INS_OPTS_4S);
-                    }
-                    else
-                    {
-                        // Get a temp integer register to compute long address.
-                        regNumber addrReg = tree->GetSingleTempReg();
+                    case TYP_SIMD12:
+                        {
+                            if (vecCon->IsAllBitsSet())
+                            {
+                                emit->emitIns_R_I(INS_mvni, attr, targetReg, 0, INS_OPTS_4S);
+                            }
+                            else if (vecCon->IsZero())
+                            {
+                                emit->emitIns_R_I(INS_movi, attr, targetReg, 0, INS_OPTS_4S);
+                            }
+                            else
+                            {
+                                // Get a temp integer register to compute long address.
+                                regNumber addrReg = tree->GetSingleTempReg();
 
-                        simd16_t constValue = {};
-                        memcpy(&constValue, &vecCon->gtSimdVal, sizeof(simd12_t));
+                                simd16_t constValue = {};
+                                memcpy(&constValue, &vecCon->gtSimdVal, sizeof(simd12_t));
 
-                        CORINFO_FIELD_HANDLE hnd = emit->emitSimd16Const(constValue);
-                        emit->emitIns_R_C(INS_ldr, attr, targetReg, addrReg, hnd, 0);
-                    }
-                    break;
-                }
+                                CORINFO_FIELD_HANDLE hnd = emit->emitSimd16Const(constValue);
+                                emit->emitIns_R_C(INS_ldr, attr, targetReg, addrReg, hnd, 0);
+                            }
+                            break;
+                        }
 
-                case TYP_SIMD16:
-                {
-                    if (vecCon->IsAllBitsSet())
-                    {
-                        emit->emitIns_R_I(INS_mvni, attr, targetReg, 0, INS_OPTS_4S);
-                    }
-                    else if (vecCon->IsZero())
-                    {
-                        emit->emitIns_R_I(INS_movi, attr, targetReg, 0, INS_OPTS_4S);
-                    }
-                    else
-                    {
-                        // Get a temp integer register to compute long address.
-                        regNumber addrReg = tree->GetSingleTempReg();
+                    case TYP_SIMD16:
+                        {
+                            if (vecCon->IsAllBitsSet())
+                            {
+                                emit->emitIns_R_I(INS_mvni, attr, targetReg, 0, INS_OPTS_4S);
+                            }
+                            else if (vecCon->IsZero())
+                            {
+                                emit->emitIns_R_I(INS_movi, attr, targetReg, 0, INS_OPTS_4S);
+                            }
+                            else
+                            {
+                                // Get a temp integer register to compute long address.
+                                regNumber addrReg = tree->GetSingleTempReg();
 
-                        simd16_t constValue;
-                        memcpy(&constValue, &vecCon->gtSimdVal, sizeof(simd16_t));
+                                simd16_t constValue;
+                                memcpy(&constValue, &vecCon->gtSimdVal, sizeof(simd16_t));
 
-                        CORINFO_FIELD_HANDLE hnd = emit->emitSimd16Const(constValue);
-                        emit->emitIns_R_C(INS_ldr, attr, targetReg, addrReg, hnd, 0);
-                    }
-                    break;
-                }
+                                CORINFO_FIELD_HANDLE hnd = emit->emitSimd16Const(constValue);
+                                emit->emitIns_R_C(INS_ldr, attr, targetReg, addrReg, hnd, 0);
+                            }
+                            break;
+                        }
 #endif // FEATURE_SIMD
 
-                default:
-                {
-                    unreached();
+                    default:
+                        {
+                            unreached();
+                        }
                 }
-            }
 
-            break;
-        }
+                break;
+            }
 
         default:
             unreached();
@@ -2579,20 +2585,20 @@ void CodeGen::genCodeForBinary(GenTreeOp* tree)
         switch (oper)
         {
             case GT_ADD:
-            {
-                // d = a + b * c
-                // madd: d, b, c, a
-                ins = INS_madd;
-                break;
-            }
+                {
+                    // d = a + b * c
+                    // madd: d, b, c, a
+                    ins = INS_madd;
+                    break;
+                }
 
             case GT_SUB:
-            {
-                // d = a - b * c
-                // msub: d, b, c, a
-                ins = INS_msub;
-                break;
-            }
+                {
+                    // d = a - b * c
+                    // msub: d, b, c, a
+                    ins = INS_msub;
+                    break;
+                }
 
             default:
                 unreached();
@@ -2623,27 +2629,27 @@ void CodeGen::genCodeForBinary(GenTreeOp* tree)
             switch (oper)
             {
                 case GT_ADD:
-                {
-                    ins = INS_adds;
-                    break;
-                }
+                    {
+                        ins = INS_adds;
+                        break;
+                    }
 
                 case GT_SUB:
-                {
-                    ins = INS_subs;
-                    break;
-                }
+                    {
+                        ins = INS_subs;
+                        break;
+                    }
 
                 case GT_AND:
-                {
-                    ins = INS_ands;
-                    break;
-                }
+                    {
+                        ins = INS_ands;
+                        break;
+                    }
 
                 default:
-                {
-                    noway_assert(!"Unexpected BinaryOp with GTF_SET_FLAGS set");
-                }
+                    {
+                        noway_assert(!"Unexpected BinaryOp with GTF_SET_FLAGS set");
+                    }
             }
         }
 
@@ -2672,21 +2678,21 @@ void CodeGen::genCodeForBinary(GenTreeOp* tree)
             switch (oper)
             {
                 case GT_ADD:
-                {
-                    ins = INS_adds;
-                    break;
-                }
+                    {
+                        ins = INS_adds;
+                        break;
+                    }
 
                 case GT_SUB:
-                {
-                    ins = INS_subs;
-                    break;
-                }
+                    {
+                        ins = INS_subs;
+                        break;
+                    }
 
                 default:
-                {
-                    noway_assert(!"Unexpected BinaryOp with GTF_SET_FLAGS set");
-                }
+                    {
+                        noway_assert(!"Unexpected BinaryOp with GTF_SET_FLAGS set");
+                    }
             }
         }
 
@@ -3054,7 +3060,7 @@ void CodeGen::genLclHeap(GenTree* tree)
     unsigned             stackAdjustment          = 0;
     const target_ssize_t ILLEGAL_LAST_TOUCH_DELTA = (target_ssize_t)-1;
     target_ssize_t       lastTouchDelta =
-        ILLEGAL_LAST_TOUCH_DELTA; // The number of bytes from SP to the last stack address probed.
+        ILLEGAL_LAST_TOUCH_DELTA;       // The number of bytes from SP to the last stack address probed.
 
     noway_assert(isFramePointerUsed()); // localloc requires Frame Pointer to be established since SP changes
     noway_assert(genStackLevel == 0);   // Can't have anything on the stack
@@ -3401,32 +3407,33 @@ void CodeGen::genCodeForNegNot(GenTree* tree)
         switch (oper)
         {
             case GT_MUL:
-            {
-                ins          = INS_mneg;
-                GenTree* op1 = tree->gtGetOp1();
-                GenTree* a   = op1->gtGetOp1();
-                GenTree* b   = op1->gtGetOp2();
-                genConsumeRegs(op1);
-                GetEmitter()->emitIns_R_R_R(ins, emitActualTypeSize(tree), targetReg, a->GetRegNum(), b->GetRegNum());
-            }
-            break;
+                {
+                    ins          = INS_mneg;
+                    GenTree* op1 = tree->gtGetOp1();
+                    GenTree* a   = op1->gtGetOp1();
+                    GenTree* b   = op1->gtGetOp2();
+                    genConsumeRegs(op1);
+                    GetEmitter()->emitIns_R_R_R(ins, emitActualTypeSize(tree), targetReg, a->GetRegNum(),
+                                                b->GetRegNum());
+                }
+                break;
 
             case GT_LSH:
             case GT_RSH:
             case GT_RSZ:
-            {
-                assert(ins == INS_neg || ins == INS_negs);
-                assert(operand->gtGetOp2()->IsCnsIntOrI());
-                assert(operand->gtGetOp2()->isContained());
+                {
+                    assert(ins == INS_neg || ins == INS_negs);
+                    assert(operand->gtGetOp2()->IsCnsIntOrI());
+                    assert(operand->gtGetOp2()->isContained());
 
-                GenTree* op1 = tree->gtGetOp1();
-                GenTree* a   = op1->gtGetOp1();
-                GenTree* b   = op1->gtGetOp2();
-                genConsumeRegs(op1);
-                GetEmitter()->emitIns_R_R_I(ins, emitActualTypeSize(tree), targetReg, a->GetRegNum(),
-                                            b->AsIntConCommon()->IntegralValue(), ShiftOpToInsOpts(oper));
-            }
-            break;
+                    GenTree* op1 = tree->gtGetOp1();
+                    GenTree* a   = op1->gtGetOp1();
+                    GenTree* b   = op1->gtGetOp2();
+                    genConsumeRegs(op1);
+                    GetEmitter()->emitIns_R_R_I(ins, emitActualTypeSize(tree), targetReg, a->GetRegNum(),
+                                                b->AsIntConCommon()->IntegralValue(), ShiftOpToInsOpts(oper));
+                }
+                break;
 
             default:
                 unreached();
@@ -3825,28 +3832,28 @@ void CodeGen::genLockedInstructions(GenTreeOp* treeNode)
                                             addrReg);
                 break;
             case GT_XAND:
-            {
-                // Grab a temp reg to perform `MVN` for dataReg first.
-                regNumber tempReg = treeNode->GetSingleTempReg();
-                GetEmitter()->emitIns_R_R(INS_mvn, dataSize, tempReg, dataReg);
-                GetEmitter()->emitIns_R_R_R(INS_ldclral, dataSize, tempReg, (targetReg == REG_NA) ? REG_ZR : targetReg,
-                                            addrReg);
-                break;
-            }
+                {
+                    // Grab a temp reg to perform `MVN` for dataReg first.
+                    regNumber tempReg = treeNode->GetSingleTempReg();
+                    GetEmitter()->emitIns_R_R(INS_mvn, dataSize, tempReg, dataReg);
+                    GetEmitter()->emitIns_R_R_R(INS_ldclral, dataSize, tempReg,
+                                                (targetReg == REG_NA) ? REG_ZR : targetReg, addrReg);
+                    break;
+                }
             case GT_XCHG:
-            {
-                instruction ins = INS_swpal;
-                if (varTypeIsByte(treeNode->TypeGet()))
                 {
-                    ins = INS_swpalb;
+                    instruction ins = INS_swpal;
+                    if (varTypeIsByte(treeNode->TypeGet()))
+                    {
+                        ins = INS_swpalb;
+                    }
+                    else if (varTypeIsShort(treeNode->TypeGet()))
+                    {
+                        ins = INS_swpalh;
+                    }
+                    GetEmitter()->emitIns_R_R_R(ins, dataSize, dataReg, targetReg, addrReg);
+                    break;
                 }
-                else if (varTypeIsShort(treeNode->TypeGet()))
-                {
-                    ins = INS_swpalh;
-                }
-                GetEmitter()->emitIns_R_R_R(ins, dataSize, dataReg, targetReg, addrReg);
-                break;
-            }
             case GT_XADD:
                 GetEmitter()->emitIns_R_R_R(INS_ldaddal, dataSize, dataReg, (targetReg == REG_NA) ? REG_ZR : targetReg,
                                             addrReg);
@@ -4658,18 +4665,18 @@ void CodeGen::genCodeForCompare(GenTreeOp* tree)
                             case GT_LSH:
                             case GT_RSH:
                             case GT_RSZ:
-                            {
-                                GenTree* shiftOp1 = op2->gtGetOp1()->gtGetOp1();
-                                GenTree* shiftOp2 = op2->gtGetOp1()->gtGetOp2();
+                                {
+                                    GenTree* shiftOp1 = op2->gtGetOp1()->gtGetOp1();
+                                    GenTree* shiftOp2 = op2->gtGetOp1()->gtGetOp2();
 
-                                assert(shiftOp2->IsCnsIntOrI());
-                                assert(shiftOp2->isContained());
+                                    assert(shiftOp2->IsCnsIntOrI());
+                                    assert(shiftOp2->isContained());
 
-                                emit->emitIns_R_R_I(ins, cmpSize, op1->GetRegNum(), shiftOp1->GetRegNum(),
-                                                    shiftOp2->AsIntConCommon()->IntegralValue(),
-                                                    ShiftOpToInsOpts(oper));
-                            }
-                            break;
+                                    emit->emitIns_R_R_I(ins, cmpSize, op1->GetRegNum(), shiftOp1->GetRegNum(),
+                                                        shiftOp2->AsIntConCommon()->IntegralValue(),
+                                                        ShiftOpToInsOpts(oper));
+                                }
+                                break;
 
                             default:
                                 unreached();

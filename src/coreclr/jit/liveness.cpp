@@ -251,60 +251,60 @@ void Compiler::fgPerNodeLocalVarLiveness(GenTree* tree)
 
 #if defined(FEATURE_HW_INTRINSICS)
         case GT_HWINTRINSIC:
-        {
-            fgPerNodeLocalVarLiveness(tree->AsHWIntrinsic());
-            break;
-        }
+            {
+                fgPerNodeLocalVarLiveness(tree->AsHWIntrinsic());
+                break;
+            }
 #endif // FEATURE_HW_INTRINSICS
 
         // For now, all calls read/write GcHeap/ByrefExposed, writes in their entirety.  Might tighten this case later.
         case GT_CALL:
-        {
-            GenTreeCall* call    = tree->AsCall();
-            bool         modHeap = true;
-            if (call->gtCallType == CT_HELPER)
             {
-                CorInfoHelpFunc helpFunc = eeGetHelperNum(call->gtCallMethHnd);
-
-                if (!s_helperCallProperties.MutatesHeap(helpFunc) && !s_helperCallProperties.MayRunCctor(helpFunc))
+                GenTreeCall* call    = tree->AsCall();
+                bool         modHeap = true;
+                if (call->gtCallType == CT_HELPER)
                 {
-                    modHeap = false;
-                }
-            }
-            if (modHeap)
-            {
-                fgCurMemoryUse |= memoryKindSet(GcHeap, ByrefExposed);
-                fgCurMemoryDef |= memoryKindSet(GcHeap, ByrefExposed);
-                fgCurMemoryHavoc |= memoryKindSet(GcHeap, ByrefExposed);
-            }
+                    CorInfoHelpFunc helpFunc = eeGetHelperNum(call->gtCallMethHnd);
 
-            // If this is a p/invoke unmanaged call or if this is a tail-call via helper,
-            // and we have an unmanaged p/invoke call in the method,
-            // then we're going to run the p/invoke epilog.
-            // So we mark the FrameRoot as used by this instruction.
-            // This ensures that the block->bbVarUse will contain
-            // the FrameRoot local var if is it a tracked variable.
-
-            if ((call->IsUnmanaged() || call->IsTailCallViaJitHelper()) && compMethodRequiresPInvokeFrame())
-            {
-                assert(!opts.ShouldUsePInvokeHelpers() || (info.compLvFrameListRoot == BAD_VAR_NUM));
-                if (!opts.ShouldUsePInvokeHelpers() && !call->IsSuppressGCTransition())
-                {
-                    // Get the FrameRoot local and mark it as used.
-
-                    LclVarDsc* varDsc = lvaGetDesc(info.compLvFrameListRoot);
-
-                    if (varDsc->lvTracked)
+                    if (!s_helperCallProperties.MutatesHeap(helpFunc) && !s_helperCallProperties.MayRunCctor(helpFunc))
                     {
-                        if (!VarSetOps::IsMember(this, fgCurDefSet, varDsc->lvVarIndex))
+                        modHeap = false;
+                    }
+                }
+                if (modHeap)
+                {
+                    fgCurMemoryUse |= memoryKindSet(GcHeap, ByrefExposed);
+                    fgCurMemoryDef |= memoryKindSet(GcHeap, ByrefExposed);
+                    fgCurMemoryHavoc |= memoryKindSet(GcHeap, ByrefExposed);
+                }
+
+                // If this is a p/invoke unmanaged call or if this is a tail-call via helper,
+                // and we have an unmanaged p/invoke call in the method,
+                // then we're going to run the p/invoke epilog.
+                // So we mark the FrameRoot as used by this instruction.
+                // This ensures that the block->bbVarUse will contain
+                // the FrameRoot local var if is it a tracked variable.
+
+                if ((call->IsUnmanaged() || call->IsTailCallViaJitHelper()) && compMethodRequiresPInvokeFrame())
+                {
+                    assert(!opts.ShouldUsePInvokeHelpers() || (info.compLvFrameListRoot == BAD_VAR_NUM));
+                    if (!opts.ShouldUsePInvokeHelpers() && !call->IsSuppressGCTransition())
+                    {
+                        // Get the FrameRoot local and mark it as used.
+
+                        LclVarDsc* varDsc = lvaGetDesc(info.compLvFrameListRoot);
+
+                        if (varDsc->lvTracked)
                         {
-                            VarSetOps::AddElemD(this, fgCurUseSet, varDsc->lvVarIndex);
+                            if (!VarSetOps::IsMember(this, fgCurDefSet, varDsc->lvVarIndex))
+                            {
+                                VarSetOps::AddElemD(this, fgCurUseSet, varDsc->lvVarIndex);
+                            }
                         }
                     }
                 }
+                break;
             }
-            break;
-        }
 
         default:
             break;
@@ -1042,233 +1042,231 @@ void Compiler::fgAddHandlerLiveVars(BasicBlock* block, VARSET_TP& ehHandlerLiveV
 {
     assert(block->HasPotentialEHSuccs(this));
 
-    block->VisitEHSuccs(this,
-                        [&](BasicBlock* succ)
-                        {
-                            VarSetOps::UnionD(this, ehHandlerLiveVars, succ->bbLiveIn);
-                            memoryLiveness |= succ->bbMemoryLiveIn;
-                            return BasicBlockVisit::Continue;
-                        });
+    block->VisitEHSuccs(this, [&](BasicBlock* succ) {
+        VarSetOps::UnionD(this, ehHandlerLiveVars, succ->bbLiveIn);
+        memoryLiveness |= succ->bbMemoryLiveIn;
+        return BasicBlockVisit::Continue;
+    });
 }
 
 class LiveVarAnalysis
 {
-    Compiler* m_compiler;
+        Compiler* m_compiler;
 
-    bool m_hasPossibleBackEdge;
+        bool m_hasPossibleBackEdge;
 
-    unsigned  m_memoryLiveIn;
-    unsigned  m_memoryLiveOut;
-    VARSET_TP m_liveIn;
-    VARSET_TP m_liveOut;
-    VARSET_TP m_ehHandlerLiveVars;
+        unsigned  m_memoryLiveIn;
+        unsigned  m_memoryLiveOut;
+        VARSET_TP m_liveIn;
+        VARSET_TP m_liveOut;
+        VARSET_TP m_ehHandlerLiveVars;
 
-    LiveVarAnalysis(Compiler* compiler)
-        : m_compiler(compiler)
-        , m_hasPossibleBackEdge(false)
-        , m_memoryLiveIn(emptyMemoryKindSet)
-        , m_memoryLiveOut(emptyMemoryKindSet)
-        , m_liveIn(VarSetOps::MakeEmpty(compiler))
-        , m_liveOut(VarSetOps::MakeEmpty(compiler))
-        , m_ehHandlerLiveVars(VarSetOps::MakeEmpty(compiler))
-    {
-    }
-
-    bool PerBlockAnalysis(BasicBlock* block, bool updateInternalOnly, bool keepAliveThis)
-    {
-        /* Compute the 'liveOut' set */
-        VarSetOps::ClearD(m_compiler, m_liveOut);
-        m_memoryLiveOut = emptyMemoryKindSet;
-        if (block->endsWithJmpMethod(m_compiler))
+        LiveVarAnalysis(Compiler* compiler)
+            : m_compiler(compiler)
+            , m_hasPossibleBackEdge(false)
+            , m_memoryLiveIn(emptyMemoryKindSet)
+            , m_memoryLiveOut(emptyMemoryKindSet)
+            , m_liveIn(VarSetOps::MakeEmpty(compiler))
+            , m_liveOut(VarSetOps::MakeEmpty(compiler))
+            , m_ehHandlerLiveVars(VarSetOps::MakeEmpty(compiler))
         {
-            // A JMP uses all the arguments, so mark them all
-            // as live at the JMP instruction
-            //
-            const LclVarDsc* varDscEndParams = m_compiler->lvaTable + m_compiler->info.compArgsCount;
-            for (LclVarDsc* varDsc = m_compiler->lvaTable; varDsc < varDscEndParams; varDsc++)
-            {
-                noway_assert(!varDsc->lvPromoted);
-                if (varDsc->lvTracked)
-                {
-                    VarSetOps::AddElemD(m_compiler, m_liveOut, varDsc->lvVarIndex);
-                }
-            }
         }
 
-        if (m_compiler->fgIsDoingEarlyLiveness && m_compiler->opts.IsOSR() && block->HasFlag(BBF_RECURSIVE_TAILCALL))
+        bool PerBlockAnalysis(BasicBlock* block, bool updateInternalOnly, bool keepAliveThis)
         {
-            // Early liveness happens between import and morph where we may
-            // have identified a tailcall-to-loop candidate but not yet
-            // expanded it. In OSR compilations we need to model the potential
-            // backedge.
-            //
-            // Technically we would need to do this in normal compilations too,
-            // but given that the tailcall-to-loop optimization is sound we can
-            // rely on the call node we will see in this block having all the
-            // necessary dependencies. That's not the case in OSR where the OSR
-            // state index variable may be live at this point without appearing
-            // as an explicit use anywhere.
-            VarSetOps::UnionD(m_compiler, m_liveOut, m_compiler->fgEntryBB->bbLiveIn);
-            if (m_compiler->fgEntryBB->bbNum <= block->bbNum)
-            {
-                m_hasPossibleBackEdge = true;
-            }
-        }
-
-        // Additionally, union in all the live-in tracked vars of regular
-        // successors. EH successors need to be handled more conservatively
-        // (their live-in state is live in this entire basic block). Those are
-        // handled below.
-        block->VisitRegularSuccs(m_compiler,
-                                 [=](BasicBlock* succ)
-                                 {
-                                     VarSetOps::UnionD(m_compiler, m_liveOut, succ->bbLiveIn);
-                                     m_memoryLiveOut |= succ->bbMemoryLiveIn;
-                                     if (succ->bbNum <= block->bbNum)
-                                     {
-                                         m_hasPossibleBackEdge = true;
-                                     }
-
-                                     return BasicBlockVisit::Continue;
-                                 });
-
-        /* For lvaKeepAliveAndReportThis methods, "this" has to be kept alive everywhere
-           Note that a function may end in a throw on an infinite loop (as opposed to a return).
-           "this" has to be alive everywhere even in such methods. */
-
-        if (keepAliveThis)
-        {
-            VarSetOps::AddElemD(m_compiler, m_liveOut, m_compiler->lvaTable[m_compiler->info.compThisArg].lvVarIndex);
-        }
-
-        /* Compute the 'm_liveIn'  set */
-        VarSetOps::LivenessD(m_compiler, m_liveIn, block->bbVarDef, block->bbVarUse, m_liveOut);
-
-        // Does this block have implicit exception flow to a filter or handler?
-        // If so, include the effects of that flow.
-        if (block->HasPotentialEHSuccs(m_compiler))
-        {
-            VarSetOps::ClearD(m_compiler, m_ehHandlerLiveVars);
-            m_compiler->fgAddHandlerLiveVars(block, m_ehHandlerLiveVars, m_memoryLiveOut);
-            VarSetOps::UnionD(m_compiler, m_liveIn, m_ehHandlerLiveVars);
-            VarSetOps::UnionD(m_compiler, m_liveOut, m_ehHandlerLiveVars);
-
-            // Implicit eh edges can induce loop-like behavior,
-            // so make sure we iterate to closure.
-            m_hasPossibleBackEdge = true;
-        }
-
-        // Even if block->bbMemoryDef is set, we must assume that it doesn't kill memory liveness from m_memoryLiveOut,
-        // since (without proof otherwise) the use and def may touch different memory at run-time.
-        m_memoryLiveIn = m_memoryLiveOut | block->bbMemoryUse;
-
-        // Has there been any change in either live set?
-
-        bool liveInChanged = !VarSetOps::Equal(m_compiler, block->bbLiveIn, m_liveIn);
-        if (liveInChanged || !VarSetOps::Equal(m_compiler, block->bbLiveOut, m_liveOut))
-        {
-            if (updateInternalOnly)
-            {
-                // Only "extend" liveness over BBF_INTERNAL blocks
-
-                noway_assert(block->HasFlag(BBF_INTERNAL));
-
-                liveInChanged = !VarSetOps::IsSubset(m_compiler, m_liveIn, block->bbLiveIn);
-                if (liveInChanged || !VarSetOps::IsSubset(m_compiler, m_liveOut, block->bbLiveOut))
-                {
-#ifdef DEBUG
-                    if (m_compiler->verbose)
-                    {
-                        printf("Scope info: block " FMT_BB " LiveIn+ ", block->bbNum);
-                        dumpConvertedVarSet(m_compiler, VarSetOps::Diff(m_compiler, m_liveIn, block->bbLiveIn));
-                        printf(", LiveOut+ ");
-                        dumpConvertedVarSet(m_compiler, VarSetOps::Diff(m_compiler, m_liveOut, block->bbLiveOut));
-                        printf("\n");
-                    }
-#endif // DEBUG
-
-                    VarSetOps::UnionD(m_compiler, block->bbLiveIn, m_liveIn);
-                    VarSetOps::UnionD(m_compiler, block->bbLiveOut, m_liveOut);
-                }
-            }
-            else
-            {
-                VarSetOps::Assign(m_compiler, block->bbLiveIn, m_liveIn);
-                VarSetOps::Assign(m_compiler, block->bbLiveOut, m_liveOut);
-            }
-        }
-
-        const bool memoryLiveInChanged = (block->bbMemoryLiveIn != m_memoryLiveIn);
-        if (memoryLiveInChanged || (block->bbMemoryLiveOut != m_memoryLiveOut))
-        {
-            block->bbMemoryLiveIn  = m_memoryLiveIn;
-            block->bbMemoryLiveOut = m_memoryLiveOut;
-        }
-
-        return liveInChanged || memoryLiveInChanged;
-    }
-
-    void Run(bool updateInternalOnly)
-    {
-        const bool keepAliveThis =
-            m_compiler->lvaKeepAliveAndReportThis() && m_compiler->lvaTable[m_compiler->info.compThisArg].lvTracked;
-
-        /* Live Variable Analysis - Backward dataflow */
-        bool changed;
-        do
-        {
-            changed = false;
-
-            /* Visit all blocks and compute new data flow values */
-
-            VarSetOps::ClearD(m_compiler, m_liveIn);
+            /* Compute the 'liveOut' set */
             VarSetOps::ClearD(m_compiler, m_liveOut);
-
-            m_memoryLiveIn  = emptyMemoryKindSet;
             m_memoryLiveOut = emptyMemoryKindSet;
-
-            for (BasicBlock* block = m_compiler->fgLastBB; block; block = block->Prev())
+            if (block->endsWithJmpMethod(m_compiler))
             {
-                // sometimes block numbers are not monotonically increasing which
-                // would cause us not to identify backedges
-                if (!block->IsLast() && block->Next()->bbNum <= block->bbNum)
+                // A JMP uses all the arguments, so mark them all
+                // as live at the JMP instruction
+                //
+                const LclVarDsc* varDscEndParams = m_compiler->lvaTable + m_compiler->info.compArgsCount;
+                for (LclVarDsc* varDsc = m_compiler->lvaTable; varDsc < varDscEndParams; varDsc++)
+                {
+                    noway_assert(!varDsc->lvPromoted);
+                    if (varDsc->lvTracked)
+                    {
+                        VarSetOps::AddElemD(m_compiler, m_liveOut, varDsc->lvVarIndex);
+                    }
+                }
+            }
+
+            if (m_compiler->fgIsDoingEarlyLiveness && m_compiler->opts.IsOSR() &&
+                block->HasFlag(BBF_RECURSIVE_TAILCALL))
+            {
+                // Early liveness happens between import and morph where we may
+                // have identified a tailcall-to-loop candidate but not yet
+                // expanded it. In OSR compilations we need to model the potential
+                // backedge.
+                //
+                // Technically we would need to do this in normal compilations too,
+                // but given that the tailcall-to-loop optimization is sound we can
+                // rely on the call node we will see in this block having all the
+                // necessary dependencies. That's not the case in OSR where the OSR
+                // state index variable may be live at this point without appearing
+                // as an explicit use anywhere.
+                VarSetOps::UnionD(m_compiler, m_liveOut, m_compiler->fgEntryBB->bbLiveIn);
+                if (m_compiler->fgEntryBB->bbNum <= block->bbNum)
+                {
+                    m_hasPossibleBackEdge = true;
+                }
+            }
+
+            // Additionally, union in all the live-in tracked vars of regular
+            // successors. EH successors need to be handled more conservatively
+            // (their live-in state is live in this entire basic block). Those are
+            // handled below.
+            block->VisitRegularSuccs(m_compiler, [=](BasicBlock* succ) {
+                VarSetOps::UnionD(m_compiler, m_liveOut, succ->bbLiveIn);
+                m_memoryLiveOut |= succ->bbMemoryLiveIn;
+                if (succ->bbNum <= block->bbNum)
                 {
                     m_hasPossibleBackEdge = true;
                 }
 
+                return BasicBlockVisit::Continue;
+            });
+
+            /* For lvaKeepAliveAndReportThis methods, "this" has to be kept alive everywhere
+               Note that a function may end in a throw on an infinite loop (as opposed to a return).
+               "this" has to be alive everywhere even in such methods. */
+
+            if (keepAliveThis)
+            {
+                VarSetOps::AddElemD(m_compiler, m_liveOut,
+                                    m_compiler->lvaTable[m_compiler->info.compThisArg].lvVarIndex);
+            }
+
+            /* Compute the 'm_liveIn'  set */
+            VarSetOps::LivenessD(m_compiler, m_liveIn, block->bbVarDef, block->bbVarUse, m_liveOut);
+
+            // Does this block have implicit exception flow to a filter or handler?
+            // If so, include the effects of that flow.
+            if (block->HasPotentialEHSuccs(m_compiler))
+            {
+                VarSetOps::ClearD(m_compiler, m_ehHandlerLiveVars);
+                m_compiler->fgAddHandlerLiveVars(block, m_ehHandlerLiveVars, m_memoryLiveOut);
+                VarSetOps::UnionD(m_compiler, m_liveIn, m_ehHandlerLiveVars);
+                VarSetOps::UnionD(m_compiler, m_liveOut, m_ehHandlerLiveVars);
+
+                // Implicit eh edges can induce loop-like behavior,
+                // so make sure we iterate to closure.
+                m_hasPossibleBackEdge = true;
+            }
+
+            // Even if block->bbMemoryDef is set, we must assume that it doesn't kill memory liveness from
+            // m_memoryLiveOut, since (without proof otherwise) the use and def may touch different memory at run-time.
+            m_memoryLiveIn = m_memoryLiveOut | block->bbMemoryUse;
+
+            // Has there been any change in either live set?
+
+            bool liveInChanged = !VarSetOps::Equal(m_compiler, block->bbLiveIn, m_liveIn);
+            if (liveInChanged || !VarSetOps::Equal(m_compiler, block->bbLiveOut, m_liveOut))
+            {
                 if (updateInternalOnly)
                 {
-                    /* Only update BBF_INTERNAL blocks as they may be
-                       syntactically out of sequence. */
+                    // Only "extend" liveness over BBF_INTERNAL blocks
 
-                    noway_assert(m_compiler->opts.compDbgCode && (m_compiler->info.compVarScopesCount > 0));
+                    noway_assert(block->HasFlag(BBF_INTERNAL));
 
-                    if (!block->HasFlag(BBF_INTERNAL))
+                    liveInChanged = !VarSetOps::IsSubset(m_compiler, m_liveIn, block->bbLiveIn);
+                    if (liveInChanged || !VarSetOps::IsSubset(m_compiler, m_liveOut, block->bbLiveOut))
                     {
-                        continue;
+#ifdef DEBUG
+                        if (m_compiler->verbose)
+                        {
+                            printf("Scope info: block " FMT_BB " LiveIn+ ", block->bbNum);
+                            dumpConvertedVarSet(m_compiler, VarSetOps::Diff(m_compiler, m_liveIn, block->bbLiveIn));
+                            printf(", LiveOut+ ");
+                            dumpConvertedVarSet(m_compiler, VarSetOps::Diff(m_compiler, m_liveOut, block->bbLiveOut));
+                            printf("\n");
+                        }
+#endif // DEBUG
+
+                        VarSetOps::UnionD(m_compiler, block->bbLiveIn, m_liveIn);
+                        VarSetOps::UnionD(m_compiler, block->bbLiveOut, m_liveOut);
                     }
                 }
-
-                if (PerBlockAnalysis(block, updateInternalOnly, keepAliveThis))
+                else
                 {
-                    changed = true;
+                    VarSetOps::Assign(m_compiler, block->bbLiveIn, m_liveIn);
+                    VarSetOps::Assign(m_compiler, block->bbLiveOut, m_liveOut);
                 }
             }
-            // if there is no way we could have processed a block without seeing all of its predecessors
-            // then there is no need to iterate
-            if (!m_hasPossibleBackEdge)
-            {
-                break;
-            }
-        } while (changed);
-    }
 
-public:
-    static void Run(Compiler* compiler, bool updateInternalOnly)
-    {
-        LiveVarAnalysis analysis(compiler);
-        analysis.Run(updateInternalOnly);
-    }
+            const bool memoryLiveInChanged = (block->bbMemoryLiveIn != m_memoryLiveIn);
+            if (memoryLiveInChanged || (block->bbMemoryLiveOut != m_memoryLiveOut))
+            {
+                block->bbMemoryLiveIn  = m_memoryLiveIn;
+                block->bbMemoryLiveOut = m_memoryLiveOut;
+            }
+
+            return liveInChanged || memoryLiveInChanged;
+        }
+
+        void Run(bool updateInternalOnly)
+        {
+            const bool keepAliveThis =
+                m_compiler->lvaKeepAliveAndReportThis() && m_compiler->lvaTable[m_compiler->info.compThisArg].lvTracked;
+
+            /* Live Variable Analysis - Backward dataflow */
+            bool changed;
+            do
+            {
+                changed = false;
+
+                /* Visit all blocks and compute new data flow values */
+
+                VarSetOps::ClearD(m_compiler, m_liveIn);
+                VarSetOps::ClearD(m_compiler, m_liveOut);
+
+                m_memoryLiveIn  = emptyMemoryKindSet;
+                m_memoryLiveOut = emptyMemoryKindSet;
+
+                for (BasicBlock* block = m_compiler->fgLastBB; block; block = block->Prev())
+                {
+                    // sometimes block numbers are not monotonically increasing which
+                    // would cause us not to identify backedges
+                    if (!block->IsLast() && block->Next()->bbNum <= block->bbNum)
+                    {
+                        m_hasPossibleBackEdge = true;
+                    }
+
+                    if (updateInternalOnly)
+                    {
+                        /* Only update BBF_INTERNAL blocks as they may be
+                           syntactically out of sequence. */
+
+                        noway_assert(m_compiler->opts.compDbgCode && (m_compiler->info.compVarScopesCount > 0));
+
+                        if (!block->HasFlag(BBF_INTERNAL))
+                        {
+                            continue;
+                        }
+                    }
+
+                    if (PerBlockAnalysis(block, updateInternalOnly, keepAliveThis))
+                    {
+                        changed = true;
+                    }
+                }
+                // if there is no way we could have processed a block without seeing all of its predecessors
+                // then there is no need to iterate
+                if (!m_hasPossibleBackEdge)
+                {
+                    break;
+                }
+            } while (changed);
+        }
+
+    public:
+        static void Run(Compiler* compiler, bool updateInternalOnly)
+        {
+            LiveVarAnalysis analysis(compiler);
+            analysis.Run(updateInternalOnly);
+        }
 };
 
 /*****************************************************************************
@@ -1695,7 +1693,7 @@ void Compiler::fgComputeLife(VARSET_TP&           life,
 
     for (GenTree* tree = startNode; tree != endNode; tree = tree->gtPrev)
     {
-    AGAIN:
+AGAIN:
         assert(tree->OperGet() != GT_QMARK);
 
         if (tree->gtOper == GT_CALL)
@@ -1770,16 +1768,14 @@ void Compiler::fgComputeLifeLIR(VARSET_TP& life, BasicBlock* block, VARSET_VALAR
         switch (node->OperGet())
         {
             case GT_CALL:
-            {
-                GenTreeCall* const call = node->AsCall();
-                if (((call->TypeGet() == TYP_VOID) || call->IsUnusedValue()) && !call->HasSideEffects(this))
                 {
-                    JITDUMP("Removing dead call:\n");
-                    DISPNODE(call);
+                    GenTreeCall* const call = node->AsCall();
+                    if (((call->TypeGet() == TYP_VOID) || call->IsUnusedValue()) && !call->HasSideEffects(this))
+                    {
+                        JITDUMP("Removing dead call:\n");
+                        DISPNODE(call);
 
-                    node->VisitOperands(
-                        [](GenTree* operand) -> GenTree::VisitResult
-                        {
+                        node->VisitOperands([](GenTree* operand) -> GenTree::VisitResult {
                             if (operand->IsValue())
                             {
                                 operand->SetUnusedValue();
@@ -1796,52 +1792,52 @@ void Compiler::fgComputeLifeLIR(VARSET_TP& life, BasicBlock* block, VARSET_VALAR
                             return GenTree::VisitResult::Continue;
                         });
 
-                    blockRange.Remove(node);
+                        blockRange.Remove(node);
 
-                    // Removing a call does not affect liveness unless it is a tail call in a method with P/Invokes or
-                    // is itself a P/Invoke, in which case it may affect the liveness of the frame root variable.
-                    if (!opts.MinOpts() && !opts.ShouldUsePInvokeHelpers() &&
-                        ((call->IsTailCall() && compMethodRequiresPInvokeFrame()) ||
-                         (call->IsUnmanaged() && !call->IsSuppressGCTransition())) &&
-                        lvaTable[info.compLvFrameListRoot].lvTracked)
-                    {
-                        fgStmtRemoved = true;
+                        // Removing a call does not affect liveness unless it is a tail call in a method with P/Invokes
+                        // or is itself a P/Invoke, in which case it may affect the liveness of the frame root variable.
+                        if (!opts.MinOpts() && !opts.ShouldUsePInvokeHelpers() &&
+                            ((call->IsTailCall() && compMethodRequiresPInvokeFrame()) ||
+                             (call->IsUnmanaged() && !call->IsSuppressGCTransition())) &&
+                            lvaTable[info.compLvFrameListRoot].lvTracked)
+                        {
+                            fgStmtRemoved = true;
+                        }
                     }
+                    else
+                    {
+                        fgComputeLifeCall(life, call);
+                    }
+                    break;
                 }
-                else
-                {
-                    fgComputeLifeCall(life, call);
-                }
-                break;
-            }
 
             case GT_LCL_VAR:
             case GT_LCL_FLD:
-            {
-                GenTreeLclVarCommon* const lclVarNode = node->AsLclVarCommon();
-                LclVarDsc&                 varDsc     = lvaTable[lclVarNode->GetLclNum()];
-
-                if (node->IsUnusedValue())
                 {
-                    JITDUMP("Removing dead LclVar use:\n");
-                    DISPNODE(lclVarNode);
+                    GenTreeLclVarCommon* const lclVarNode = node->AsLclVarCommon();
+                    LclVarDsc&                 varDsc     = lvaTable[lclVarNode->GetLclNum()];
 
-                    blockRange.Delete(this, block, node);
-                    if (varDsc.lvTracked && !opts.MinOpts())
+                    if (node->IsUnusedValue())
                     {
-                        fgStmtRemoved = true;
+                        JITDUMP("Removing dead LclVar use:\n");
+                        DISPNODE(lclVarNode);
+
+                        blockRange.Delete(this, block, node);
+                        if (varDsc.lvTracked && !opts.MinOpts())
+                        {
+                            fgStmtRemoved = true;
+                        }
                     }
+                    else if (varDsc.lvTracked)
+                    {
+                        fgComputeLifeTrackedLocalUse(life, varDsc, lclVarNode);
+                    }
+                    else
+                    {
+                        fgComputeLifeUntrackedLocal(life, keepAliveVars, varDsc, lclVarNode);
+                    }
+                    break;
                 }
-                else if (varDsc.lvTracked)
-                {
-                    fgComputeLifeTrackedLocalUse(life, varDsc, lclVarNode);
-                }
-                else
-                {
-                    fgComputeLifeUntrackedLocal(life, keepAliveVars, varDsc, lclVarNode);
-                }
-                break;
-            }
 
             case GT_LCL_ADDR:
                 if (node->IsUnusedValue())
@@ -1887,31 +1883,31 @@ void Compiler::fgComputeLifeLIR(VARSET_TP& life, BasicBlock* block, VARSET_VALAR
 
             case GT_STORE_LCL_VAR:
             case GT_STORE_LCL_FLD:
-            {
-                GenTreeLclVarCommon* const lclVarNode = node->AsLclVarCommon();
-
-                LclVarDsc& varDsc = lvaTable[lclVarNode->GetLclNum()];
-                if (varDsc.lvTracked)
                 {
-                    isDeadStore = fgComputeLifeTrackedLocalDef(life, keepAliveVars, varDsc, lclVarNode);
-                }
-                else
-                {
-                    isDeadStore = fgComputeLifeUntrackedLocal(life, keepAliveVars, varDsc, lclVarNode);
-                }
+                    GenTreeLclVarCommon* const lclVarNode = node->AsLclVarCommon();
 
-                if (isDeadStore && fgTryRemoveDeadStoreLIR(node, lclVarNode, block))
-                {
-                    GenTree* data = lclVarNode->Data();
-                    data->SetUnusedValue();
-
-                    if (data->isIndir())
+                    LclVarDsc& varDsc = lvaTable[lclVarNode->GetLclNum()];
+                    if (varDsc.lvTracked)
                     {
-                        Lowering::TransformUnusedIndirection(data->AsIndir(), this, block);
+                        isDeadStore = fgComputeLifeTrackedLocalDef(life, keepAliveVars, varDsc, lclVarNode);
                     }
+                    else
+                    {
+                        isDeadStore = fgComputeLifeUntrackedLocal(life, keepAliveVars, varDsc, lclVarNode);
+                    }
+
+                    if (isDeadStore && fgTryRemoveDeadStoreLIR(node, lclVarNode, block))
+                    {
+                        GenTree* data = lclVarNode->Data();
+                        data->SetUnusedValue();
+
+                        if (data->isIndir())
+                        {
+                            Lowering::TransformUnusedIndirection(data->AsIndir(), this, block);
+                        }
+                    }
+                    break;
                 }
-                break;
-            }
 
             case GT_LABEL:
             case GT_FTN_ADDR:
@@ -1971,25 +1967,25 @@ void Compiler::fgComputeLifeLIR(VARSET_TP& life, BasicBlock* block, VARSET_VALAR
 
 #ifdef FEATURE_HW_INTRINSICS
             case GT_HWINTRINSIC:
-            {
-                GenTreeHWIntrinsic* hwintrinsic = node->AsHWIntrinsic();
-                NamedIntrinsic      intrinsicId = hwintrinsic->GetHWIntrinsicId();
-
-                if (hwintrinsic->OperIsMemoryStore())
                 {
-                    // Never remove these nodes, as they are always side-effecting.
+                    GenTreeHWIntrinsic* hwintrinsic = node->AsHWIntrinsic();
+                    NamedIntrinsic      intrinsicId = hwintrinsic->GetHWIntrinsicId();
+
+                    if (hwintrinsic->OperIsMemoryStore())
+                    {
+                        // Never remove these nodes, as they are always side-effecting.
+                        break;
+                    }
+                    else if (HWIntrinsicInfo::HasSpecialSideEffect(intrinsicId))
+                    {
+                        // Never remove these nodes, as they are always side-effecting
+                        // or have a behavioral semantic that is undesirable to remove
+                        break;
+                    }
+
+                    fgTryRemoveNonLocal(node, &blockRange);
                     break;
                 }
-                else if (HWIntrinsicInfo::HasSpecialSideEffect(intrinsicId))
-                {
-                    // Never remove these nodes, as they are always side-effecting
-                    // or have a behavioral semantic that is undesirable to remove
-                    break;
-                }
-
-                fgTryRemoveNonLocal(node, &blockRange);
-                break;
-            }
 #endif // FEATURE_HW_INTRINSICS
 
             case GT_NO_OP:
@@ -1997,28 +1993,28 @@ void Compiler::fgComputeLifeLIR(VARSET_TP& life, BasicBlock* block, VARSET_VALAR
                 break;
 
             case GT_NOP:
-            {
-                // NOTE: we need to keep some NOPs around because they are referenced by calls. See the dead store
-                // removal code above (case GT_STORE_LCL_VAR) for more explanation.
-                if ((node->gtFlags & GTF_ORDER_SIDEEFF) != 0)
                 {
-                    break;
+                    // NOTE: we need to keep some NOPs around because they are referenced by calls. See the dead store
+                    // removal code above (case GT_STORE_LCL_VAR) for more explanation.
+                    if ((node->gtFlags & GTF_ORDER_SIDEEFF) != 0)
+                    {
+                        break;
+                    }
+                    fgTryRemoveNonLocal(node, &blockRange);
                 }
-                fgTryRemoveNonLocal(node, &blockRange);
-            }
-            break;
+                break;
 
             case GT_BLK:
-            {
-                bool removed = fgTryRemoveNonLocal(node, &blockRange);
-                if (!removed && node->IsUnusedValue())
                 {
-                    // IR doesn't expect dummy uses of `GT_BLK`.
-                    JITDUMP("Transform an unused BLK node [%06d]\n", dspTreeID(node));
-                    Lowering::TransformUnusedIndirection(node->AsIndir(), this, block);
+                    bool removed = fgTryRemoveNonLocal(node, &blockRange);
+                    if (!removed && node->IsUnusedValue())
+                    {
+                        // IR doesn't expect dummy uses of `GT_BLK`.
+                        JITDUMP("Transform an unused BLK node [%06d]\n", dspTreeID(node));
+                        Lowering::TransformUnusedIndirection(node->AsIndir(), this, block);
+                    }
                 }
-            }
-            break;
+                break;
 
             default:
                 fgTryRemoveNonLocal(node, &blockRange);
@@ -2054,12 +2050,10 @@ bool Compiler::fgTryRemoveNonLocal(GenTree* node, LIR::Range* blockRange)
             JITDUMP("Removing dead node:\n");
             DISPNODE(node);
 
-            node->VisitOperands(
-                [](GenTree* operand) -> GenTree::VisitResult
-                {
-                    operand->SetUnusedValue();
-                    return GenTree::VisitResult::Continue;
-                });
+            node->VisitOperands([](GenTree* operand) -> GenTree::VisitResult {
+                operand->SetUnusedValue();
+                return GenTree::VisitResult::Continue;
+            });
 
             if (node->OperConsumesFlags() && node->gtPrev->gtSetFlags())
             {

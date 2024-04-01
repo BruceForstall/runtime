@@ -19,8 +19,7 @@ static bool strictArmAsm;
 /*             Debug-only routines to display instructions              */
 /************************************************************************/
 
-enum PredicateType
-{
+enum PredicateType {
     PREDICATE_NONE = 0, // Predicate printed with no extensions
     PREDICATE_MERGE,    // Predicate printed with /m
     PREDICATE_ZERO,     // Predicate printed with /z
@@ -112,8 +111,7 @@ instrDesc* emitNewInstrCallInd(int              argCnt,
 /*   enum to allow instruction optimisation to specify register order   */
 /************************************************************************/
 
-enum RegisterOrder
-{
+enum RegisterOrder {
     eRO_none = 0,
     eRO_ascending,
     eRO_descending
@@ -214,13 +212,13 @@ emitLclVarAddr* emitGetLclVarPairLclVar2(instrDesc* id)
 
 union bitMaskImm
 {
-    struct
-    {
-        unsigned immS : 6; // bits 0..5
-        unsigned immR : 6; // bits 6..11
-        unsigned immN : 1; // bits 12
-    };
-    unsigned immNRS; // concat N:R:S forming a 13-bit unsigned immediate
+        struct
+        {
+                unsigned immS : 6; // bits 0..5
+                unsigned immR : 6; // bits 6..11
+                unsigned immN : 1; // bits 12
+        };
+        unsigned immNRS;           // concat N:R:S forming a 13-bit unsigned immediate
 };
 
 /************************************************************************
@@ -239,12 +237,12 @@ static INT64 emitDecodeBitMaskImm(const emitter::bitMaskImm bmImm, emitAttr size
 
 union halfwordImm
 {
-    struct
-    {
-        unsigned immVal : 16; // bits  0..15
-        unsigned immHW : 2;   // bits 16..17
-    };
-    unsigned immHWVal; // concat HW:Val forming a 18-bit unsigned immediate
+        struct
+        {
+                unsigned immVal : 16; // bits  0..15
+                unsigned immHW  : 2;  // bits 16..17
+        };
+        unsigned immHWVal;            // concat HW:Val forming a 18-bit unsigned immediate
 };
 
 /************************************************************************
@@ -263,13 +261,13 @@ static INT64 emitDecodeHalfwordImm(const emitter::halfwordImm hwImm, emitAttr si
 
 union byteShiftedImm
 {
-    struct
-    {
-        unsigned immVal : 8;  // bits  0..7
-        unsigned immBY : 2;   // bits  8..9
-        unsigned immOnes : 1; // bit   10
-    };
-    unsigned immBSVal; // concat Ones:BY:Val forming a 10-bit unsigned immediate
+        struct
+        {
+                unsigned immVal  : 8; // bits  0..7
+                unsigned immBY   : 2; // bits  8..9
+                unsigned immOnes : 1; // bit   10
+        };
+        unsigned immBSVal;            // concat Ones:BY:Val forming a 10-bit unsigned immediate
 };
 
 /************************************************************************
@@ -288,13 +286,13 @@ static UINT32 emitDecodeByteShiftedImm(const emitter::byteShiftedImm bsImm, emit
 
 union floatImm8
 {
-    struct
-    {
-        unsigned immMant : 4; // bits 0..3
-        unsigned immExp : 3;  // bits 4..6
-        unsigned immSign : 1; // bits 7
-    };
-    unsigned immFPIVal; // concat Sign:Exp:Mant forming an 8-bit unsigned immediate
+        struct
+        {
+                unsigned immMant : 4; // bits 0..3
+                unsigned immExp  : 3; // bits 4..6
+                unsigned immSign : 1; // bits 7
+        };
+        unsigned immFPIVal;           // concat Sign:Exp:Mant forming an 8-bit unsigned immediate
 };
 
 /************************************************************************
@@ -330,13 +328,13 @@ static bool emitIsValidEncodedSmallFloatImm(size_t imm);
 
 union condFlagsImm
 {
-    struct
-    {
-        insCond   cond : 4;  // bits  0..3
-        insCflags flags : 4; // bits  4..7
-        unsigned  imm5 : 5;  // bits  8..12
-    };
-    unsigned immCFVal; // concat imm5:flags:cond forming an 13-bit unsigned immediate
+        struct
+        {
+                insCond   cond  : 4; // bits  0..3
+                insCflags flags : 4; // bits  4..7
+                unsigned  imm5  : 5; // bits  8..12
+        };
+        unsigned immCFVal;           // concat imm5:flags:cond forming an 13-bit unsigned immediate
 };
 
 // Returns an encoding for the specified register used in the 'Rd' position
@@ -400,8 +398,7 @@ static code_t insEncodeReg_Va(regNumber reg)
 }
 
 // Returns an encoding for the specified 'V' register used in 'hi' thru 'lo' position.
-template <const size_t hi, const size_t lo>
-static code_t insEncodeReg_V(regNumber reg)
+template <const size_t hi, const size_t lo> static code_t insEncodeReg_V(regNumber reg)
 {
     // lo <= hi < 32
     static_assert((hi >= lo) && (hi < sizeof(code_t) * BITS_PER_BYTE));
@@ -415,8 +412,7 @@ static code_t insEncodeReg_V(regNumber reg)
 }
 
 // Returns an encoding for the specified 'P' register used in 'hi' thru 'lo' position.
-template <const size_t hi, const size_t lo>
-static code_t insEncodeReg_P(regNumber reg)
+template <const size_t hi, const size_t lo> static code_t insEncodeReg_P(regNumber reg)
 {
     // lo <= hi < 32
     static_assert((hi >= lo) && (hi < sizeof(code_t) * BITS_PER_BYTE));
@@ -430,8 +426,7 @@ static code_t insEncodeReg_P(regNumber reg)
 }
 
 // Returns an encoding for the specified 'R' register used in 'hi' thru 'lo' position.
-template <const size_t hi, const size_t lo>
-static code_t insEncodeReg_R(regNumber reg)
+template <const size_t hi, const size_t lo> static code_t insEncodeReg_R(regNumber reg)
 {
     // lo <= hi < 32
     static_assert((hi >= lo) && (hi < sizeof(code_t) * BITS_PER_BYTE));
@@ -634,8 +629,7 @@ static code_t insEncodeSveElemsize_dtypeh_dtypel(instruction ins, insFormat fmt,
 
 // Encodes an immediate value in consecutive bits from most significant position 'hi' to least significant
 // position 'lo'.
-template <const size_t hi, const size_t lo>
-static code_t insEncodeUimm(size_t imm)
+template <const size_t hi, const size_t lo> static code_t insEncodeUimm(size_t imm)
 {
     // lo <= hi < 32
     static_assert((hi >= lo) && (hi < sizeof(code_t) * BITS_PER_BYTE));
@@ -687,8 +681,7 @@ static code_t insEncodeSplitUimm(size_t imm)
 // Signed variant of insEncodeUimm, preserves the sign bit as the most significant bit of the immediate.
 // The immediate will be encoded into a 32-bit integer where bits in the range [hi, lo] are equal to the
 // bits of the signed immediate.
-template <const size_t hi, const size_t lo>
-static code_t insEncodeSimm(ssize_t imm)
+template <const size_t hi, const size_t lo> static code_t insEncodeSimm(ssize_t imm)
 {
     // lo <= hi < 32
     static_assert((hi >= lo) && (hi < sizeof(code_t) * BITS_PER_BYTE));
@@ -702,8 +695,8 @@ static code_t insEncodeSimm(ssize_t imm)
 
     union
     {
-        ssize_t simm;
-        size_t  uimm;
+            ssize_t simm;
+            size_t  uimm;
     } conv;
 
     conv.simm     = imm;
@@ -714,8 +707,7 @@ static code_t insEncodeSimm(ssize_t imm)
 
 // Returns the encoding for unsigned immediate `imm` that is a multiple of `mul` with `bits` number of bits,
 // for bit locations `hi-lo`.
-template <const size_t hi, const size_t lo, const ssize_t mul>
-static code_t insEncodeUimm_MultipleOf(ssize_t imm)
+template <const size_t hi, const size_t lo, const ssize_t mul> static code_t insEncodeUimm_MultipleOf(ssize_t imm)
 {
 
     constexpr size_t bits = hi - lo + 1;
@@ -725,8 +717,7 @@ static code_t insEncodeUimm_MultipleOf(ssize_t imm)
 
 // Returns the encoding for signed immediate `imm` that is a multiple of `mul` with `bits` number of bits,
 // for bit locations `hi-lo`.
-template <const size_t hi, const size_t lo, const ssize_t mul>
-static code_t insEncodeSimm_MultipleOf(ssize_t imm)
+template <const size_t hi, const size_t lo, const ssize_t mul> static code_t insEncodeSimm_MultipleOf(ssize_t imm)
 {
     constexpr size_t bits = hi - lo + 1;
     assert((isValidSimm_MultipleOf<bits, mul>(imm)));
@@ -775,39 +766,34 @@ static bool isStackRegister(regNumber reg)
 } // ZR (R31) encodes the SP register
 
 // Returns true if 'value' is a legal unsigned immediate with 'bits' number of bits.
-template <const size_t bits>
-static bool isValidUimm(ssize_t value)
+template <const size_t bits> static bool isValidUimm(ssize_t value)
 {
     constexpr size_t max = 1 << bits;
     return (0 <= value) && (value < max);
 }
 
 // Returns true if 'value' is a legal unsigned immediate with 'bits' number of bits, starting from 1.
-template <const size_t bits>
-static bool isValidUimmFrom1(ssize_t value)
+template <const size_t bits> static bool isValidUimmFrom1(ssize_t value)
 {
     return isValidUimm<bits>(value - 1);
 }
 
 // Returns true if 'value' is a legal unsigned multiple of 'mod' immediate with 'bits' number of bits.
-template <const size_t bits, const size_t mod>
-static bool isValidUimm_MultipleOf(ssize_t value)
+template <const size_t bits, const size_t mod> static bool isValidUimm_MultipleOf(ssize_t value)
 {
     static_assert(mod != 0);
     return isValidUimm<bits>(value / mod) && (value % mod == 0);
 }
 
 // Returns true if 'value' is a legal signed immediate with 'bits' number of bits.
-template <const size_t bits>
-static bool isValidSimm(ssize_t value)
+template <const size_t bits> static bool isValidSimm(ssize_t value)
 {
     constexpr ssize_t max = 1 << (bits - 1);
     return (-max <= value) && (value < max);
 }
 
 // Returns true if 'value' is a legal signed multiple of 'mod' immediate with 'bits' number of bits.
-template <const size_t bits, const ssize_t mod>
-static bool isValidSimm_MultipleOf(ssize_t value)
+template <const size_t bits, const ssize_t mod> static bool isValidSimm_MultipleOf(ssize_t value)
 {
     static_assert(mod != 0);
     return isValidSimm<bits>(value / mod) && (value % mod == 0);
@@ -1723,8 +1709,7 @@ void emitIns_ARR_R(instruction ins, emitAttr attr, regNumber ireg, regNumber reg
 void emitIns_R_ARX(
     instruction ins, emitAttr attr, regNumber ireg, regNumber reg, regNumber rg2, unsigned mul, int disp);
 
-enum EmitCallType
-{
+enum EmitCallType {
     EC_FUNC_TOKEN, // Direct call to a helper/static/nonvirtual/global method
     EC_INDIR_R,    // Indirect call via register
     EC_COUNT

@@ -27,8 +27,8 @@
 
 #ifdef _MSC_VER
 #define CHECK_STRUCT_PADDING                                                                                           \
-    0 // Set this to '1' to enable warning C4820 "'bytes' bytes padding added after
-      // construct 'member_name'" on interesting structs/classes
+    0                          // Set this to '1' to enable warning C4820 "'bytes' bytes padding added after
+                               // construct 'member_name'" on interesting structs/classes
 #else
 #define CHECK_STRUCT_PADDING 0 // Never enable it for non-MSFT compilers
 #endif
@@ -276,11 +276,11 @@
 #elif defined(TARGET_ARM)
 #define IMAGE_FILE_MACHINE_TARGET IMAGE_FILE_MACHINE_ARMNT
 #elif defined(TARGET_ARM64)
-#define IMAGE_FILE_MACHINE_TARGET IMAGE_FILE_MACHINE_ARM64 // 0xAA64
+#define IMAGE_FILE_MACHINE_TARGET IMAGE_FILE_MACHINE_ARM64       // 0xAA64
 #elif defined(TARGET_LOONGARCH64)
 #define IMAGE_FILE_MACHINE_TARGET IMAGE_FILE_MACHINE_LOONGARCH64 // 0x6264
 #elif defined(TARGET_RISCV64)
-#define IMAGE_FILE_MACHINE_TARGET IMAGE_FILE_MACHINE_RISCV64 // 0x5064
+#define IMAGE_FILE_MACHINE_TARGET IMAGE_FILE_MACHINE_RISCV64     // 0x5064
 #else
 #error Unsupported or unset target architecture
 #endif
@@ -296,12 +296,12 @@ typedef ptrdiff_t ssize_t;
 #include "corjit.h"
 #include "jitee.h"
 
-#define __OPERATOR_NEW_INLINE 1 // indicate that I will define these
-#define __PLACEMENT_NEW_INLINE  // don't bring in the global placement new, it is easy to make a mistake
-                                // with our new(compiler*) pattern.
+#define __OPERATOR_NEW_INLINE  1 // indicate that I will define these
+#define __PLACEMENT_NEW_INLINE   // don't bring in the global placement new, it is easy to make a mistake
+                                 // with our new(compiler*) pattern.
 
-#include "utilcode.h" // this defines assert as _ASSERTE
-#include "host.h"     // this redefines assert for the JIT to use assertAbort
+#include "utilcode.h"            // this defines assert as _ASSERTE
+#include "host.h"                // this redefines assert for the JIT to use assertAbort
 #include "utils.h"
 #include "targetosarch.h"
 
@@ -320,7 +320,7 @@ typedef ptrdiff_t ssize_t;
 #endif
 
 #ifdef DEBUG
-#define INDEBUG(x) x
+#define INDEBUG(x)  x
 #define DEBUGARG(x) , x
 #else
 #define INDEBUG(x)
@@ -335,7 +335,7 @@ typedef ptrdiff_t ssize_t;
 
 #if defined(UNIX_AMD64_ABI)
 #define UNIX_AMD64_ABI_ONLY_ARG(x) , x
-#define UNIX_AMD64_ABI_ONLY(x) x
+#define UNIX_AMD64_ABI_ONLY(x)     x
 #else // !defined(UNIX_AMD64_ABI)
 #define UNIX_AMD64_ABI_ONLY_ARG(x)
 #define UNIX_AMD64_ABI_ONLY(x)
@@ -343,7 +343,7 @@ typedef ptrdiff_t ssize_t;
 
 #if defined(TARGET_LOONGARCH64)
 #define UNIX_LOONGARCH64_ONLY_ARG(x) , x
-#define UNIX_LOONGARCH64_ONLY(x) x
+#define UNIX_LOONGARCH64_ONLY(x)     x
 #else // !TARGET_LOONGARCH64
 #define UNIX_LOONGARCH64_ONLY_ARG(x)
 #define UNIX_LOONGARCH64_ONLY(x)
@@ -356,16 +356,16 @@ typedef ptrdiff_t ssize_t;
 
 #if defined(UNIX_AMD64_ABI)
 #define UNIX_AMD64_ABI_ONLY_ARG(x) , x
-#define UNIX_AMD64_ABI_ONLY(x) x
+#define UNIX_AMD64_ABI_ONLY(x)     x
 #else // !defined(UNIX_AMD64_ABI)
 #define UNIX_AMD64_ABI_ONLY_ARG(x)
 #define UNIX_AMD64_ABI_ONLY(x)
 #endif // defined(UNIX_AMD64_ABI)
 
 #if defined(UNIX_AMD64_ABI) || defined(TARGET_ARM64) || defined(TARGET_LOONGARCH64) || defined(TARGET_RISCV64)
-#define MULTIREG_HAS_SECOND_GC_RET 1
+#define MULTIREG_HAS_SECOND_GC_RET             1
 #define MULTIREG_HAS_SECOND_GC_RET_ONLY_ARG(x) , x
-#define MULTIREG_HAS_SECOND_GC_RET_ONLY(x) x
+#define MULTIREG_HAS_SECOND_GC_RET_ONLY(x)     x
 #else // !defined(UNIX_AMD64_ABI)
 #define MULTIREG_HAS_SECOND_GC_RET 0
 #define MULTIREG_HAS_SECOND_GC_RET_ONLY_ARG(x)
@@ -386,7 +386,7 @@ typedef ptrdiff_t ssize_t;
 #define DUMMY_INIT(x) (x)
 
 #define REGEN_SHORTCUTS 0
-#define REGEN_CALLPAT 0
+#define REGEN_CALLPAT   0
 
 /*XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
 XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
@@ -407,7 +407,7 @@ XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
 #define INFO7 LL_INFO100000  // NYI stuff
 #define INFO8 LL_INFO1000000 // Weird failures
 
-#endif // DEBUG
+#endif                       // DEBUG
 
 typedef class ICorJitInfo* COMP_HANDLE;
 
@@ -445,18 +445,18 @@ typedef double weight_t;
 
 class GlobalJitOptions
 {
-public:
+    public:
 #ifdef FEATURE_HFA
 #define FEATURE_HFA_FIELDS_PRESENT
 #ifdef CONFIGURABLE_ARM_ABI
-    // These are safe to have globals as they cannot change once initialized within the process.
-    static LONG compUseSoftFPConfigured;
-    static bool compFeatureHfa;
+        // These are safe to have globals as they cannot change once initialized within the process.
+        static LONG compUseSoftFPConfigured;
+        static bool compFeatureHfa;
 #else  // !CONFIGURABLE_ARM_ABI
-    static const bool compFeatureHfa = true;
+        static const bool compFeatureHfa = true;
 #endif // CONFIGURABLE_ARM_ABI
 #else  // !FEATURE_HFA
-    static const bool compFeatureHfa = false;
+        static const bool compFeatureHfa = false;
 #endif // FEATURE_HFA
 
 #ifdef FEATURE_HFA
@@ -474,9 +474,9 @@ public:
 
 /*****************************************************************************/
 
-#define CSE_INTO_HANDLERS 0
-#define DUMP_FLOWGRAPHS DEBUG                  // Support for creating Xml Flowgraph reports in *.fgx files
-#define HANDLER_ENTRY_MUST_BE_IN_HOT_SECTION 0 // if 1 we must have all handler entry points in the Hot code section
+#define CSE_INTO_HANDLERS                    0
+#define DUMP_FLOWGRAPHS                      DEBUG // Support for creating Xml Flowgraph reports in *.fgx files
+#define HANDLER_ENTRY_MUST_BE_IN_HOT_SECTION 0     // if 1 we must have all handler entry points in the Hot code section
 
 /*****************************************************************************/
 
@@ -484,9 +484,9 @@ public:
 
 /*****************************************************************************/
 
-#define DUMP_GC_TABLES DEBUG
+#define DUMP_GC_TABLES   DEBUG
 #define VERIFY_GC_TABLES 0
-#define REARRANGE_ADDS 1
+#define REARRANGE_ADDS   1
 
 #define FUNC_INFO_LOGGING                                                                                              \
     1 // Support dumping function info to a file. In retail, only NYIs, with no function name,
@@ -496,31 +496,31 @@ public:
 /*****************************************************************************/
 /* Set these to 1 to collect and output various statistics about the JIT */
 
-#define CALL_ARG_STATS 0 // Collect stats about calls and call arguments.
+#define CALL_ARG_STATS 0      // Collect stats about calls and call arguments.
 #define COUNT_BASIC_BLOCKS                                                                                             \
-    0 // Create a histogram of basic block sizes, and a histogram of IL sizes in the simple
-      // case of single block methods.
+    0                         // Create a histogram of basic block sizes, and a histogram of IL sizes in the simple
+                              // case of single block methods.
 #define COUNT_LOOPS                                                                                                    \
     0                         // Collect stats about loops, such as the total number of natural loops, a histogram of
                               // the number of loop exits, etc.
-#define DISPLAY_SIZES 0       // Display generated code, data, and GC information sizes.
-#define MEASURE_BLOCK_SIZE 0  // Collect stats about basic block and FlowEdge node sizes and memory allocations.
-#define MEASURE_FATAL 0       // Count the number of calls to fatal(), including NYIs and noway_asserts.
-#define MEASURE_NODE_SIZE 0   // Collect stats about GenTree node allocations.
+#define DISPLAY_SIZES       0 // Display generated code, data, and GC information sizes.
+#define MEASURE_BLOCK_SIZE  0 // Collect stats about basic block and FlowEdge node sizes and memory allocations.
+#define MEASURE_FATAL       0 // Count the number of calls to fatal(), including NYIs and noway_asserts.
+#define MEASURE_NODE_SIZE   0 // Collect stats about GenTree node allocations.
 #define MEASURE_PTRTAB_SIZE 0 // Collect stats about GC pointer table allocations.
-#define EMITTER_STATS 0       // Collect stats on the emitter.
-#define NODEBASH_STATS 0      // Collect stats on changed gtOper values in GenTree's.
-#define COUNT_AST_OPERS 0     // Display use counts for GenTree operators.
+#define EMITTER_STATS       0 // Collect stats on the emitter.
+#define NODEBASH_STATS      0 // Collect stats on changed gtOper values in GenTree's.
+#define COUNT_AST_OPERS     0 // Display use counts for GenTree operators.
 
 #ifdef DEBUG
 #define MEASURE_MEM_ALLOC 1 // Collect memory allocation stats.
-#define LOOP_HOIST_STATS 1  // Collect loop hoisting stats.
-#define TRACK_LSRA_STATS 1  // Collect LSRA stats
+#define LOOP_HOIST_STATS  1 // Collect loop hoisting stats.
+#define TRACK_LSRA_STATS  1 // Collect LSRA stats
 #define TRACK_ENREG_STATS 1 // Collect enregistration stats
 #else
 #define MEASURE_MEM_ALLOC 0 // You can set this to 1 to get memory stats in retail, as well
-#define LOOP_HOIST_STATS 0  // You can set this to 1 to get loop hoist stats in retail, as well
-#define TRACK_LSRA_STATS 0  // You can set this to 1 to get LSRA stats in retail, as well
+#define LOOP_HOIST_STATS  0 // You can set this to 1 to get loop hoist stats in retail, as well
+#define TRACK_LSRA_STATS  0 // You can set this to 1 to get LSRA stats in retail, as well
 #define TRACK_ENREG_STATS 0
 #endif
 
@@ -606,7 +606,7 @@ const bool dspGCtbls = true;
         JitTls::GetCompiler()->fgTableDispBasicBlock(b);
 #define VERBOSE JitTls::GetCompiler()->verbose
 // Development-time only macros, simplify guards for specified IL methods one wants to debug/add log messages for
-#define ISMETHOD(name) (strcmp(JitTls::GetCompiler()->impInlineRoot()->info.compMethodName, name) == 0)
+#define ISMETHOD(name)     (strcmp(JitTls::GetCompiler()->impInlineRoot()->info.compMethodName, name) == 0)
 #define ISMETHODHASH(hash) (JitTls::GetCompiler()->impInlineRoot()->info.compMethodHash() == hash)
 #else // !DEBUG
 #define JITDUMP(...)
@@ -633,8 +633,8 @@ const bool dspGCtbls = true;
 
 #ifdef TARGET_X86
 #define DOUBLE_ALIGN                                                                                                   \
-    1 // permit the double alignment of ESP in prolog,
-      //  and permit the double alignment of local offsets
+    1                  // permit the double alignment of ESP in prolog,
+                       //  and permit the double alignment of local offsets
 #else
 #define DOUBLE_ALIGN 0 // no special handling for double alignment
 #endif
@@ -642,11 +642,9 @@ const bool dspGCtbls = true;
 #ifdef DEBUG
 
 // Forward declarations for UninitializedWord and IsUninitialized are needed by alloc.h
-template <typename T>
-inline T UninitializedWord(Compiler* comp);
+template <typename T> inline T UninitializedWord(Compiler* comp);
 
-template <typename T>
-inline bool IsUninitialized(T data);
+template <typename T> inline bool IsUninitialized(T data);
 
 #endif // DEBUG
 
@@ -741,20 +739,20 @@ inline size_t unsigned_abs(__int64 x)
 //  RetBlock:
 //     ret
 #define FEATURE_TAILCALL_OPT_SHARED_RETURN 1
-#else // !FEATURE_TAILCALL_OPT
+#else  // !FEATURE_TAILCALL_OPT
 #define FEATURE_TAILCALL_OPT_SHARED_RETURN 0
 #endif // !FEATURE_TAILCALL_OPT
 
-#define CLFLG_CODESIZE 0x00001
-#define CLFLG_CODESPEED 0x00002
-#define CLFLG_CSE 0x00004
-#define CLFLG_REGVAR 0x00008
-#define CLFLG_RNGCHKOPT 0x00010
-#define CLFLG_DEADSTORE 0x00020
+#define CLFLG_CODESIZE   0x00001
+#define CLFLG_CODESPEED  0x00002
+#define CLFLG_CSE        0x00004
+#define CLFLG_REGVAR     0x00008
+#define CLFLG_RNGCHKOPT  0x00010
+#define CLFLG_DEADSTORE  0x00020
 #define CLFLG_CODEMOTION 0x00040
-#define CLFLG_QMARK 0x00080
-#define CLFLG_TREETRANS 0x00100
-#define CLFLG_INLINING 0x00200
+#define CLFLG_QMARK      0x00080
+#define CLFLG_TREETRANS  0x00100
+#define CLFLG_INLINING   0x00200
 
 #if FEATURE_STRUCTPROMOTE
 #define CLFLG_STRUCTPROMOTE 0x00400
@@ -804,21 +802,21 @@ class Compiler;
 class JitTls
 {
 #ifdef DEBUG
-    Compiler* m_compiler;
-    LogEnv    m_logEnv;
-    JitTls*   m_next;
+        Compiler* m_compiler;
+        LogEnv    m_logEnv;
+        JitTls*   m_next;
 #endif
 
-public:
-    JitTls(ICorJitInfo* jitInfo);
-    ~JitTls();
+    public:
+        JitTls(ICorJitInfo* jitInfo);
+        ~JitTls();
 
 #ifdef DEBUG
-    static LogEnv* GetLogEnv();
+        static LogEnv* GetLogEnv();
 #endif
 
-    static Compiler* GetCompiler();
-    static void      SetCompiler(Compiler* compiler);
+        static Compiler* GetCompiler();
+        static void      SetCompiler(Compiler* compiler);
 };
 
 #if defined(DEBUG)
@@ -830,8 +828,7 @@ public:
 //
 //  Returns a word filled with the JITs allocator default fill value.
 //
-template <typename T>
-inline T UninitializedWord(Compiler* comp)
+template <typename T> inline T UninitializedWord(Compiler* comp)
 {
     unsigned char defaultFill = 0xdd;
     if (comp == nullptr)
@@ -854,8 +851,7 @@ inline T UninitializedWord(Compiler* comp)
 //      isn't a legal value for 'data'.  Thus using a default fill value of
 //      0x00 will often trigger such asserts.
 //
-template <typename T>
-inline bool IsUninitialized(T data)
+template <typename T> inline bool IsUninitialized(T data)
 {
     return data == UninitializedWord<T>(JitTls::GetCompiler());
 }
@@ -867,34 +863,30 @@ inline bool IsUninitialized(T data)
 //  Debug template definitions for dspPtr, dspOffset
 //    - Used to format pointer/offset values for diffable Disasm
 //
-template <typename T>
-T dspPtr(T p)
+template <typename T> T dspPtr(T p)
 {
     return (p == ZERO) ? ZERO : (JitTls::GetCompiler()->opts.dspDiffable ? T(0xD1FFAB1E) : p);
 }
 
-template <typename T>
-T dspOffset(T o)
+template <typename T> T dspOffset(T o)
 {
     return (o == ZERO) ? ZERO : (JitTls::GetCompiler()->opts.dspDiffable ? T(0xD1FFAB1E) : o);
 }
 #pragma warning(pop)
 
-#else // !defined(DEBUG)
+#else  // !defined(DEBUG)
 
 //****************************************************************************
 //
 //  Non-Debug template definitions for dspPtr, dspOffset
 //    - This is a nop in non-Debug builds
 //
-template <typename T>
-T dspPtr(T p)
+template <typename T> T dspPtr(T p)
 {
     return p;
 }
 
-template <typename T>
-T dspOffset(T o)
+template <typename T> T dspOffset(T o)
 {
     return o;
 }
@@ -903,14 +895,14 @@ T dspOffset(T o)
 
 struct LikelyClassMethodRecord
 {
-    intptr_t handle;
-    UINT32   likelihood;
+        intptr_t handle;
+        UINT32   likelihood;
 };
 
 struct LikelyValueRecord
 {
-    ssize_t value;
-    UINT32  likelihood;
+        ssize_t value;
+        UINT32  likelihood;
 };
 
 extern "C" UINT32 WINAPI getLikelyValues(LikelyValueRecord*                     pLikelyValues,

@@ -254,7 +254,7 @@ BasicBlock* Compiler::fgCreateGCPoll(GCPollType pollType, BasicBlock* block)
             printf("*** creating GC Poll in block " FMT_BB "\n", block->bbNum);
             gtDispBlockStmts(block);
         }
-#endif // DEBUG
+#endif   // DEBUG
     }
     else // GCPOLL_INLINE
     {
@@ -1247,35 +1247,35 @@ GenTree* Compiler::fgGetCritSectOfStaticMethod()
         switch (kind.runtimeLookupKind)
         {
             case CORINFO_LOOKUP_THISOBJ:
-            {
-                noway_assert(!"Should never get this for static method.");
-                break;
-            }
+                {
+                    noway_assert(!"Should never get this for static method.");
+                    break;
+                }
 
             case CORINFO_LOOKUP_CLASSPARAM:
-            {
-                // In this case, the hidden param is the class handle.
-                tree = gtNewLclvNode(info.compTypeCtxtArg, TYP_I_IMPL);
-                tree->gtFlags |= GTF_VAR_CONTEXT;
-                break;
-            }
+                {
+                    // In this case, the hidden param is the class handle.
+                    tree = gtNewLclvNode(info.compTypeCtxtArg, TYP_I_IMPL);
+                    tree->gtFlags |= GTF_VAR_CONTEXT;
+                    break;
+                }
 
             case CORINFO_LOOKUP_METHODPARAM:
-            {
-                // In this case, the hidden param is the method handle.
-                tree = gtNewLclvNode(info.compTypeCtxtArg, TYP_I_IMPL);
-                tree->gtFlags |= GTF_VAR_CONTEXT;
-                // Call helper CORINFO_HELP_GETCLASSFROMMETHODPARAM to get the class handle
-                // from the method handle.
-                tree = gtNewHelperCallNode(CORINFO_HELP_GETCLASSFROMMETHODPARAM, TYP_I_IMPL, tree);
-                break;
-            }
+                {
+                    // In this case, the hidden param is the method handle.
+                    tree = gtNewLclvNode(info.compTypeCtxtArg, TYP_I_IMPL);
+                    tree->gtFlags |= GTF_VAR_CONTEXT;
+                    // Call helper CORINFO_HELP_GETCLASSFROMMETHODPARAM to get the class handle
+                    // from the method handle.
+                    tree = gtNewHelperCallNode(CORINFO_HELP_GETCLASSFROMMETHODPARAM, TYP_I_IMPL, tree);
+                    break;
+                }
 
             default:
-            {
-                noway_assert(!"Unknown LOOKUP_KIND");
-                break;
-            }
+                {
+                    noway_assert(!"Unknown LOOKUP_KIND");
+                    break;
+                }
         }
 
         noway_assert(tree); // tree should now contain the CORINFO_CLASS_HANDLE for the exact class.
@@ -1776,495 +1776,495 @@ bool Compiler::fgMoreThanOneReturnBlock()
     return false;
 }
 
-namespace
-{
+namespace {
 // Define a helper class for merging return blocks (which we do when the input has
 // more than the limit for this configuration).
 //
 // Notes: sets fgReturnCount, genReturnBB, and genReturnLocal.
 class MergedReturns
 {
-public:
+    public:
 #ifdef JIT32_GCENCODER
 
-    // X86 GC encoding has a hard limit of SET_EPILOGCNT_MAX epilogs.
-    const static unsigned ReturnCountHardLimit = SET_EPILOGCNT_MAX;
+        // X86 GC encoding has a hard limit of SET_EPILOGCNT_MAX epilogs.
+        const static unsigned ReturnCountHardLimit = SET_EPILOGCNT_MAX;
 #else  // JIT32_GCENCODER
 
-    // We currently apply a hard limit of '4' to all other targets (see
-    // the other uses of SET_EPILOGCNT_MAX), though it would be good
-    // to revisit that decision based on CQ analysis.
-    const static unsigned ReturnCountHardLimit = 4;
+        // We currently apply a hard limit of '4' to all other targets (see
+        // the other uses of SET_EPILOGCNT_MAX), though it would be good
+        // to revisit that decision based on CQ analysis.
+        const static unsigned ReturnCountHardLimit = 4;
 #endif // JIT32_GCENCODER
 
-private:
-    Compiler* comp;
+    private:
+        Compiler* comp;
 
-    // As we discover returns, we'll record them in `returnBlocks`, until
-    // the limit is reached, at which point we'll keep track of the merged
-    // return blocks in `returnBlocks`.
-    BasicBlock* returnBlocks[ReturnCountHardLimit];
+        // As we discover returns, we'll record them in `returnBlocks`, until
+        // the limit is reached, at which point we'll keep track of the merged
+        // return blocks in `returnBlocks`.
+        BasicBlock* returnBlocks[ReturnCountHardLimit];
 
-    // Each constant value returned gets its own merged return block that
-    // returns that constant (up to the limit on number of returns); in
-    // `returnConstants` we track the constant values returned by these
-    // merged constant return blocks.
-    INT64 returnConstants[ReturnCountHardLimit];
+        // Each constant value returned gets its own merged return block that
+        // returns that constant (up to the limit on number of returns); in
+        // `returnConstants` we track the constant values returned by these
+        // merged constant return blocks.
+        INT64 returnConstants[ReturnCountHardLimit];
 
-    // Indicators of where in the lexical block list we'd like to place
-    // each constant return block.
-    BasicBlock* insertionPoints[ReturnCountHardLimit];
+        // Indicators of where in the lexical block list we'd like to place
+        // each constant return block.
+        BasicBlock* insertionPoints[ReturnCountHardLimit];
 
-    // Number of return blocks allowed
-    PhasedVar<unsigned> maxReturns;
+        // Number of return blocks allowed
+        PhasedVar<unsigned> maxReturns;
 
-    // Flag to keep track of when we've hit the limit of returns and are
-    // actively merging returns together.
-    bool mergingReturns = false;
+        // Flag to keep track of when we've hit the limit of returns and are
+        // actively merging returns together.
+        bool mergingReturns = false;
 
-public:
-    MergedReturns(Compiler* comp) : comp(comp)
-    {
-        comp->fgReturnCount = 0;
-    }
-
-    void SetMaxReturns(unsigned value)
-    {
-        maxReturns = value;
-        maxReturns.MarkAsReadOnly();
-    }
-
-    //------------------------------------------------------------------------
-    // Record: Make note of a return block in the input program.
-    //
-    // Arguments:
-    //    returnBlock - Block in the input that has jump kind BBJ_RETURN
-    //
-    // Notes:
-    //    Updates fgReturnCount appropriately, and generates a merged return
-    //    block if necessary.  If a constant merged return block is used,
-    //    `returnBlock` is rewritten to jump to it.  If a non-constant return
-    //    block is used, `genReturnBB` is set to that block, and `genReturnLocal`
-    //    is set to the lclvar that it returns; morph will need to rewrite
-    //    `returnBlock` to set the local and jump to the return block in such
-    //    cases, which it will do after some key transformations like rewriting
-    //    tail calls and calls that return to hidden buffers.  In either of these
-    //    cases, `fgReturnCount` and the merged return block's profile information
-    //    will be updated to reflect or anticipate the rewrite of `returnBlock`.
-    //
-    void Record(BasicBlock* returnBlock)
-    {
-        // Add this return to our tally
-        unsigned oldReturnCount = comp->fgReturnCount++;
-
-        if (!mergingReturns)
+    public:
+        MergedReturns(Compiler* comp)
+            : comp(comp)
         {
-            if (oldReturnCount < maxReturns)
+            comp->fgReturnCount = 0;
+        }
+
+        void SetMaxReturns(unsigned value)
+        {
+            maxReturns = value;
+            maxReturns.MarkAsReadOnly();
+        }
+
+        //------------------------------------------------------------------------
+        // Record: Make note of a return block in the input program.
+        //
+        // Arguments:
+        //    returnBlock - Block in the input that has jump kind BBJ_RETURN
+        //
+        // Notes:
+        //    Updates fgReturnCount appropriately, and generates a merged return
+        //    block if necessary.  If a constant merged return block is used,
+        //    `returnBlock` is rewritten to jump to it.  If a non-constant return
+        //    block is used, `genReturnBB` is set to that block, and `genReturnLocal`
+        //    is set to the lclvar that it returns; morph will need to rewrite
+        //    `returnBlock` to set the local and jump to the return block in such
+        //    cases, which it will do after some key transformations like rewriting
+        //    tail calls and calls that return to hidden buffers.  In either of these
+        //    cases, `fgReturnCount` and the merged return block's profile information
+        //    will be updated to reflect or anticipate the rewrite of `returnBlock`.
+        //
+        void Record(BasicBlock* returnBlock)
+        {
+            // Add this return to our tally
+            unsigned oldReturnCount = comp->fgReturnCount++;
+
+            if (!mergingReturns)
             {
-                // No need to merge just yet; simply record this return.
-                returnBlocks[oldReturnCount] = returnBlock;
-                return;
+                if (oldReturnCount < maxReturns)
+                {
+                    // No need to merge just yet; simply record this return.
+                    returnBlocks[oldReturnCount] = returnBlock;
+                    return;
+                }
+
+                // We've reached our threshold
+                mergingReturns = true;
+
+                // Merge any returns we've already identified
+                for (unsigned i = 0, searchLimit = 0; i < oldReturnCount; ++i)
+                {
+                    BasicBlock* mergedReturnBlock = Merge(returnBlocks[i], searchLimit);
+                    if (returnBlocks[searchLimit] == mergedReturnBlock)
+                    {
+                        // We've added a new block to the searchable set
+                        ++searchLimit;
+                    }
+                }
             }
 
-            // We've reached our threshold
+            // We have too many returns, so merge this one in.
+            // Search limit is new return count minus one (to exclude this block).
+            unsigned searchLimit = comp->fgReturnCount - 1;
+            Merge(returnBlock, searchLimit);
+        }
+
+        //------------------------------------------------------------------------
+        // EagerCreate: Force creation of a non-constant merged return block `genReturnBB`.
+        //
+        // Return Value:
+        //    The newly-created block which returns `genReturnLocal`.
+        //
+        BasicBlock* EagerCreate()
+        {
             mergingReturns = true;
+            return Merge(nullptr, 0);
+        }
 
-            // Merge any returns we've already identified
-            for (unsigned i = 0, searchLimit = 0; i < oldReturnCount; ++i)
+        //------------------------------------------------------------------------
+        // PlaceReturns: Move any generated const return blocks to an appropriate
+        //    spot in the lexical block list.
+        //
+        // Returns:
+        //    True if any returns were impacted.
+        //
+        // Notes:
+        //    The goal is to set things up favorably for a reasonable layout without
+        //    putting too much burden on fgReorderBlocks; in particular, since that
+        //    method doesn't (currently) shuffle non-profile, non-rare code to create
+        //    fall-through and reduce gotos, this method places each const return
+        //    block immediately after its last predecessor, so that the flow from
+        //    there to it can become fallthrough without requiring any motion to be
+        //    performed by fgReorderBlocks.
+        //
+        bool PlaceReturns()
+        {
+            if (!mergingReturns)
             {
-                BasicBlock* mergedReturnBlock = Merge(returnBlocks[i], searchLimit);
-                if (returnBlocks[searchLimit] == mergedReturnBlock)
+                // No returns generated => no returns to place.
+                return false;
+            }
+
+            for (unsigned index = 0; index < comp->fgReturnCount; ++index)
+            {
+                BasicBlock* returnBlock    = returnBlocks[index];
+                BasicBlock* genReturnBlock = comp->genReturnBB;
+                if (returnBlock == genReturnBlock)
                 {
-                    // We've added a new block to the searchable set
-                    ++searchLimit;
+                    continue;
                 }
-            }
-        }
 
-        // We have too many returns, so merge this one in.
-        // Search limit is new return count minus one (to exclude this block).
-        unsigned searchLimit = comp->fgReturnCount - 1;
-        Merge(returnBlock, searchLimit);
-    }
+                BasicBlock* insertionPoint = insertionPoints[index];
+                assert(insertionPoint != nullptr);
 
-    //------------------------------------------------------------------------
-    // EagerCreate: Force creation of a non-constant merged return block `genReturnBB`.
-    //
-    // Return Value:
-    //    The newly-created block which returns `genReturnLocal`.
-    //
-    BasicBlock* EagerCreate()
-    {
-        mergingReturns = true;
-        return Merge(nullptr, 0);
-    }
-
-    //------------------------------------------------------------------------
-    // PlaceReturns: Move any generated const return blocks to an appropriate
-    //    spot in the lexical block list.
-    //
-    // Returns:
-    //    True if any returns were impacted.
-    //
-    // Notes:
-    //    The goal is to set things up favorably for a reasonable layout without
-    //    putting too much burden on fgReorderBlocks; in particular, since that
-    //    method doesn't (currently) shuffle non-profile, non-rare code to create
-    //    fall-through and reduce gotos, this method places each const return
-    //    block immediately after its last predecessor, so that the flow from
-    //    there to it can become fallthrough without requiring any motion to be
-    //    performed by fgReorderBlocks.
-    //
-    bool PlaceReturns()
-    {
-        if (!mergingReturns)
-        {
-            // No returns generated => no returns to place.
-            return false;
-        }
-
-        for (unsigned index = 0; index < comp->fgReturnCount; ++index)
-        {
-            BasicBlock* returnBlock    = returnBlocks[index];
-            BasicBlock* genReturnBlock = comp->genReturnBB;
-            if (returnBlock == genReturnBlock)
-            {
-                continue;
+                comp->fgUnlinkBlock(returnBlock);
+                comp->fgMoveBlocksAfter(returnBlock, returnBlock, insertionPoint);
+                // Treat the merged return block as belonging to the same EH region
+                // as the insertion point block, to make sure we don't break up
+                // EH regions; since returning a constant won't throw, this won't
+                // affect program behavior.
+                comp->fgExtendEHRegionAfter(insertionPoint);
             }
 
-            BasicBlock* insertionPoint = insertionPoints[index];
-            assert(insertionPoint != nullptr);
-
-            comp->fgUnlinkBlock(returnBlock);
-            comp->fgMoveBlocksAfter(returnBlock, returnBlock, insertionPoint);
-            // Treat the merged return block as belonging to the same EH region
-            // as the insertion point block, to make sure we don't break up
-            // EH regions; since returning a constant won't throw, this won't
-            // affect program behavior.
-            comp->fgExtendEHRegionAfter(insertionPoint);
+            return true;
         }
 
-        return true;
-    }
-
-private:
-    //------------------------------------------------------------------------
-    // CreateReturnBB: Create a basic block to serve as a merged return point, stored to
-    //    `returnBlocks` at the given index, and optionally returning the given constant.
-    //
-    // Arguments:
-    //    index - Index into `returnBlocks` to store the new block into.
-    //    returnConst - Constant that the new block should return; may be nullptr to
-    //      indicate that the new merged return is for the non-constant case, in which
-    //      case, if the method's return type is non-void, `comp->genReturnLocal` will
-    //      be initialized to a new local of the appropriate type, and the new block will
-    //      return it.
-    //
-    // Return Value:
-    //    The new merged return block.
-    //
-    BasicBlock* CreateReturnBB(unsigned index, GenTreeIntConCommon* returnConst = nullptr)
-    {
-        BasicBlock* newReturnBB = comp->fgNewBBinRegion(BBJ_RETURN);
-        comp->fgReturnCount++;
-
-        noway_assert(newReturnBB->IsLast());
-
-        JITDUMP("\n newReturnBB [" FMT_BB "] created\n", newReturnBB->bbNum);
-
-        GenTree* returnExpr;
-
-        if (returnConst != nullptr)
+    private:
+        //------------------------------------------------------------------------
+        // CreateReturnBB: Create a basic block to serve as a merged return point, stored to
+        //    `returnBlocks` at the given index, and optionally returning the given constant.
+        //
+        // Arguments:
+        //    index - Index into `returnBlocks` to store the new block into.
+        //    returnConst - Constant that the new block should return; may be nullptr to
+        //      indicate that the new merged return is for the non-constant case, in which
+        //      case, if the method's return type is non-void, `comp->genReturnLocal` will
+        //      be initialized to a new local of the appropriate type, and the new block will
+        //      return it.
+        //
+        // Return Value:
+        //    The new merged return block.
+        //
+        BasicBlock* CreateReturnBB(unsigned index, GenTreeIntConCommon* returnConst = nullptr)
         {
-            returnExpr             = comp->gtNewOperNode(GT_RETURN, returnConst->gtType, returnConst);
-            returnConstants[index] = returnConst->IntegralValue();
-        }
-        else if (comp->compMethodHasRetVal())
-        {
-            // There is a return value, so create a temp for it.  Real returns will store the value in there and
-            // it'll be reloaded by the single return.
-            unsigned retLclNum   = comp->lvaGrabTemp(true DEBUGARG("Single return block return value"));
-            comp->genReturnLocal = retLclNum;
-            LclVarDsc* retVarDsc = comp->lvaGetDesc(retLclNum);
-            var_types  retLclType =
-                comp->compMethodReturnsRetBufAddr() ? TYP_BYREF : genActualType(comp->info.compRetType);
+            BasicBlock* newReturnBB = comp->fgNewBBinRegion(BBJ_RETURN);
+            comp->fgReturnCount++;
 
-            if (varTypeIsStruct(retLclType))
+            noway_assert(newReturnBB->IsLast());
+
+            JITDUMP("\n newReturnBB [" FMT_BB "] created\n", newReturnBB->bbNum);
+
+            GenTree* returnExpr;
+
+            if (returnConst != nullptr)
             {
-                comp->lvaSetStruct(retLclNum, comp->info.compMethodInfo->args.retTypeClass, false);
+                returnExpr             = comp->gtNewOperNode(GT_RETURN, returnConst->gtType, returnConst);
+                returnConstants[index] = returnConst->IntegralValue();
+            }
+            else if (comp->compMethodHasRetVal())
+            {
+                // There is a return value, so create a temp for it.  Real returns will store the value in there and
+                // it'll be reloaded by the single return.
+                unsigned retLclNum   = comp->lvaGrabTemp(true DEBUGARG("Single return block return value"));
+                comp->genReturnLocal = retLclNum;
+                LclVarDsc* retVarDsc = comp->lvaGetDesc(retLclNum);
+                var_types  retLclType =
+                    comp->compMethodReturnsRetBufAddr() ? TYP_BYREF : genActualType(comp->info.compRetType);
 
-                if (comp->compMethodReturnsMultiRegRetType())
+                if (varTypeIsStruct(retLclType))
                 {
-                    retVarDsc->lvIsMultiRegRet = true;
-                }
-            }
-            else
-            {
-                retVarDsc->lvType = retLclType;
-            }
+                    comp->lvaSetStruct(retLclNum, comp->info.compMethodInfo->args.retTypeClass, false);
 
-            if (varTypeIsFloating(retVarDsc->TypeGet()))
-            {
-                comp->compFloatingPointUsed = true;
-            }
+                    if (comp->compMethodReturnsMultiRegRetType())
+                    {
+                        retVarDsc->lvIsMultiRegRet = true;
+                    }
+                }
+                else
+                {
+                    retVarDsc->lvType = retLclType;
+                }
+
+                if (varTypeIsFloating(retVarDsc->TypeGet()))
+                {
+                    comp->compFloatingPointUsed = true;
+                }
 
 #ifdef DEBUG
-            // This temporary should not be converted to a double in stress mode,
-            // because we introduce assigns to it after the stress conversion
-            retVarDsc->lvKeepType = 1;
+                // This temporary should not be converted to a double in stress mode,
+                // because we introduce assigns to it after the stress conversion
+                retVarDsc->lvKeepType = 1;
 #endif
 
-            GenTree* retTemp = comp->gtNewLclvNode(retLclNum, retVarDsc->TypeGet());
+                GenTree* retTemp = comp->gtNewLclvNode(retLclNum, retVarDsc->TypeGet());
 
-            // make sure copy prop ignores this node (make sure it always does a reload from the temp).
-            retTemp->gtFlags |= GTF_DONT_CSE;
-            returnExpr = comp->gtNewOperNode(GT_RETURN, retTemp->TypeGet(), retTemp);
-        }
-        else // Return void.
-        {
-            assert((comp->info.compRetType == TYP_VOID) || varTypeIsStruct(comp->info.compRetType));
-            comp->genReturnLocal = BAD_VAR_NUM;
+                // make sure copy prop ignores this node (make sure it always does a reload from the temp).
+                retTemp->gtFlags |= GTF_DONT_CSE;
+                returnExpr = comp->gtNewOperNode(GT_RETURN, retTemp->TypeGet(), retTemp);
+            }
+            else // Return void.
+            {
+                assert((comp->info.compRetType == TYP_VOID) || varTypeIsStruct(comp->info.compRetType));
+                comp->genReturnLocal = BAD_VAR_NUM;
 
-            returnExpr = new (comp, GT_RETURN) GenTreeOp(GT_RETURN, TYP_VOID);
-        }
+                returnExpr = new (comp, GT_RETURN) GenTreeOp(GT_RETURN, TYP_VOID);
+            }
 
-        // Add 'return' expression to the return block
-        comp->fgNewStmtAtEnd(newReturnBB, returnExpr);
-        // Flag that this 'return' was generated by return merging so that subsequent
-        // return block merging will know to leave it alone.
-        returnExpr->gtFlags |= GTF_RET_MERGED;
+            // Add 'return' expression to the return block
+            comp->fgNewStmtAtEnd(newReturnBB, returnExpr);
+            // Flag that this 'return' was generated by return merging so that subsequent
+            // return block merging will know to leave it alone.
+            returnExpr->gtFlags |= GTF_RET_MERGED;
 
 #ifdef DEBUG
-        if (comp->verbose)
-        {
-            printf("\nmergeReturns statement tree ");
-            Compiler::printTreeID(returnExpr);
-            printf(" added to genReturnBB %s\n", newReturnBB->dspToString());
-            comp->gtDispTree(returnExpr);
-            printf("\n");
-        }
-#endif
-        assert(index < maxReturns);
-        returnBlocks[index] = newReturnBB;
-        return newReturnBB;
-    }
-
-    //------------------------------------------------------------------------
-    // Merge: Find or create an appropriate merged return block for the given input block.
-    //
-    // Arguments:
-    //    returnBlock - Return block from the input program to find a merged return for.
-    //                  May be nullptr to indicate that new block suitable for non-constant
-    //                  returns should be generated but no existing block modified.
-    //    searchLimit - Blocks in `returnBlocks` up to but not including index `searchLimit`
-    //                  will be checked to see if we already have an appropriate merged return
-    //                  block for this case.  If a new block must be created, it will be stored
-    //                  to `returnBlocks` at index `searchLimit`.
-    //
-    // Return Value:
-    //    Merged return block suitable for handling this return value.  May be newly-created
-    //    or pre-existing.
-    //
-    // Notes:
-    //    If a constant-valued merged return block is used, `returnBlock` will be rewritten to
-    //    jump to the merged return block and its `GT_RETURN` statement will be removed.  If
-    //    a non-constant-valued merged return block is used, `genReturnBB` and `genReturnLocal`
-    //    will be set so that Morph can perform that rewrite, which it will do after some key
-    //    transformations like rewriting tail calls and calls that return to hidden buffers.
-    //    In either of these cases, `fgReturnCount` and the merged return block's profile
-    //    information will be updated to reflect or anticipate the rewrite of `returnBlock`.
-    //
-    BasicBlock* Merge(BasicBlock* returnBlock, unsigned searchLimit)
-    {
-        assert(mergingReturns);
-
-        BasicBlock* mergedReturnBlock = nullptr;
-
-        // Do not look for mergeable constant returns in debug codegen as
-        // we may lose track of sequence points.
-        if ((returnBlock != nullptr) && (maxReturns > 1) && !comp->opts.compDbgCode)
-        {
-            // Check to see if this is a constant return so that we can search
-            // for and/or create a constant return block for it.
-
-            GenTreeIntConCommon* retConst = GetReturnConst(returnBlock);
-            if (retConst != nullptr)
+            if (comp->verbose)
             {
-                // We have a constant.  Now find or create a corresponding return block.
+                printf("\nmergeReturns statement tree ");
+                Compiler::printTreeID(returnExpr);
+                printf(" added to genReturnBB %s\n", newReturnBB->dspToString());
+                comp->gtDispTree(returnExpr);
+                printf("\n");
+            }
+#endif
+            assert(index < maxReturns);
+            returnBlocks[index] = newReturnBB;
+            return newReturnBB;
+        }
 
-                unsigned    index;
-                BasicBlock* constReturnBlock = FindConstReturnBlock(retConst, searchLimit, &index);
+        //------------------------------------------------------------------------
+        // Merge: Find or create an appropriate merged return block for the given input block.
+        //
+        // Arguments:
+        //    returnBlock - Return block from the input program to find a merged return for.
+        //                  May be nullptr to indicate that new block suitable for non-constant
+        //                  returns should be generated but no existing block modified.
+        //    searchLimit - Blocks in `returnBlocks` up to but not including index `searchLimit`
+        //                  will be checked to see if we already have an appropriate merged return
+        //                  block for this case.  If a new block must be created, it will be stored
+        //                  to `returnBlocks` at index `searchLimit`.
+        //
+        // Return Value:
+        //    Merged return block suitable for handling this return value.  May be newly-created
+        //    or pre-existing.
+        //
+        // Notes:
+        //    If a constant-valued merged return block is used, `returnBlock` will be rewritten to
+        //    jump to the merged return block and its `GT_RETURN` statement will be removed.  If
+        //    a non-constant-valued merged return block is used, `genReturnBB` and `genReturnLocal`
+        //    will be set so that Morph can perform that rewrite, which it will do after some key
+        //    transformations like rewriting tail calls and calls that return to hidden buffers.
+        //    In either of these cases, `fgReturnCount` and the merged return block's profile
+        //    information will be updated to reflect or anticipate the rewrite of `returnBlock`.
+        //
+        BasicBlock* Merge(BasicBlock* returnBlock, unsigned searchLimit)
+        {
+            assert(mergingReturns);
 
-                if (constReturnBlock == nullptr)
+            BasicBlock* mergedReturnBlock = nullptr;
+
+            // Do not look for mergeable constant returns in debug codegen as
+            // we may lose track of sequence points.
+            if ((returnBlock != nullptr) && (maxReturns > 1) && !comp->opts.compDbgCode)
+            {
+                // Check to see if this is a constant return so that we can search
+                // for and/or create a constant return block for it.
+
+                GenTreeIntConCommon* retConst = GetReturnConst(returnBlock);
+                if (retConst != nullptr)
                 {
-                    // We didn't find a const return block.  See if we have space left
-                    // to make one.
+                    // We have a constant.  Now find or create a corresponding return block.
 
-                    // We have already allocated `searchLimit` slots.
-                    unsigned slotsReserved = searchLimit;
-                    if (comp->genReturnBB == nullptr)
+                    unsigned    index;
+                    BasicBlock* constReturnBlock = FindConstReturnBlock(retConst, searchLimit, &index);
+
+                    if (constReturnBlock == nullptr)
                     {
-                        // We haven't made a non-const return yet, so we have to reserve
-                        // a slot for one.
-                        ++slotsReserved;
+                        // We didn't find a const return block.  See if we have space left
+                        // to make one.
+
+                        // We have already allocated `searchLimit` slots.
+                        unsigned slotsReserved = searchLimit;
+                        if (comp->genReturnBB == nullptr)
+                        {
+                            // We haven't made a non-const return yet, so we have to reserve
+                            // a slot for one.
+                            ++slotsReserved;
+                        }
+
+                        if (slotsReserved < maxReturns)
+                        {
+                            // We have enough space to allocate a slot for this constant.
+                            constReturnBlock = CreateReturnBB(searchLimit, retConst);
+                        }
                     }
 
-                    if (slotsReserved < maxReturns)
+                    if (constReturnBlock != nullptr)
                     {
-                        // We have enough space to allocate a slot for this constant.
-                        constReturnBlock = CreateReturnBB(searchLimit, retConst);
-                    }
-                }
+                        // Found a constant merged return block.
+                        mergedReturnBlock = constReturnBlock;
 
-                if (constReturnBlock != nullptr)
-                {
-                    // Found a constant merged return block.
-                    mergedReturnBlock = constReturnBlock;
+                        // Change BBJ_RETURN to BBJ_ALWAYS targeting const return block.
+                        assert((comp->info.compFlags & CORINFO_FLG_SYNCH) == 0);
+                        FlowEdge* const newEdge = comp->fgAddRefPred(constReturnBlock, returnBlock);
+                        returnBlock->SetKindAndTargetEdge(BBJ_ALWAYS, newEdge);
 
-                    // Change BBJ_RETURN to BBJ_ALWAYS targeting const return block.
-                    assert((comp->info.compFlags & CORINFO_FLG_SYNCH) == 0);
-                    FlowEdge* const newEdge = comp->fgAddRefPred(constReturnBlock, returnBlock);
-                    returnBlock->SetKindAndTargetEdge(BBJ_ALWAYS, newEdge);
+                        // Remove GT_RETURN since constReturnBlock returns the constant.
+                        assert(returnBlock->lastStmt()->GetRootNode()->OperIs(GT_RETURN));
+                        assert(returnBlock->lastStmt()->GetRootNode()->gtGetOp1()->IsIntegralConst());
+                        comp->fgRemoveStmt(returnBlock, returnBlock->lastStmt());
 
-                    // Remove GT_RETURN since constReturnBlock returns the constant.
-                    assert(returnBlock->lastStmt()->GetRootNode()->OperIs(GT_RETURN));
-                    assert(returnBlock->lastStmt()->GetRootNode()->gtGetOp1()->IsIntegralConst());
-                    comp->fgRemoveStmt(returnBlock, returnBlock->lastStmt());
+                        // Using 'returnBlock' as the insertion point for 'mergedReturnBlock'
+                        // will give it a chance to use fallthrough rather than BBJ_ALWAYS.
+                        // Resetting this after each merge ensures that any branches to the
+                        // merged return block are lexically forward.
 
-                    // Using 'returnBlock' as the insertion point for 'mergedReturnBlock'
-                    // will give it a chance to use fallthrough rather than BBJ_ALWAYS.
-                    // Resetting this after each merge ensures that any branches to the
-                    // merged return block are lexically forward.
+                        insertionPoints[index] = returnBlock;
 
-                    insertionPoints[index] = returnBlock;
+                        // Update profile information in the mergedReturnBlock to
+                        // reflect the additional flow.
+                        //
+                        if (returnBlock->hasProfileWeight())
+                        {
+                            weight_t const oldWeight =
+                                mergedReturnBlock->hasProfileWeight() ? mergedReturnBlock->bbWeight : BB_ZERO_WEIGHT;
+                            weight_t const newWeight = oldWeight + returnBlock->bbWeight;
 
-                    // Update profile information in the mergedReturnBlock to
-                    // reflect the additional flow.
-                    //
-                    if (returnBlock->hasProfileWeight())
-                    {
-                        weight_t const oldWeight =
-                            mergedReturnBlock->hasProfileWeight() ? mergedReturnBlock->bbWeight : BB_ZERO_WEIGHT;
-                        weight_t const newWeight = oldWeight + returnBlock->bbWeight;
+                            JITDUMP("merging profile weight " FMT_WT " from " FMT_BB " to const return " FMT_BB "\n",
+                                    returnBlock->bbWeight, returnBlock->bbNum, mergedReturnBlock->bbNum);
 
-                        JITDUMP("merging profile weight " FMT_WT " from " FMT_BB " to const return " FMT_BB "\n",
-                                returnBlock->bbWeight, returnBlock->bbNum, mergedReturnBlock->bbNum);
-
-                        mergedReturnBlock->setBBProfileWeight(newWeight);
-                        DISPBLOCK(mergedReturnBlock);
+                            mergedReturnBlock->setBBProfileWeight(newWeight);
+                            DISPBLOCK(mergedReturnBlock);
+                        }
                     }
                 }
             }
-        }
 
-        if (mergedReturnBlock == nullptr)
-        {
-            // No constant return block for this return; use the general one.
-            // We defer flow update and profile update to morph.
-            //
-            mergedReturnBlock = comp->genReturnBB;
             if (mergedReturnBlock == nullptr)
             {
-                // No general merged return for this function yet; create one.
-                // There had better still be room left in the array.
-                assert(searchLimit < maxReturns);
-                mergedReturnBlock = CreateReturnBB(searchLimit);
-                comp->genReturnBB = mergedReturnBlock;
-                // Downstream code expects the `genReturnBB` to always remain
-                // once created, so that it can redirect flow edges to it.
-                mergedReturnBlock->SetFlags(BBF_DONT_REMOVE);
+                // No constant return block for this return; use the general one.
+                // We defer flow update and profile update to morph.
+                //
+                mergedReturnBlock = comp->genReturnBB;
+                if (mergedReturnBlock == nullptr)
+                {
+                    // No general merged return for this function yet; create one.
+                    // There had better still be room left in the array.
+                    assert(searchLimit < maxReturns);
+                    mergedReturnBlock = CreateReturnBB(searchLimit);
+                    comp->genReturnBB = mergedReturnBlock;
+                    // Downstream code expects the `genReturnBB` to always remain
+                    // once created, so that it can redirect flow edges to it.
+                    mergedReturnBlock->SetFlags(BBF_DONT_REMOVE);
+                }
             }
-        }
 
-        if (returnBlock != nullptr)
-        {
-            // Update fgReturnCount to reflect or anticipate that `returnBlock` will no longer
-            // be a return point.
-            comp->fgReturnCount--;
-        }
-
-        return mergedReturnBlock;
-    }
-
-    //------------------------------------------------------------------------
-    // GetReturnConst: If the given block returns an integral constant, return the
-    //     GenTreeIntConCommon that represents the constant.
-    //
-    // Arguments:
-    //    returnBlock - Block whose return value is to be inspected.
-    //
-    // Return Value:
-    //    GenTreeIntCommon that is the argument of `returnBlock`'s `GT_RETURN` if
-    //    such exists; nullptr otherwise.
-    //
-    static GenTreeIntConCommon* GetReturnConst(BasicBlock* returnBlock)
-    {
-        Statement* lastStmt = returnBlock->lastStmt();
-        if (lastStmt == nullptr)
-        {
-            return nullptr;
-        }
-
-        GenTree* lastExpr = lastStmt->GetRootNode();
-        if (!lastExpr->OperIs(GT_RETURN))
-        {
-            return nullptr;
-        }
-
-        GenTree* retExpr = lastExpr->gtGetOp1();
-        if ((retExpr == nullptr) || !retExpr->IsIntegralConst())
-        {
-            return nullptr;
-        }
-
-        return retExpr->AsIntConCommon();
-    }
-
-    //------------------------------------------------------------------------
-    // FindConstReturnBlock: Scan the already-created merged return blocks, up to `searchLimit`,
-    //     and return the one corresponding to the given const expression if it exists.
-    //
-    // Arguments:
-    //    constExpr - GenTreeIntCommon representing the constant return value we're
-    //        searching for.
-    //    searchLimit - Check `returnBlocks`/`returnConstants` up to but not including
-    //        this index.
-    //    index - [out] Index of return block in the `returnBlocks` array, if found;
-    //        searchLimit otherwise.
-    //
-    // Return Value:
-    //    A block that returns the same constant, if one is found; otherwise nullptr.
-    //
-    BasicBlock* FindConstReturnBlock(GenTreeIntConCommon* constExpr, unsigned searchLimit, unsigned* index)
-    {
-        INT64 constVal = constExpr->IntegralValue();
-
-        for (unsigned i = 0; i < searchLimit; ++i)
-        {
-            // Need to check both for matching const val and for genReturnBB
-            // because genReturnBB is used for non-constant returns and its
-            // corresponding entry in the returnConstants array is garbage.
-            // Check the returnBlocks[] first, so we don't access an uninitialized
-            // returnConstants[] value (which some tools like valgrind will
-            // complain about).
-
-            BasicBlock* returnBlock = returnBlocks[i];
-
-            if (returnBlock == comp->genReturnBB)
+            if (returnBlock != nullptr)
             {
-                continue;
+                // Update fgReturnCount to reflect or anticipate that `returnBlock` will no longer
+                // be a return point.
+                comp->fgReturnCount--;
             }
 
-            if (returnConstants[i] == constVal)
-            {
-                *index = i;
-                return returnBlock;
-            }
+            return mergedReturnBlock;
         }
 
-        *index = searchLimit;
-        return nullptr;
-    }
+        //------------------------------------------------------------------------
+        // GetReturnConst: If the given block returns an integral constant, return the
+        //     GenTreeIntConCommon that represents the constant.
+        //
+        // Arguments:
+        //    returnBlock - Block whose return value is to be inspected.
+        //
+        // Return Value:
+        //    GenTreeIntCommon that is the argument of `returnBlock`'s `GT_RETURN` if
+        //    such exists; nullptr otherwise.
+        //
+        static GenTreeIntConCommon* GetReturnConst(BasicBlock* returnBlock)
+        {
+            Statement* lastStmt = returnBlock->lastStmt();
+            if (lastStmt == nullptr)
+            {
+                return nullptr;
+            }
+
+            GenTree* lastExpr = lastStmt->GetRootNode();
+            if (!lastExpr->OperIs(GT_RETURN))
+            {
+                return nullptr;
+            }
+
+            GenTree* retExpr = lastExpr->gtGetOp1();
+            if ((retExpr == nullptr) || !retExpr->IsIntegralConst())
+            {
+                return nullptr;
+            }
+
+            return retExpr->AsIntConCommon();
+        }
+
+        //------------------------------------------------------------------------
+        // FindConstReturnBlock: Scan the already-created merged return blocks, up to `searchLimit`,
+        //     and return the one corresponding to the given const expression if it exists.
+        //
+        // Arguments:
+        //    constExpr - GenTreeIntCommon representing the constant return value we're
+        //        searching for.
+        //    searchLimit - Check `returnBlocks`/`returnConstants` up to but not including
+        //        this index.
+        //    index - [out] Index of return block in the `returnBlocks` array, if found;
+        //        searchLimit otherwise.
+        //
+        // Return Value:
+        //    A block that returns the same constant, if one is found; otherwise nullptr.
+        //
+        BasicBlock* FindConstReturnBlock(GenTreeIntConCommon* constExpr, unsigned searchLimit, unsigned* index)
+        {
+            INT64 constVal = constExpr->IntegralValue();
+
+            for (unsigned i = 0; i < searchLimit; ++i)
+            {
+                // Need to check both for matching const val and for genReturnBB
+                // because genReturnBB is used for non-constant returns and its
+                // corresponding entry in the returnConstants array is garbage.
+                // Check the returnBlocks[] first, so we don't access an uninitialized
+                // returnConstants[] value (which some tools like valgrind will
+                // complain about).
+
+                BasicBlock* returnBlock = returnBlocks[i];
+
+                if (returnBlock == comp->genReturnBB)
+                {
+                    continue;
+                }
+
+                if (returnConstants[i] == constVal)
+                {
+                    *index = i;
+                    return returnBlock;
+                }
+            }
+
+            *index = searchLimit;
+            return nullptr;
+        }
 };
 } // namespace
 
@@ -2806,11 +2806,11 @@ void Compiler::fgInsertFuncletPrologBlock(BasicBlock* block)
             switch (predBlock->GetKind())
             {
                 case BBJ_CALLFINALLY:
-                {
-                    noway_assert(predBlock->TargetIs(block));
-                    fgRedirectTargetEdge(predBlock, newHead);
-                    break;
-                }
+                    {
+                        noway_assert(predBlock->TargetIs(block));
+                        fgRedirectTargetEdge(predBlock, newHead);
+                        break;
+                    }
 
                 default:
                     // The only way into the handler is via a BBJ_CALLFINALLY (to a finally handler), or
@@ -3578,57 +3578,58 @@ GenTree* Compiler::fgSetTreeSeq(GenTree* tree, bool isLIR)
 {
     class SetTreeSeqVisitor final : public GenTreeVisitor<SetTreeSeqVisitor>
     {
-        GenTree*   m_prevNode;
-        const bool m_isLIR;
+            GenTree*   m_prevNode;
+            const bool m_isLIR;
 
-    public:
-        enum
-        {
-            DoPostOrder       = true,
-            UseExecutionOrder = true
-        };
+        public:
+            enum {
+                DoPostOrder       = true,
+                UseExecutionOrder = true
+            };
 
-        SetTreeSeqVisitor(Compiler* compiler, GenTree* tree, bool isLIR)
-            : GenTreeVisitor<SetTreeSeqVisitor>(compiler), m_prevNode(tree), m_isLIR(isLIR)
-        {
-            INDEBUG(tree->gtSeqNum = 0);
-        }
-
-        fgWalkResult PostOrderVisit(GenTree** use, GenTree* user)
-        {
-            GenTree* node = *use;
-
-            if (m_isLIR)
+            SetTreeSeqVisitor(Compiler* compiler, GenTree* tree, bool isLIR)
+                : GenTreeVisitor<SetTreeSeqVisitor>(compiler)
+                , m_prevNode(tree)
+                , m_isLIR(isLIR)
             {
-                node->ClearReverseOp();
+                INDEBUG(tree->gtSeqNum = 0);
             }
 
-            node->gtPrev       = m_prevNode;
-            m_prevNode->gtNext = node;
+            fgWalkResult PostOrderVisit(GenTree** use, GenTree* user)
+            {
+                GenTree* node = *use;
 
-            INDEBUG(node->gtSeqNum = m_prevNode->gtSeqNum + 1);
+                if (m_isLIR)
+                {
+                    node->ClearReverseOp();
+                }
 
-            m_prevNode = node;
+                node->gtPrev       = m_prevNode;
+                m_prevNode->gtNext = node;
 
-            return fgWalkResult::WALK_CONTINUE;
-        }
+                INDEBUG(node->gtSeqNum = m_prevNode->gtSeqNum + 1);
 
-        GenTree* Sequence()
-        {
-            // We have set "m_prevNode" to "tree" in the constructor - this will give us a
-            // circular list here ("tree->gtNext == firstNode", "firstNode->gtPrev == tree").
-            GenTree* tree = m_prevNode;
-            WalkTree(&tree, nullptr);
-            assert(tree == m_prevNode);
+                m_prevNode = node;
 
-            // Extract the first node in the sequence and break the circularity.
-            GenTree* lastNode  = tree;
-            GenTree* firstNode = lastNode->gtNext;
-            lastNode->gtNext   = nullptr;
-            firstNode->gtPrev  = nullptr;
+                return fgWalkResult::WALK_CONTINUE;
+            }
 
-            return firstNode;
-        }
+            GenTree* Sequence()
+            {
+                // We have set "m_prevNode" to "tree" in the constructor - this will give us a
+                // circular list here ("tree->gtNext == firstNode", "firstNode->gtPrev == tree").
+                GenTree* tree = m_prevNode;
+                WalkTree(&tree, nullptr);
+                assert(tree == m_prevNode);
+
+                // Extract the first node in the sequence and break the circularity.
+                GenTree* lastNode  = tree;
+                GenTree* firstNode = lastNode->gtNext;
+                lastNode->gtNext   = nullptr;
+                firstNode->gtPrev  = nullptr;
+
+                return firstNode;
+            }
     };
 
 #ifdef DEBUG
@@ -3676,90 +3677,87 @@ PhaseStatus Compiler::fgSetBlockOrder()
 
 class GCSafePointSuccessorEnumerator
 {
-    BasicBlock* m_block;
-    union
-    {
-        BasicBlock*  m_successors[2];
-        BasicBlock** m_pSuccessors;
-    };
-
-    unsigned m_numSuccs;
-    unsigned m_curSucc = UINT_MAX;
-
-public:
-    // Constructs an enumerator of successors to be used for checking for GC
-    // safe point cycles.
-    GCSafePointSuccessorEnumerator(Compiler* comp, BasicBlock* block) : m_block(block)
-    {
-        m_numSuccs = 0;
-        block->VisitRegularSuccs(comp,
-                                 [this](BasicBlock* succ)
-                                 {
-                                     if (m_numSuccs < ArrLen(m_successors))
-                                     {
-                                         m_successors[m_numSuccs] = succ;
-                                     }
-
-                                     m_numSuccs++;
-                                     return BasicBlockVisit::Continue;
-                                 });
-
-        if (m_numSuccs == 0)
+        BasicBlock* m_block;
+        union
         {
-            if (block->endsWithTailCallOrJmp(comp, true))
+                BasicBlock*  m_successors[2];
+                BasicBlock** m_pSuccessors;
+        };
+
+        unsigned m_numSuccs;
+        unsigned m_curSucc = UINT_MAX;
+
+    public:
+        // Constructs an enumerator of successors to be used for checking for GC
+        // safe point cycles.
+        GCSafePointSuccessorEnumerator(Compiler* comp, BasicBlock* block)
+            : m_block(block)
+        {
+            m_numSuccs = 0;
+            block->VisitRegularSuccs(comp, [this](BasicBlock* succ) {
+                if (m_numSuccs < ArrLen(m_successors))
+                {
+                    m_successors[m_numSuccs] = succ;
+                }
+
+                m_numSuccs++;
+                return BasicBlockVisit::Continue;
+            });
+
+            if (m_numSuccs == 0)
             {
-                // This tail call might combine with other tail calls to form a
-                // loop. Add a pseudo successor back to the entry to model
-                // this.
-                m_successors[0] = comp->fgFirstBB;
-                m_numSuccs      = 1;
-                return;
+                if (block->endsWithTailCallOrJmp(comp, true))
+                {
+                    // This tail call might combine with other tail calls to form a
+                    // loop. Add a pseudo successor back to the entry to model
+                    // this.
+                    m_successors[0] = comp->fgFirstBB;
+                    m_numSuccs      = 1;
+                    return;
+                }
+            }
+            else
+            {
+                assert(!block->endsWithTailCallOrJmp(comp, true));
+            }
+
+            if (m_numSuccs > ArrLen(m_successors))
+            {
+                m_pSuccessors = new (comp, CMK_BasicBlock) BasicBlock*[m_numSuccs];
+
+                unsigned numSuccs = 0;
+                block->VisitRegularSuccs(comp, [this, &numSuccs](BasicBlock* succ) {
+                    assert(numSuccs < m_numSuccs);
+                    m_pSuccessors[numSuccs++] = succ;
+                    return BasicBlockVisit::Continue;
+                });
+
+                assert(numSuccs == m_numSuccs);
             }
         }
-        else
+
+        // Gets the block whose successors are enumerated.
+        BasicBlock* Block()
         {
-            assert(!block->endsWithTailCallOrJmp(comp, true));
+            return m_block;
         }
 
-        if (m_numSuccs > ArrLen(m_successors))
+        // Returns the next available successor or `nullptr` if there are no more successors.
+        BasicBlock* NextSuccessor()
         {
-            m_pSuccessors = new (comp, CMK_BasicBlock) BasicBlock*[m_numSuccs];
+            m_curSucc++;
+            if (m_curSucc >= m_numSuccs)
+            {
+                return nullptr;
+            }
 
-            unsigned numSuccs = 0;
-            block->VisitRegularSuccs(comp,
-                                     [this, &numSuccs](BasicBlock* succ)
-                                     {
-                                         assert(numSuccs < m_numSuccs);
-                                         m_pSuccessors[numSuccs++] = succ;
-                                         return BasicBlockVisit::Continue;
-                                     });
+            if (m_numSuccs <= ArrLen(m_successors))
+            {
+                return m_successors[m_curSucc];
+            }
 
-            assert(numSuccs == m_numSuccs);
+            return m_pSuccessors[m_curSucc];
         }
-    }
-
-    // Gets the block whose successors are enumerated.
-    BasicBlock* Block()
-    {
-        return m_block;
-    }
-
-    // Returns the next available successor or `nullptr` if there are no more successors.
-    BasicBlock* NextSuccessor()
-    {
-        m_curSucc++;
-        if (m_curSucc >= m_numSuccs)
-        {
-            return nullptr;
-        }
-
-        if (m_numSuccs <= ArrLen(m_successors))
-        {
-            return m_successors[m_curSucc];
-        }
-
-        return m_pSuccessors[m_curSucc];
-    }
 };
 
 //------------------------------------------------------------------------------
@@ -4010,21 +4008,18 @@ FlowGraphDfsTree* Compiler::fgComputeDfs()
     BasicBlock** postOrder = new (this, CMK_DepthFirstSearch) BasicBlock*[fgBBcount];
     bool         hasCycle  = false;
 
-    auto visitPreorder = [](BasicBlock* block, unsigned preorderNum)
-    {
+    auto visitPreorder = [](BasicBlock* block, unsigned preorderNum) {
         block->bbPreorderNum  = preorderNum;
         block->bbPostorderNum = UINT_MAX;
     };
 
-    auto visitPostorder = [=](BasicBlock* block, unsigned postorderNum)
-    {
+    auto visitPostorder = [=](BasicBlock* block, unsigned postorderNum) {
         block->bbPostorderNum = postorderNum;
         assert(postorderNum < fgBBcount);
         postOrder[postorderNum] = block;
     };
 
-    auto visitEdge = [&hasCycle](BasicBlock* block, BasicBlock* succ)
-    {
+    auto visitEdge = [&hasCycle](BasicBlock* block, BasicBlock* succ) {
         // Check if block -> succ is a backedge, in which case the flow
         // graph has a cycle.
         if ((succ->bbPreorderNum <= block->bbPreorderNum) && (succ->bbPostorderNum == UINT_MAX))
@@ -4220,7 +4215,9 @@ unsigned FlowGraphNaturalLoop::NumLoopBlocks()
 //   dfs - A DFS tree.
 //
 FlowGraphNaturalLoops::FlowGraphNaturalLoops(const FlowGraphDfsTree* dfsTree)
-    : m_dfsTree(dfsTree), m_loops(m_dfsTree->GetCompiler()->getAllocator(CMK_Loops)), m_improperLoopHeaders(0)
+    : m_dfsTree(dfsTree)
+    , m_loops(m_dfsTree->GetCompiler()->getAllocator(CMK_Loops))
+    , m_improperLoopHeaders(0)
 {
 }
 
@@ -4401,26 +4398,20 @@ FlowGraphNaturalLoops* FlowGraphNaturalLoops::Find(const FlowGraphDfsTree* dfsTr
 
         // Find the exit edges
         //
-        loop->VisitLoopBlocksReversePostOrder(
-            [=](BasicBlock* loopBlock)
-            {
-                loopBlock->VisitRegularSuccs(comp,
-                                             [=](BasicBlock* succBlock)
-                                             {
-                                                 if (!loop->ContainsBlock(succBlock))
-                                                 {
-                                                     FlowEdge* const exitEdge =
-                                                         comp->fgGetPredForBlock(succBlock, loopBlock);
-                                                     JITDUMP(FMT_BB " -> " FMT_BB " is an exit edge\n",
-                                                             loopBlock->bbNum, succBlock->bbNum);
-                                                     loop->m_exitEdges.push_back(exitEdge);
-                                                 }
-
-                                                 return BasicBlockVisit::Continue;
-                                             });
+        loop->VisitLoopBlocksReversePostOrder([=](BasicBlock* loopBlock) {
+            loopBlock->VisitRegularSuccs(comp, [=](BasicBlock* succBlock) {
+                if (!loop->ContainsBlock(succBlock))
+                {
+                    FlowEdge* const exitEdge = comp->fgGetPredForBlock(succBlock, loopBlock);
+                    JITDUMP(FMT_BB " -> " FMT_BB " is an exit edge\n", loopBlock->bbNum, succBlock->bbNum);
+                    loop->m_exitEdges.push_back(exitEdge);
+                }
 
                 return BasicBlockVisit::Continue;
             });
+
+            return BasicBlockVisit::Continue;
+        });
 
         // Find the entry edges
         //
@@ -4462,23 +4453,19 @@ FlowGraphNaturalLoops* FlowGraphNaturalLoops::Find(const FlowGraphDfsTree* dfsTr
             {
                 // Ancestor loop; should contain all blocks of this loop
                 //
-                loop->VisitLoopBlocks(
-                    [otherLoop](BasicBlock* loopBlock)
-                    {
-                        assert(otherLoop->ContainsBlock(loopBlock));
-                        return BasicBlockVisit::Continue;
-                    });
+                loop->VisitLoopBlocks([otherLoop](BasicBlock* loopBlock) {
+                    assert(otherLoop->ContainsBlock(loopBlock));
+                    return BasicBlockVisit::Continue;
+                });
             }
             else
             {
                 // Non-ancestor loop; should have no blocks in common with current loop
                 //
-                loop->VisitLoopBlocks(
-                    [otherLoop](BasicBlock* loopBlock)
-                    {
-                        assert(!otherLoop->ContainsBlock(loopBlock));
-                        return BasicBlockVisit::Continue;
-                    });
+                loop->VisitLoopBlocks([otherLoop](BasicBlock* loopBlock) {
+                    assert(!otherLoop->ContainsBlock(loopBlock));
+                    return BasicBlockVisit::Continue;
+                });
             }
         }
 #endif
@@ -4687,8 +4674,7 @@ void FlowGraphNaturalLoop::Dump(FlowGraphNaturalLoop* loop)
             BasicBlock* firstInRange = nullptr;
             BasicBlock* lastInRange  = nullptr;
             first                    = true;
-            auto printRange          = [&]()
-            {
+            auto printRange          = [&]() {
                 // Dump current range if there is one; reset firstInRange.
                 if (firstInRange == nullptr)
                 {
@@ -4733,13 +4719,11 @@ void FlowGraphNaturalLoop::Dump(FlowGraphNaturalLoop* loop)
             // not well ordered such that `top` and `bottom` are not first/last in `bbNext` order.
             // Just dump all the blocks individually using the loop block visitor.
             first = true;
-            loop->VisitLoopBlocksReversePostOrder(
-                [&first](BasicBlock* block)
-                {
-                    printf("%s" FMT_BB, first ? "" : ";", block->bbNum);
-                    first = false;
-                    return BasicBlockVisit::Continue;
-                });
+            loop->VisitLoopBlocksReversePostOrder([&first](BasicBlock* block) {
+                printf("%s" FMT_BB, first ? "" : ";", block->bbNum);
+                first = false;
+                return BasicBlockVisit::Continue;
+            });
 
             // Print out the lexical top and bottom blocks, which will explain why we didn't print ranges.
             printf("\n  Lexical top: " FMT_BB, lexicalTopBlock->bbNum);
@@ -4844,55 +4828,55 @@ void FlowGraphNaturalLoops::Dump(FlowGraphNaturalLoops* loops)
 // Returns:
 //   True if all defs were visited and the functor never returned false; otherwise false.
 //
-template <typename TFunc>
-bool FlowGraphNaturalLoop::VisitDefs(TFunc func)
+template <typename TFunc> bool FlowGraphNaturalLoop::VisitDefs(TFunc func)
 {
     class VisitDefsVisitor : public GenTreeVisitor<VisitDefsVisitor>
     {
-        using GenTreeVisitor<VisitDefsVisitor>::m_compiler;
+            using GenTreeVisitor<VisitDefsVisitor>::m_compiler;
 
-        TFunc& m_func;
+            TFunc& m_func;
 
-    public:
-        enum
-        {
-            DoPreOrder = true,
-        };
+        public:
+            enum {
+                DoPreOrder = true,
+            };
 
-        VisitDefsVisitor(Compiler* comp, TFunc& func) : GenTreeVisitor<VisitDefsVisitor>(comp), m_func(func) {}
-
-        Compiler::fgWalkResult PreOrderVisit(GenTree** use, GenTree* user)
-        {
-            GenTree* tree = *use;
-            if ((tree->gtFlags & GTF_ASG) == 0)
+            VisitDefsVisitor(Compiler* comp, TFunc& func)
+                : GenTreeVisitor<VisitDefsVisitor>(comp)
+                , m_func(func)
             {
-                return Compiler::WALK_SKIP_SUBTREES;
             }
 
-            GenTreeLclVarCommon* lclDef;
-            if (tree->DefinesLocal(m_compiler, &lclDef))
+            Compiler::fgWalkResult PreOrderVisit(GenTree** use, GenTree* user)
             {
-                if (!m_func(lclDef))
-                    return Compiler::WALK_ABORT;
-            }
+                GenTree* tree = *use;
+                if ((tree->gtFlags & GTF_ASG) == 0)
+                {
+                    return Compiler::WALK_SKIP_SUBTREES;
+                }
 
-            return Compiler::WALK_CONTINUE;
-        }
+                GenTreeLclVarCommon* lclDef;
+                if (tree->DefinesLocal(m_compiler, &lclDef))
+                {
+                    if (!m_func(lclDef))
+                        return Compiler::WALK_ABORT;
+                }
+
+                return Compiler::WALK_CONTINUE;
+            }
     };
 
     VisitDefsVisitor visitor(m_dfsTree->GetCompiler(), func);
 
-    BasicBlockVisit result = VisitLoopBlocks(
-        [&](BasicBlock* loopBlock)
+    BasicBlockVisit result = VisitLoopBlocks([&](BasicBlock* loopBlock) {
+        for (Statement* stmt : loopBlock->Statements())
         {
-            for (Statement* stmt : loopBlock->Statements())
-            {
-                if (visitor.WalkTree(stmt->GetRootNodePointer(), nullptr) == Compiler::WALK_ABORT)
-                    return BasicBlockVisit::Abort;
-            }
+            if (visitor.WalkTree(stmt->GetRootNodePointer(), nullptr) == Compiler::WALK_ABORT)
+                return BasicBlockVisit::Abort;
+        }
 
-            return BasicBlockVisit::Continue;
-        });
+        return BasicBlockVisit::Continue;
+    });
 
     return result == BasicBlockVisit::Continue;
 }
@@ -4924,17 +4908,15 @@ GenTreeLclVarCommon* FlowGraphNaturalLoop::FindDef(unsigned lclNum)
     }
 
     GenTreeLclVarCommon* result = nullptr;
-    VisitDefs(
-        [&result, lclNum, lclNum2](GenTreeLclVarCommon* def)
+    VisitDefs([&result, lclNum, lclNum2](GenTreeLclVarCommon* def) {
+        if ((def->GetLclNum() == lclNum) || (def->GetLclNum() == lclNum2))
         {
-            if ((def->GetLclNum() == lclNum) || (def->GetLclNum() == lclNum2))
-            {
-                result = def;
-                return false;
-            }
+            result = def;
+            return false;
+        }
 
-            return true;
-        });
+        return true;
+    });
 
     return result;
 }
@@ -5039,15 +5021,13 @@ bool FlowGraphNaturalLoop::AnalyzeIteration(NaturalLoopIterInfo* info)
             continue;
         }
 
-        bool result = VisitDefs(
-            [=](GenTreeLclVarCommon* def)
-            {
-                if ((def->GetLclNum() != iterVar) || (def == iterTree))
-                    return true;
+        bool result = VisitDefs([=](GenTreeLclVarCommon* def) {
+            if ((def->GetLclNum() != iterVar) || (def == iterTree))
+                return true;
 
-                JITDUMP("    Loop has extraneous def [%06u]\n", Compiler::dspTreeID(def));
-                return false;
-            });
+            JITDUMP("    Loop has extraneous def [%06u]\n", Compiler::dspTreeID(def));
+            return false;
+        });
 
         if (!result)
         {
@@ -5080,15 +5060,13 @@ bool FlowGraphNaturalLoop::AnalyzeIteration(NaturalLoopIterInfo* info)
 
     MatchInit(info, initBlock, init);
 
-    bool result = VisitDefs(
-        [=](GenTreeLclVarCommon* def)
-        {
-            if ((def->GetLclNum() != info->IterVar) || (def == info->IterTree))
-                return true;
+    bool result = VisitDefs([=](GenTreeLclVarCommon* def) {
+        if ((def->GetLclNum() != info->IterVar) || (def == info->IterTree))
+            return true;
 
-            JITDUMP("  Loop has extraneous def [%06u]\n", Compiler::dspTreeID(def));
-            return false;
-        });
+        JITDUMP("  Loop has extraneous def [%06u]\n", Compiler::dspTreeID(def));
+        return false;
+    });
 
     if (!result)
     {
@@ -5301,8 +5279,7 @@ bool FlowGraphNaturalLoop::MatchLimit(unsigned iterVar, GenTree* test, NaturalLo
 // Returns:
 //   Result.
 //
-template <typename T>
-bool FlowGraphNaturalLoop::EvaluateRelop(T op1, T op2, genTreeOps oper)
+template <typename T> bool FlowGraphNaturalLoop::EvaluateRelop(T op1, T op2, genTreeOps oper)
 {
     switch (oper)
     {
@@ -5521,13 +5498,11 @@ bool FlowGraphNaturalLoop::InitBlockEntersLoopOnTrue(BasicBlock* initBlock)
 BasicBlock* FlowGraphNaturalLoop::GetLexicallyTopMostBlock()
 {
     BasicBlock* top = m_header;
-    VisitLoopBlocks(
-        [&top](BasicBlock* loopBlock)
-        {
-            if (loopBlock->bbNum < top->bbNum)
-                top = loopBlock;
-            return BasicBlockVisit::Continue;
-        });
+    VisitLoopBlocks([&top](BasicBlock* loopBlock) {
+        if (loopBlock->bbNum < top->bbNum)
+            top = loopBlock;
+        return BasicBlockVisit::Continue;
+    });
 
     return top;
 }
@@ -5546,13 +5521,11 @@ BasicBlock* FlowGraphNaturalLoop::GetLexicallyTopMostBlock()
 BasicBlock* FlowGraphNaturalLoop::GetLexicallyBottomMostBlock()
 {
     BasicBlock* bottom = m_header;
-    VisitLoopBlocks(
-        [&bottom](BasicBlock* loopBlock)
-        {
-            if (loopBlock->bbNum > bottom->bbNum)
-                bottom = loopBlock;
-            return BasicBlockVisit::Continue;
-        });
+    VisitLoopBlocks([&bottom](BasicBlock* loopBlock) {
+        if (loopBlock->bbNum > bottom->bbNum)
+            bottom = loopBlock;
+        return BasicBlockVisit::Continue;
+    });
 
     return bottom;
 }
@@ -5582,16 +5555,14 @@ bool FlowGraphNaturalLoop::HasDef(unsigned lclNum)
         defLclNum2 = dsc->lvParentLcl;
     }
 
-    bool result = VisitDefs(
-        [=](GenTreeLclVarCommon* lcl)
+    bool result = VisitDefs([=](GenTreeLclVarCommon* lcl) {
+        if ((lcl->GetLclNum() == defLclNum1) || (lcl->GetLclNum() == defLclNum2))
         {
-            if ((lcl->GetLclNum() == defLclNum1) || (lcl->GetLclNum() == defLclNum2))
-            {
-                return false;
-            }
+            return false;
+        }
 
-            return true;
-        });
+        return true;
+    });
 
     // If we stopped early we found a def.
     return !result;
@@ -5620,17 +5591,15 @@ bool FlowGraphNaturalLoop::CanDuplicate(INDEBUG(const char** reason))
 #endif
 
     Compiler*       comp   = m_dfsTree->GetCompiler();
-    BasicBlockVisit result = VisitLoopBlocks(
-        [=](BasicBlock* block)
+    BasicBlockVisit result = VisitLoopBlocks([=](BasicBlock* block) {
+        if (comp->bbIsTryBeg(block))
         {
-            if (comp->bbIsTryBeg(block))
-            {
-                INDEBUG(*reason = "Loop has a `try` begin");
-                return BasicBlockVisit::Abort;
-            }
+            INDEBUG(*reason = "Loop has a `try` begin");
+            return BasicBlockVisit::Abort;
+        }
 
-            return BasicBlockVisit::Continue;
-        });
+        return BasicBlockVisit::Continue;
+    });
 
     return result != BasicBlockVisit::Abort;
 }
@@ -5651,47 +5620,43 @@ void FlowGraphNaturalLoop::Duplicate(BasicBlock** insertAfter, BlockToBlockMap* 
 
     BasicBlock* bottom = GetLexicallyBottomMostBlock();
 
-    VisitLoopBlocksLexical(
-        [=](BasicBlock* blk)
-        {
-            // Initialize newBlk as BBJ_ALWAYS without jump target, and fix up jump target later
-            // with BasicBlock::CopyTarget().
-            BasicBlock* newBlk = comp->fgNewBBafter(BBJ_ALWAYS, *insertAfter, /*extendRegion*/ true);
-            JITDUMP("Adding " FMT_BB " (copy of " FMT_BB ") after " FMT_BB "\n", newBlk->bbNum, blk->bbNum,
-                    (*insertAfter)->bbNum);
+    VisitLoopBlocksLexical([=](BasicBlock* blk) {
+        // Initialize newBlk as BBJ_ALWAYS without jump target, and fix up jump target later
+        // with BasicBlock::CopyTarget().
+        BasicBlock* newBlk = comp->fgNewBBafter(BBJ_ALWAYS, *insertAfter, /*extendRegion*/ true);
+        JITDUMP("Adding " FMT_BB " (copy of " FMT_BB ") after " FMT_BB "\n", newBlk->bbNum, blk->bbNum,
+                (*insertAfter)->bbNum);
 
-            BasicBlock::CloneBlockState(comp, newBlk, blk);
+        BasicBlock::CloneBlockState(comp, newBlk, blk);
 
-            // We're going to create the preds below, which will set the bbRefs properly,
-            // so clear out the cloned bbRefs field.
-            newBlk->bbRefs = 0;
+        // We're going to create the preds below, which will set the bbRefs properly,
+        // so clear out the cloned bbRefs field.
+        newBlk->bbRefs = 0;
 
-            newBlk->scaleBBWeight(weightScale);
+        newBlk->scaleBBWeight(weightScale);
 
-            *insertAfter = newBlk;
-            map->Set(blk, newBlk, BlockToBlockMap::Overwrite);
+        *insertAfter = newBlk;
+        map->Set(blk, newBlk, BlockToBlockMap::Overwrite);
 
-            return BasicBlockVisit::Continue;
-        });
+        return BasicBlockVisit::Continue;
+    });
 
     // Now go through the new blocks, remapping their jump targets within the loop
     // and updating the preds lists.
-    VisitLoopBlocks(
-        [=](BasicBlock* blk)
-        {
-            BasicBlock* newBlk = nullptr;
-            bool        b      = map->Lookup(blk, &newBlk);
-            assert(b && newBlk != nullptr);
+    VisitLoopBlocks([=](BasicBlock* blk) {
+        BasicBlock* newBlk = nullptr;
+        bool        b      = map->Lookup(blk, &newBlk);
+        assert(b && newBlk != nullptr);
 
-            // Jump target should not be set yet
-            assert(!newBlk->HasInitializedTarget());
+        // Jump target should not be set yet
+        assert(!newBlk->HasInitializedTarget());
 
-            // Redirect the new block according to "blockMap".
-            // optSetMappedBlockTargets will set newBlk's successors, and add pred edges for the successors.
-            comp->optSetMappedBlockTargets(blk, newBlk, map);
+        // Redirect the new block according to "blockMap".
+        // optSetMappedBlockTargets will set newBlk's successors, and add pred edges for the successors.
+        comp->optSetMappedBlockTargets(blk, newBlk, map);
 
-            return BasicBlockVisit::Continue;
-        });
+        return BasicBlockVisit::Continue;
+    });
 }
 
 //------------------------------------------------------------------------
@@ -6121,26 +6086,28 @@ FlowGraphDominatorTree* FlowGraphDominatorTree::Build(const FlowGraphDfsTree* df
     // Assign preorder/postorder nums for fast "domnates" queries.
     class NumberDomTreeVisitor : public DomTreeVisitor<NumberDomTreeVisitor>
     {
-        unsigned* m_preorderNums;
-        unsigned* m_postorderNums;
-        unsigned  m_preNum  = 0;
-        unsigned  m_postNum = 0;
+            unsigned* m_preorderNums;
+            unsigned* m_postorderNums;
+            unsigned  m_preNum  = 0;
+            unsigned  m_postNum = 0;
 
-    public:
-        NumberDomTreeVisitor(Compiler* comp, unsigned* preorderNums, unsigned* postorderNums)
-            : DomTreeVisitor(comp), m_preorderNums(preorderNums), m_postorderNums(postorderNums)
-        {
-        }
+        public:
+            NumberDomTreeVisitor(Compiler* comp, unsigned* preorderNums, unsigned* postorderNums)
+                : DomTreeVisitor(comp)
+                , m_preorderNums(preorderNums)
+                , m_postorderNums(postorderNums)
+            {
+            }
 
-        void PreOrderVisit(BasicBlock* block)
-        {
-            m_preorderNums[block->bbPostorderNum] = m_preNum++;
-        }
+            void PreOrderVisit(BasicBlock* block)
+            {
+                m_preorderNums[block->bbPostorderNum] = m_preNum++;
+            }
 
-        void PostOrderVisit(BasicBlock* block)
-        {
-            m_postorderNums[block->bbPostorderNum] = m_postNum++;
-        }
+            void PostOrderVisit(BasicBlock* block)
+            {
+                m_postorderNums[block->bbPostorderNum] = m_postNum++;
+            }
     };
 
     unsigned* preorderNums  = new (comp, CMK_DominatorMemory) unsigned[count];
@@ -6204,12 +6171,10 @@ BlockToNaturalLoopMap* BlockToNaturalLoopMap::Build(FlowGraphNaturalLoops* loops
     // loops last and thus write their indices into the map last.
     for (FlowGraphNaturalLoop* loop : loops->InReversePostOrder())
     {
-        loop->VisitLoopBlocks(
-            [=](BasicBlock* block)
-            {
-                indices[block->bbPostorderNum] = loop->GetIndex();
-                return BasicBlockVisit::Continue;
-            });
+        loop->VisitLoopBlocks([=](BasicBlock* block) {
+            indices[block->bbPostorderNum] = loop->GetIndex();
+            return BasicBlockVisit::Continue;
+        });
     }
 
     return new (comp, CMK_Loops) BlockToNaturalLoopMap(loops, indices);

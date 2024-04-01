@@ -529,19 +529,19 @@ void DumpUnwindInfo(bool                     isHotCode,
 #ifdef UNIX_AMD64_ABI
 
             case UWOP_SET_FPREG_LARGE:
-            {
-                printf("    CodeOffset: 0x%02X UnwindOp: UWOP_SET_FPREG_LARGE (%u) OpInfo: Unused (%u)\n",
-                       pCode->CodeOffset, pCode->UnwindOp, pCode->OpInfo); // This should be zero
-                i++;
-                unsigned offset = *(ULONG*)&(pHeader->UnwindCode[i]);
-                i++;
-                printf("      Scaled Offset: %u * 16 = %u = 0x%08X\n", offset, offset * 16, offset * 16);
-                if ((offset & 0xF0000000) != 0)
                 {
-                    printf("      Illegal unscaled offset: too large\n");
+                    printf("    CodeOffset: 0x%02X UnwindOp: UWOP_SET_FPREG_LARGE (%u) OpInfo: Unused (%u)\n",
+                           pCode->CodeOffset, pCode->UnwindOp, pCode->OpInfo); // This should be zero
+                    i++;
+                    unsigned offset = *(ULONG*)&(pHeader->UnwindCode[i]);
+                    i++;
+                    printf("      Scaled Offset: %u * 16 = %u = 0x%08X\n", offset, offset * 16, offset * 16);
+                    if ((offset & 0xF0000000) != 0)
+                    {
+                        printf("      Illegal unscaled offset: too large\n");
+                    }
                 }
-            }
-            break;
+                break;
 
 #endif // UNIX_AMD64_ABI
 
@@ -667,7 +667,7 @@ void Compiler::unwindReserveFuncHelper(FuncInfoDsc* func, bool isHotCode)
             unwindCodeBytes = (DWORD)(func->cfiCodes->size() * sizeof(CFI_CODE));
         }
         else
-#endif // UNIX_AMD64_ABI
+#endif                                                          // UNIX_AMD64_ABI
         {
             assert(func->unwindHeader.Version == 1);            // Can't call this before unwindBegProlog
             assert(func->unwindHeader.CountOfUnwindCodes == 0); // Only call this once per prolog
@@ -804,7 +804,7 @@ void Compiler::unwindEmitFuncHelper(FuncInfoDsc* func, void* pHotCode, void* pCo
                 pUnwindInfo->CountOfUnwindCodes * sizeof(UNWIND_CODE); // This is what the unwind codes themselves say;
                                                                        // it better match what we tell the VM.
             assert(unwindCodeBytes == unwindCodeBytesSpecified);
-#endif // DEBUG
+#endif                                                                 // DEBUG
 
             pUnwindBlock = &func->unwindCodes[func->unwindCodeSlot];
         }

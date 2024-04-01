@@ -1864,22 +1864,30 @@ PhaseStatus Compiler::fgTailMergeThrows()
 
     struct ThrowHelper
     {
-        BasicBlock*  m_block;
-        GenTreeCall* m_call;
+            BasicBlock*  m_block;
+            GenTreeCall* m_call;
 
-        ThrowHelper() : m_block(nullptr), m_call(nullptr) {}
+            ThrowHelper()
+                : m_block(nullptr)
+                , m_call(nullptr)
+            {
+            }
 
-        ThrowHelper(BasicBlock* block, GenTreeCall* call) : m_block(block), m_call(call) {}
+            ThrowHelper(BasicBlock* block, GenTreeCall* call)
+                : m_block(block)
+                , m_call(call)
+            {
+            }
 
-        static bool Equals(const ThrowHelper& x, const ThrowHelper& y)
-        {
-            return BasicBlock::sameEHRegion(x.m_block, y.m_block) && GenTreeCall::Equals(x.m_call, y.m_call);
-        }
+            static bool Equals(const ThrowHelper& x, const ThrowHelper& y)
+            {
+                return BasicBlock::sameEHRegion(x.m_block, y.m_block) && GenTreeCall::Equals(x.m_call, y.m_call);
+            }
 
-        static unsigned GetHashCode(const ThrowHelper& x)
-        {
-            return static_cast<unsigned>(reinterpret_cast<uintptr_t>(x.m_call->gtCallMethHnd));
-        }
+            static unsigned GetHashCode(const ThrowHelper& x)
+            {
+                return static_cast<unsigned>(reinterpret_cast<uintptr_t>(x.m_call->gtCallMethHnd));
+            }
     };
 
     typedef JitHashTable<ThrowHelper, ThrowHelper, BasicBlock*> CallToBlockMap;
@@ -2005,12 +2013,13 @@ PhaseStatus Compiler::fgTailMergeThrows()
                 case BBJ_ALWAYS:
                 case BBJ_COND:
                 case BBJ_SWITCH:
-                {
-                    JITDUMP("*** " FMT_BB " now branching to " FMT_BB "\n", predBlock->bbNum, canonicalBlock->bbNum);
-                    fgReplaceJumpTarget(predBlock, nonCanonicalBlock, canonicalBlock);
-                    updated = true;
-                }
-                break;
+                    {
+                        JITDUMP("*** " FMT_BB " now branching to " FMT_BB "\n", predBlock->bbNum,
+                                canonicalBlock->bbNum);
+                        fgReplaceJumpTarget(predBlock, nonCanonicalBlock, canonicalBlock);
+                        updated = true;
+                    }
+                    break;
 
                 default:
                     // We don't expect other kinds of preds, and it is safe to ignore them

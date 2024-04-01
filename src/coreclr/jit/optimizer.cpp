@@ -37,7 +37,10 @@ void Compiler::optInit()
     optCSEunmarks        = 0;
 }
 
-DataFlow::DataFlow(Compiler* pCompiler) : m_pCompiler(pCompiler) {}
+DataFlow::DataFlow(Compiler* pCompiler)
+    : m_pCompiler(pCompiler)
+{
+}
 
 //------------------------------------------------------------------------
 // optSetBlockWeights: adjust block weights, as follows:
@@ -219,8 +222,7 @@ void Compiler::optScaleLoopBlocks(BasicBlock* begBlk, BasicBlock* endBlk)
     // At least one backedge must have been found (the one from endBlk).
     noway_assert(backedgeList);
 
-    auto reportBlockWeight = [&](BasicBlock* blk, const char* message)
-    {
+    auto reportBlockWeight = [&](BasicBlock* blk, const char* message) {
 #ifdef DEBUG
         if (verbose)
         {
@@ -605,136 +607,136 @@ void Compiler::optSetMappedBlockTargets(BasicBlock* blk, BasicBlock* newBlk, Blo
         case BBJ_CALLFINALLY:
         case BBJ_CALLFINALLYRET:
         case BBJ_LEAVE:
-        {
-            FlowEdge* newEdge;
-
-            // Determine if newBlk should be redirected to a different target from blk's target
-            if (redirectMap->Lookup(blk->GetTarget(), &newTarget))
             {
-                // newBlk needs to be redirected to a new target
-                newEdge = fgAddRefPred(newTarget, newBlk);
-            }
-            else
-            {
-                // newBlk uses the same target as blk
-                newEdge = fgAddRefPred(blk->GetTarget(), newBlk);
-            }
+                FlowEdge* newEdge;
 
-            newBlk->SetKindAndTargetEdge(blk->GetKind(), newEdge);
-            break;
-        }
-
-        case BBJ_COND:
-        {
-            BasicBlock* trueTarget;
-            BasicBlock* falseTarget;
-
-            // Determine if newBLk should be redirected to a different true target from blk's true target
-            if (redirectMap->Lookup(blk->GetTrueTarget(), &newTarget))
-            {
-                // newBlk needs to be redirected to a new true target
-                trueTarget = newTarget;
-            }
-            else
-            {
-                // newBlk uses the same true target as blk
-                trueTarget = blk->GetTrueTarget();
-            }
-
-            // Do the same lookup for the false target
-            if (redirectMap->Lookup(blk->GetFalseTarget(), &newTarget))
-            {
-                falseTarget = newTarget;
-            }
-            else
-            {
-                falseTarget = blk->GetFalseTarget();
-            }
-
-            FlowEdge* const oldTrueEdge  = blk->GetTrueEdge();
-            FlowEdge* const trueEdge     = fgAddRefPred(trueTarget, newBlk, oldTrueEdge);
-            FlowEdge* const oldFalseEdge = blk->GetFalseEdge();
-            FlowEdge* const falseEdge    = fgAddRefPred(falseTarget, newBlk, oldFalseEdge);
-            newBlk->SetCond(trueEdge, falseEdge);
-            break;
-        }
-
-        case BBJ_EHFINALLYRET:
-        {
-            BBehfDesc* currEhfDesc = blk->GetEhfTargets();
-            BBehfDesc* newEhfDesc  = new (this, CMK_BasicBlock) BBehfDesc;
-            newEhfDesc->bbeCount   = currEhfDesc->bbeCount;
-            newEhfDesc->bbeSuccs   = new (this, CMK_FlowEdge) FlowEdge*[newEhfDesc->bbeCount];
-
-            for (unsigned i = 0; i < newEhfDesc->bbeCount; i++)
-            {
-                FlowEdge* const   inspiringEdge = currEhfDesc->bbeSuccs[i];
-                BasicBlock* const ehfTarget     = inspiringEdge->getDestinationBlock();
-                FlowEdge*         newEdge;
-
-                // Determine if newBlk should target ehfTarget, or be redirected
-                if (redirectMap->Lookup(ehfTarget, &newTarget))
+                // Determine if newBlk should be redirected to a different target from blk's target
+                if (redirectMap->Lookup(blk->GetTarget(), &newTarget))
                 {
-                    newEdge = fgAddRefPred(newTarget, newBlk, inspiringEdge);
-                }
-                else
-                {
-                    newEdge = fgAddRefPred(ehfTarget, newBlk, inspiringEdge);
-                }
-
-                newEhfDesc->bbeSuccs[i] = newEdge;
-            }
-
-            newBlk->SetEhf(newEhfDesc);
-            break;
-        }
-
-        case BBJ_SWITCH:
-        {
-            BBswtDesc* currSwtDesc = blk->GetSwitchTargets();
-            BBswtDesc* newSwtDesc  = new (this, CMK_BasicBlock) BBswtDesc(currSwtDesc);
-            newSwtDesc->bbsDstTab  = new (this, CMK_FlowEdge) FlowEdge*[newSwtDesc->bbsCount];
-
-            for (unsigned i = 0; i < newSwtDesc->bbsCount; i++)
-            {
-                FlowEdge* const   inspiringEdge = currSwtDesc->bbsDstTab[i];
-                BasicBlock* const switchTarget  = inspiringEdge->getDestinationBlock();
-                FlowEdge*         newEdge;
-
-                // Determine if newBlk should target switchTarget, or be redirected
-                if (redirectMap->Lookup(switchTarget, &newTarget))
-                {
+                    // newBlk needs to be redirected to a new target
                     newEdge = fgAddRefPred(newTarget, newBlk);
                 }
                 else
                 {
-                    newEdge = fgAddRefPred(switchTarget, newBlk);
+                    // newBlk uses the same target as blk
+                    newEdge = fgAddRefPred(blk->GetTarget(), newBlk);
                 }
 
-                // Transfer likelihood... instead of doing this gradually
-                // for dup'd edges, we set it once, when we add the last dup.
-                //
-                if (newEdge->getDupCount() == inspiringEdge->getDupCount())
-                {
-                    newEdge->setLikelihood(inspiringEdge->getLikelihood());
-                }
-
-                newSwtDesc->bbsDstTab[i] = newEdge;
+                newBlk->SetKindAndTargetEdge(blk->GetKind(), newEdge);
+                break;
             }
 
-            newBlk->SetSwitch(newSwtDesc);
-            break;
-        }
+        case BBJ_COND:
+            {
+                BasicBlock* trueTarget;
+                BasicBlock* falseTarget;
+
+                // Determine if newBLk should be redirected to a different true target from blk's true target
+                if (redirectMap->Lookup(blk->GetTrueTarget(), &newTarget))
+                {
+                    // newBlk needs to be redirected to a new true target
+                    trueTarget = newTarget;
+                }
+                else
+                {
+                    // newBlk uses the same true target as blk
+                    trueTarget = blk->GetTrueTarget();
+                }
+
+                // Do the same lookup for the false target
+                if (redirectMap->Lookup(blk->GetFalseTarget(), &newTarget))
+                {
+                    falseTarget = newTarget;
+                }
+                else
+                {
+                    falseTarget = blk->GetFalseTarget();
+                }
+
+                FlowEdge* const oldTrueEdge  = blk->GetTrueEdge();
+                FlowEdge* const trueEdge     = fgAddRefPred(trueTarget, newBlk, oldTrueEdge);
+                FlowEdge* const oldFalseEdge = blk->GetFalseEdge();
+                FlowEdge* const falseEdge    = fgAddRefPred(falseTarget, newBlk, oldFalseEdge);
+                newBlk->SetCond(trueEdge, falseEdge);
+                break;
+            }
+
+        case BBJ_EHFINALLYRET:
+            {
+                BBehfDesc* currEhfDesc = blk->GetEhfTargets();
+                BBehfDesc* newEhfDesc  = new (this, CMK_BasicBlock) BBehfDesc;
+                newEhfDesc->bbeCount   = currEhfDesc->bbeCount;
+                newEhfDesc->bbeSuccs   = new (this, CMK_FlowEdge) FlowEdge*[newEhfDesc->bbeCount];
+
+                for (unsigned i = 0; i < newEhfDesc->bbeCount; i++)
+                {
+                    FlowEdge* const   inspiringEdge = currEhfDesc->bbeSuccs[i];
+                    BasicBlock* const ehfTarget     = inspiringEdge->getDestinationBlock();
+                    FlowEdge*         newEdge;
+
+                    // Determine if newBlk should target ehfTarget, or be redirected
+                    if (redirectMap->Lookup(ehfTarget, &newTarget))
+                    {
+                        newEdge = fgAddRefPred(newTarget, newBlk, inspiringEdge);
+                    }
+                    else
+                    {
+                        newEdge = fgAddRefPred(ehfTarget, newBlk, inspiringEdge);
+                    }
+
+                    newEhfDesc->bbeSuccs[i] = newEdge;
+                }
+
+                newBlk->SetEhf(newEhfDesc);
+                break;
+            }
+
+        case BBJ_SWITCH:
+            {
+                BBswtDesc* currSwtDesc = blk->GetSwitchTargets();
+                BBswtDesc* newSwtDesc  = new (this, CMK_BasicBlock) BBswtDesc(currSwtDesc);
+                newSwtDesc->bbsDstTab  = new (this, CMK_FlowEdge) FlowEdge*[newSwtDesc->bbsCount];
+
+                for (unsigned i = 0; i < newSwtDesc->bbsCount; i++)
+                {
+                    FlowEdge* const   inspiringEdge = currSwtDesc->bbsDstTab[i];
+                    BasicBlock* const switchTarget  = inspiringEdge->getDestinationBlock();
+                    FlowEdge*         newEdge;
+
+                    // Determine if newBlk should target switchTarget, or be redirected
+                    if (redirectMap->Lookup(switchTarget, &newTarget))
+                    {
+                        newEdge = fgAddRefPred(newTarget, newBlk);
+                    }
+                    else
+                    {
+                        newEdge = fgAddRefPred(switchTarget, newBlk);
+                    }
+
+                    // Transfer likelihood... instead of doing this gradually
+                    // for dup'd edges, we set it once, when we add the last dup.
+                    //
+                    if (newEdge->getDupCount() == inspiringEdge->getDupCount())
+                    {
+                        newEdge->setLikelihood(inspiringEdge->getLikelihood());
+                    }
+
+                    newSwtDesc->bbsDstTab[i] = newEdge;
+                }
+
+                newBlk->SetSwitch(newSwtDesc);
+                break;
+            }
 
         case BBJ_EHCATCHRET:
         case BBJ_EHFILTERRET:
-        {
-            // newBlk's jump target should not need to be redirected
-            assert(!redirectMap->Lookup(blk->GetTarget(), &newTarget));
-            FlowEdge* newEdge = fgAddRefPred(newBlk->GetTarget(), newBlk);
-            newBlk->SetKindAndTargetEdge(blk->GetKind(), newEdge);
-            break;
-        }
+            {
+                // newBlk's jump target should not need to be redirected
+                assert(!redirectMap->Lookup(blk->GetTarget(), &newTarget));
+                FlowEdge* newEdge = fgAddRefPred(newBlk->GetTarget(), newBlk);
+                newBlk->SetKindAndTargetEdge(blk->GetKind(), newEdge);
+                break;
+            }
 
         default:
             // blk doesn't have a jump destination
@@ -777,7 +779,7 @@ bool Compiler::optIterSmallOverflow(int iterAtExit, var_types incrType)
             type_MAX = USHRT_MAX;
             break;
 
-        case TYP_UINT: // Detected by checking for 32bit ....
+        case TYP_UINT:    // Detected by checking for 32bit ....
         case TYP_INT:
             return false; // ... overflow same as done for TYP_INT
 
@@ -826,7 +828,7 @@ bool Compiler::optIterSmallUnderflow(int iterAtExit, var_types decrType)
             type_MIN = 0;
             break;
 
-        case TYP_UINT: // Detected by checking for 32bit ....
+        case TYP_UINT:    // Detected by checking for 32bit ....
         case TYP_INT:
             return false; // ... underflow same as done for TYP_INT
 
@@ -1551,17 +1553,15 @@ bool Compiler::optTryUnrollLoop(FlowGraphNaturalLoop* loop, bool* changedIR)
 
     ClrSafeInt<unsigned> loopCostSz; // Cost is size of one iteration
 
-    loop->VisitLoopBlocksReversePostOrder(
-        [=, &loopCostSz](BasicBlock* block)
+    loop->VisitLoopBlocksReversePostOrder([=, &loopCostSz](BasicBlock* block) {
+        for (Statement* const stmt : block->Statements())
         {
-            for (Statement* const stmt : block->Statements())
-            {
-                gtSetStmtInfo(stmt);
-                loopCostSz += stmt->GetCostSz();
-            }
+            gtSetStmtInfo(stmt);
+            loopCostSz += stmt->GetCostSz();
+        }
 
-            return BasicBlockVisit::Continue;
-        });
+        return BasicBlockVisit::Continue;
+    });
 
 #ifdef DEBUG
     // Today we will never see any BBJ_RETURN blocks because we cannot
@@ -1571,12 +1571,10 @@ bool Compiler::optTryUnrollLoop(FlowGraphNaturalLoop* loop, bool* changedIR)
     // flow can reach the header, but that would require the handler to also be
     // part of the loop, which guarantees that the loop contains two distinct
     // EH regions.
-    loop->VisitLoopBlocks(
-        [](BasicBlock* block)
-        {
-            assert(!block->KindIs(BBJ_RETURN));
-            return BasicBlockVisit::Continue;
-        });
+    loop->VisitLoopBlocks([](BasicBlock* block) {
+        assert(!block->KindIs(BBJ_RETURN));
+        return BasicBlockVisit::Continue;
+    });
 #endif
 
     // Compute the estimated increase in code size for the unrolled loop.
@@ -1651,12 +1649,10 @@ bool Compiler::optTryUnrollLoop(FlowGraphNaturalLoop* loop, bool* changedIR)
         loop->Duplicate(&insertAfter, &blockMap, scaleWeight);
 
         // Replace all uses of the loop iterator with the current value.
-        loop->VisitLoopBlocks(
-            [=, &blockMap](BasicBlock* block)
-            {
-                optReplaceScalarUsesWithConst(blockMap[block], lvar, lval);
-                return BasicBlockVisit::Continue;
-            });
+        loop->VisitLoopBlocks([=, &blockMap](BasicBlock* block) {
+            optReplaceScalarUsesWithConst(blockMap[block], lvar, lval);
+            return BasicBlockVisit::Continue;
+        });
 
         // Remove the test we created in the duplicate; we're doing a full unroll.
         BasicBlock* testBlock = blockMap[iterInfo.TestBlock];
@@ -1789,33 +1785,34 @@ void Compiler::optReplaceScalarUsesWithConst(BasicBlock* block, unsigned lclNum,
 {
     class ReplaceVisitor final : public GenTreeVisitor<ReplaceVisitor>
     {
-        unsigned m_lclNum;
-        ssize_t  m_cnsVal;
+            unsigned m_lclNum;
+            ssize_t  m_cnsVal;
 
-    public:
-        enum
-        {
-            DoPreOrder    = true,
-            DoLclVarsOnly = true,
-        };
+        public:
+            enum {
+                DoPreOrder    = true,
+                DoLclVarsOnly = true,
+            };
 
-        bool MadeChanges = false;
+            bool MadeChanges = false;
 
-        ReplaceVisitor(Compiler* comp, unsigned lclNum, ssize_t cnsVal)
-            : GenTreeVisitor(comp), m_lclNum(lclNum), m_cnsVal(cnsVal)
-        {
-        }
-
-        fgWalkResult PreOrderVisit(GenTree** use, GenTree* user)
-        {
-            if ((*use)->OperIs(GT_LCL_VAR) && ((*use)->AsLclVarCommon()->GetLclNum() == m_lclNum))
+            ReplaceVisitor(Compiler* comp, unsigned lclNum, ssize_t cnsVal)
+                : GenTreeVisitor(comp)
+                , m_lclNum(lclNum)
+                , m_cnsVal(cnsVal)
             {
-                *use        = m_compiler->gtNewIconNode(m_cnsVal, genActualType(*use));
-                MadeChanges = true;
             }
 
-            return fgWalkResult::WALK_CONTINUE;
-        }
+            fgWalkResult PreOrderVisit(GenTree** use, GenTree* user)
+            {
+                if ((*use)->OperIs(GT_LCL_VAR) && ((*use)->AsLclVarCommon()->GetLclNum() == m_lclNum))
+                {
+                    *use        = m_compiler->gtNewIconNode(m_cnsVal, genActualType(*use));
+                    MadeChanges = true;
+                }
+
+                return fgWalkResult::WALK_CONTINUE;
+            }
     };
 
     ReplaceVisitor visitor(this, lclNum, cnsVal);
@@ -1840,30 +1837,32 @@ Compiler::OptInvertCountTreeInfoType Compiler::optInvertCountTreeInfo(GenTree* t
 {
     class CountTreeInfoVisitor : public GenTreeVisitor<CountTreeInfoVisitor>
     {
-    public:
-        enum
-        {
-            DoPreOrder = true,
-        };
+        public:
+            enum {
+                DoPreOrder = true,
+            };
 
-        Compiler::OptInvertCountTreeInfoType Result = {};
+            Compiler::OptInvertCountTreeInfoType Result = {};
 
-        CountTreeInfoVisitor(Compiler* comp) : GenTreeVisitor(comp) {}
-
-        fgWalkResult PreOrderVisit(GenTree** use, GenTree* user)
-        {
-            if (Compiler::IsSharedStaticHelper(*use))
+            CountTreeInfoVisitor(Compiler* comp)
+                : GenTreeVisitor(comp)
             {
-                Result.sharedStaticHelperCount++;
             }
 
-            if ((*use)->OperIsArrLength())
+            fgWalkResult PreOrderVisit(GenTree** use, GenTree* user)
             {
-                Result.arrayLengthCount++;
-            }
+                if (Compiler::IsSharedStaticHelper(*use))
+                {
+                    Result.sharedStaticHelperCount++;
+                }
 
-            return fgWalkResult::WALK_CONTINUE;
-        }
+                if ((*use)->OperIsArrLength())
+                {
+                    Result.arrayLengthCount++;
+                }
+
+                return fgWalkResult::WALK_CONTINUE;
+            }
     };
 
     CountTreeInfoVisitor walker(this);
@@ -3131,16 +3130,14 @@ bool Compiler::optCanonicalizeExits(FlowGraphNaturalLoop* loop)
         // destination block of the exit edge may no longer be right, so we
         // cannot use VisitRegularExitBlocks. The canonicalization here works
         // despite this.
-        edge->getSourceBlock()->VisitRegularSuccs(this,
-                                                  [=, &changed](BasicBlock* succ)
-                                                  {
-                                                      if (!loop->ContainsBlock(succ))
-                                                      {
-                                                          changed |= optCanonicalizeExit(loop, succ);
-                                                      }
+        edge->getSourceBlock()->VisitRegularSuccs(this, [=, &changed](BasicBlock* succ) {
+            if (!loop->ContainsBlock(succ))
+            {
+                changed |= optCanonicalizeExit(loop, succ);
+            }
 
-                                                      return BasicBlockVisit::Continue;
-                                                  });
+            return BasicBlockVisit::Continue;
+        });
     }
 
     return changed;
@@ -3267,23 +3264,21 @@ weight_t Compiler::optEstimateEdgeLikelihood(BasicBlock* from, BasicBlock* to, b
 
     if (useEdgeWeights)
     {
-        from->VisitRegularSuccs(this,
-                                [&, to](BasicBlock* succ)
-                                {
-                                    *fromProfile &= succ->hasProfileWeight();
-                                    FlowEdge* edge       = fgGetPredForBlock(succ, from);
-                                    weight_t  edgeWeight = (edge->edgeWeightMin() + edge->edgeWeightMax()) / 2.0;
+        from->VisitRegularSuccs(this, [&, to](BasicBlock* succ) {
+            *fromProfile &= succ->hasProfileWeight();
+            FlowEdge* edge       = fgGetPredForBlock(succ, from);
+            weight_t  edgeWeight = (edge->edgeWeightMin() + edge->edgeWeightMax()) / 2.0;
 
-                                    if (succ == to)
-                                    {
-                                        takenCount += edgeWeight;
-                                    }
-                                    else
-                                    {
-                                        notTakenCount += edgeWeight;
-                                    }
-                                    return BasicBlockVisit::Continue;
-                                });
+            if (succ == to)
+            {
+                takenCount += edgeWeight;
+            }
+            else
+            {
+                notTakenCount += edgeWeight;
+            }
+            return BasicBlockVisit::Continue;
+        });
 
         // Watch out for cases where edge weights were not properly maintained
         // so that it appears no profile flow goes to 'to'.
@@ -3296,21 +3291,19 @@ weight_t Compiler::optEstimateEdgeLikelihood(BasicBlock* from, BasicBlock* to, b
         takenCount    = 0;
         notTakenCount = 0;
 
-        from->VisitRegularSuccs(this,
-                                [&, to](BasicBlock* succ)
-                                {
-                                    *fromProfile &= succ->hasProfileWeight();
-                                    if (succ == to)
-                                    {
-                                        takenCount += succ->bbWeight;
-                                    }
-                                    else
-                                    {
-                                        notTakenCount += succ->bbWeight;
-                                    }
+        from->VisitRegularSuccs(this, [&, to](BasicBlock* succ) {
+            *fromProfile &= succ->hasProfileWeight();
+            if (succ == to)
+            {
+                takenCount += succ->bbWeight;
+            }
+            else
+            {
+                notTakenCount += succ->bbWeight;
+            }
 
-                                    return BasicBlockVisit::Continue;
-                                });
+            return BasicBlockVisit::Continue;
+        });
     }
 
     if (!*fromProfile)
@@ -3644,7 +3637,7 @@ bool Compiler::optNarrowTree(GenTree* tree, var_types srct, var_types dstt, Valu
             case GT_XOR:
                 noway_assert(genActualType(tree->gtType) == genActualType(op1->gtType));
                 noway_assert(genActualType(tree->gtType) == genActualType(op2->gtType));
-            COMMON_BINOP:
+COMMON_BINOP:
                 if (gtIsActiveCSE_Candidate(op1) || gtIsActiveCSE_Candidate(op2) ||
                     !optNarrowTree(op1, srct, dstt, NoVNPair, doit) || !optNarrowTree(op2, srct, dstt, NoVNPair, doit))
                 {
@@ -3669,7 +3662,7 @@ bool Compiler::optNarrowTree(GenTree* tree, var_types srct, var_types dstt, Valu
 
             case GT_IND:
 
-            NARROW_IND:
+NARROW_IND:
 
                 if ((dstSize > genTypeSize(tree->gtType)) &&
                     (varTypeIsUnsigned(dstt) && !varTypeIsUnsigned(tree->gtType)))
@@ -3703,32 +3696,32 @@ bool Compiler::optNarrowTree(GenTree* tree, var_types srct, var_types dstt, Valu
                 return true;
 
             case GT_CAST:
-            {
-#ifdef DEBUG
-                if ((tree->gtDebugFlags & GTF_DEBUG_CAST_DONT_FOLD) != 0)
                 {
-                    return false;
-                }
+#ifdef DEBUG
+                    if ((tree->gtDebugFlags & GTF_DEBUG_CAST_DONT_FOLD) != 0)
+                    {
+                        return false;
+                    }
 #endif
 
-                if ((tree->CastToType() != srct) || tree->gtOverflow())
-                {
-                    return false;
-                }
-
-                if (varTypeIsInt(op1) && varTypeIsInt(dstt) && tree->TypeIs(TYP_LONG))
-                {
-                    // We have a CAST that converts into to long while dstt is int.
-                    // so we can just convert the cast to int -> int and someone will clean it up.
-                    if (doit)
+                    if ((tree->CastToType() != srct) || tree->gtOverflow())
                     {
-                        tree->CastToType() = TYP_INT;
-                        tree->ChangeType(TYP_INT);
-                        tree->ClearUnsigned();
+                        return false;
                     }
-                    return true;
+
+                    if (varTypeIsInt(op1) && varTypeIsInt(dstt) && tree->TypeIs(TYP_LONG))
+                    {
+                        // We have a CAST that converts into to long while dstt is int.
+                        // so we can just convert the cast to int -> int and someone will clean it up.
+                        if (doit)
+                        {
+                            tree->CastToType() = TYP_INT;
+                            tree->ChangeType(TYP_INT);
+                            tree->ClearUnsigned();
+                        }
+                        return true;
+                    }
                 }
-            }
                 return false;
 
             case GT_COMMA:
@@ -3775,45 +3768,45 @@ void Compiler::optRecordSsaUses(GenTree* tree, BasicBlock* block)
 {
     class SsaRecordingVisitor : public GenTreeVisitor<SsaRecordingVisitor>
     {
-    private:
-        BasicBlock* const m_block;
+        private:
+            BasicBlock* const m_block;
 
-    public:
-        enum
-        {
-            DoPreOrder    = true,
-            DoLclVarsOnly = true
-        };
+        public:
+            enum {
+                DoPreOrder    = true,
+                DoLclVarsOnly = true
+            };
 
-        SsaRecordingVisitor(Compiler* compiler, BasicBlock* block)
-            : GenTreeVisitor<SsaRecordingVisitor>(compiler), m_block(block)
-        {
-        }
-
-        Compiler::fgWalkResult PreOrderVisit(GenTree** use, GenTree* user)
-        {
-            GenTreeLclVarCommon* const tree  = (*use)->AsLclVarCommon();
-            const bool                 isUse = (tree->gtFlags & GTF_VAR_DEF) == 0;
-
-            if (isUse)
+            SsaRecordingVisitor(Compiler* compiler, BasicBlock* block)
+                : GenTreeVisitor<SsaRecordingVisitor>(compiler)
+                , m_block(block)
             {
-                if (tree->HasSsaName())
-                {
-                    unsigned const      lclNum    = tree->GetLclNum();
-                    unsigned const      ssaNum    = tree->GetSsaNum();
-                    LclVarDsc* const    varDsc    = m_compiler->lvaGetDesc(lclNum);
-                    LclSsaVarDsc* const ssaVarDsc = varDsc->GetPerSsaData(ssaNum);
-                    ssaVarDsc->AddUse(m_block);
-                }
-                else
-                {
-                    assert(!m_compiler->lvaInSsa(tree->GetLclNum()));
-                    assert(!tree->HasCompositeSsaName());
-                }
             }
 
-            return fgWalkResult::WALK_CONTINUE;
-        }
+            Compiler::fgWalkResult PreOrderVisit(GenTree** use, GenTree* user)
+            {
+                GenTreeLclVarCommon* const tree  = (*use)->AsLclVarCommon();
+                const bool                 isUse = (tree->gtFlags & GTF_VAR_DEF) == 0;
+
+                if (isUse)
+                {
+                    if (tree->HasSsaName())
+                    {
+                        unsigned const      lclNum    = tree->GetLclNum();
+                        unsigned const      ssaNum    = tree->GetSsaNum();
+                        LclVarDsc* const    varDsc    = m_compiler->lvaGetDesc(lclNum);
+                        LclSsaVarDsc* const ssaVarDsc = varDsc->GetPerSsaData(ssaNum);
+                        ssaVarDsc->AddUse(m_block);
+                    }
+                    else
+                    {
+                        assert(!m_compiler->lvaInSsa(tree->GetLclNum()));
+                        assert(!tree->HasCompositeSsaName());
+                    }
+                }
+
+                return fgWalkResult::WALK_CONTINUE;
+            }
     };
 
     SsaRecordingVisitor srv(this, block);
@@ -4610,575 +4603,577 @@ void Compiler::optHoistLoopBlocks(FlowGraphNaturalLoop*    loop,
 {
     class HoistVisitor : public GenTreeVisitor<HoistVisitor>
     {
-        class Value
-        {
-            GenTree* m_node;
+            class Value
+            {
+                    GenTree* m_node;
 
-        public:
-            bool m_hoistable;
-            bool m_cctorDependent;
-            bool m_invariant;
+                public:
+                    bool m_hoistable;
+                    bool m_cctorDependent;
+                    bool m_invariant;
 
 #ifdef DEBUG
-            const char* m_failReason;
+                    const char* m_failReason;
 #endif
 
-            Value(GenTree* node) : m_node(node), m_hoistable(false), m_cctorDependent(false), m_invariant(false)
-            {
+                    Value(GenTree* node)
+                        : m_node(node)
+                        , m_hoistable(false)
+                        , m_cctorDependent(false)
+                        , m_invariant(false)
+                    {
 #ifdef DEBUG
-                m_failReason = "unset";
+                        m_failReason = "unset";
 #endif
-            }
+                    }
 
-            GenTree* Node()
+                    GenTree* Node()
+                    {
+                        return m_node;
+                    }
+            };
+
+            ArrayStack<Value>     m_valueStack;
+            bool                  m_beforeSideEffect;
+            FlowGraphNaturalLoop* m_loop;
+            LoopHoistContext*     m_hoistContext;
+            BasicBlock*           m_currentBlock;
+
+            bool IsNodeHoistable(GenTree* node)
             {
-                return m_node;
-            }
-        };
-
-        ArrayStack<Value>     m_valueStack;
-        bool                  m_beforeSideEffect;
-        FlowGraphNaturalLoop* m_loop;
-        LoopHoistContext*     m_hoistContext;
-        BasicBlock*           m_currentBlock;
-
-        bool IsNodeHoistable(GenTree* node)
-        {
-            // TODO-CQ: This is a more restrictive version of a check that optIsCSEcandidate already does - it allows
-            // a struct typed node if a class handle can be recovered from it.
-            if (node->TypeGet() == TYP_STRUCT)
-            {
-                return false;
-            }
-            else if (node->OperIs(GT_NULLCHECK))
-            {
-                // If a null-check is for `this` object, it is safe to
-                // hoist it out of the loop. Assertionprop will get rid
-                // of left over nullchecks present inside the loop. Also,
-                // since NULLCHECK has no value, it will never be CSE,
-                // hence this check is not present in optIsCSEcandidate().
-                return true;
-            }
-            else if ((node->gtFlags & GTF_ORDER_SIDEEFF) != 0)
-            {
-                // If a node has an order side effect, we can't hoist it at all: we don't know what the order
-                // dependence actually is. For example, assertion prop might have determined a node can't throw
-                // an exception, and eliminated the GTF_EXCEPT flag, replacing it with GTF_ORDER_SIDEEFF. We
-                // can't hoist because we might then hoist above the expression that led assertion prop to make
-                // that decision. This can happen in JitOptRepeat, where hoisting can follow assertion prop.
-                return false;
-            }
-
-            // Tree must be a suitable CSE candidate for us to be able to hoist it.
-            return m_compiler->optIsCSEcandidate(node);
-        }
-
-        bool IsTreeVNInvariant(GenTree* tree)
-        {
-            ValueNum vn = tree->gtVNPair.GetLiberal();
-            bool     vnIsInvariant =
-                m_compiler->optVNIsLoopInvariant(vn, m_loop, &m_hoistContext->m_curLoopVnInvariantCache);
-
-            // Even though VN is invariant in the loop (say a constant) its value may depend on position
-            // of tree, so for loop hoisting we must also check that any memory read by tree
-            // is also invariant in the loop.
-            //
-            if (vnIsInvariant)
-            {
-                vnIsInvariant = IsTreeLoopMemoryInvariant(tree);
-            }
-            return vnIsInvariant;
-        }
-
-        bool IsHoistableOverExcepSibling(GenTree* node, bool siblingHasExcep)
-        {
-            JITDUMP("      [%06u]", dspTreeID(node));
-
-            if ((node->gtFlags & GTF_ALL_EFFECT) != 0)
-            {
-                // If the hoistable node has any side effects, make sure
-                // we don't hoist it past a sibling that throws any exception.
-                if (siblingHasExcep)
+                // TODO-CQ: This is a more restrictive version of a check that optIsCSEcandidate already does - it
+                // allows a struct typed node if a class handle can be recovered from it.
+                if (node->TypeGet() == TYP_STRUCT)
                 {
-                    JITDUMP(" not hoistable: cannot move past node that throws exception.\n");
                     return false;
                 }
-            }
-            JITDUMP(" hoistable\n");
-            return true;
-        }
-
-        //------------------------------------------------------------------------
-        // IsTreeLoopMemoryInvariant: determine if the value number of tree
-        //   is dependent on the tree being executed within the current loop
-        //
-        // Arguments:
-        //   tree -- tree in question
-        //
-        // Returns:
-        //   true if tree could be evaluated just before loop and get the
-        //   same value.
-        //
-        // Note:
-        //   Calls are optimistically assumed to be invariant.
-        //   Caller must do their own analysis for these tree types.
-        //
-        bool IsTreeLoopMemoryInvariant(GenTree* tree)
-        {
-            if (tree->IsCall())
-            {
-                // Calls are handled specially by hoisting, and loop memory dependence
-                // must be checked by other means.
-                //
-                return true;
-            }
-
-            NodeToLoopMemoryBlockMap* const map            = m_compiler->GetNodeToLoopMemoryBlockMap();
-            BasicBlock*                     loopEntryBlock = nullptr;
-            if (map->Lookup(tree, &loopEntryBlock))
-            {
-                for (MemoryKind memoryKind : allMemoryKinds())
+                else if (node->OperIs(GT_NULLCHECK))
                 {
-                    ValueNum loopMemoryVN =
-                        m_compiler->GetMemoryPerSsaData(loopEntryBlock->bbMemorySsaNumIn[memoryKind])
-                            ->m_vnPair.GetLiberal();
-                    if (!m_compiler->optVNIsLoopInvariant(loopMemoryVN, m_loop,
-                                                          &m_hoistContext->m_curLoopVnInvariantCache))
+                    // If a null-check is for `this` object, it is safe to
+                    // hoist it out of the loop. Assertionprop will get rid
+                    // of left over nullchecks present inside the loop. Also,
+                    // since NULLCHECK has no value, it will never be CSE,
+                    // hence this check is not present in optIsCSEcandidate().
+                    return true;
+                }
+                else if ((node->gtFlags & GTF_ORDER_SIDEEFF) != 0)
+                {
+                    // If a node has an order side effect, we can't hoist it at all: we don't know what the order
+                    // dependence actually is. For example, assertion prop might have determined a node can't throw
+                    // an exception, and eliminated the GTF_EXCEPT flag, replacing it with GTF_ORDER_SIDEEFF. We
+                    // can't hoist because we might then hoist above the expression that led assertion prop to make
+                    // that decision. This can happen in JitOptRepeat, where hoisting can follow assertion prop.
+                    return false;
+                }
+
+                // Tree must be a suitable CSE candidate for us to be able to hoist it.
+                return m_compiler->optIsCSEcandidate(node);
+            }
+
+            bool IsTreeVNInvariant(GenTree* tree)
+            {
+                ValueNum vn = tree->gtVNPair.GetLiberal();
+                bool     vnIsInvariant =
+                    m_compiler->optVNIsLoopInvariant(vn, m_loop, &m_hoistContext->m_curLoopVnInvariantCache);
+
+                // Even though VN is invariant in the loop (say a constant) its value may depend on position
+                // of tree, so for loop hoisting we must also check that any memory read by tree
+                // is also invariant in the loop.
+                //
+                if (vnIsInvariant)
+                {
+                    vnIsInvariant = IsTreeLoopMemoryInvariant(tree);
+                }
+                return vnIsInvariant;
+            }
+
+            bool IsHoistableOverExcepSibling(GenTree* node, bool siblingHasExcep)
+            {
+                JITDUMP("      [%06u]", dspTreeID(node));
+
+                if ((node->gtFlags & GTF_ALL_EFFECT) != 0)
+                {
+                    // If the hoistable node has any side effects, make sure
+                    // we don't hoist it past a sibling that throws any exception.
+                    if (siblingHasExcep)
                     {
+                        JITDUMP(" not hoistable: cannot move past node that throws exception.\n");
                         return false;
                     }
                 }
+                JITDUMP(" hoistable\n");
+                return true;
             }
 
-            return true;
-        }
-
-    public:
-        enum
-        {
-            ComputeStack      = false,
-            DoPreOrder        = true,
-            DoPostOrder       = true,
-            DoLclVarsOnly     = false,
-            UseExecutionOrder = true,
-        };
-
-        HoistVisitor(Compiler* compiler, FlowGraphNaturalLoop* loop, LoopHoistContext* hoistContext)
-            : GenTreeVisitor(compiler)
-            , m_valueStack(compiler->getAllocator(CMK_LoopHoist))
-            , m_beforeSideEffect(true)
-            , m_loop(loop)
-            , m_hoistContext(hoistContext)
-            , m_currentBlock(nullptr)
-        {
-        }
-
-        void HoistBlock(BasicBlock* block)
-        {
-            m_currentBlock = block;
-            for (Statement* const stmt : block->NonPhiStatements())
+            //------------------------------------------------------------------------
+            // IsTreeLoopMemoryInvariant: determine if the value number of tree
+            //   is dependent on the tree being executed within the current loop
+            //
+            // Arguments:
+            //   tree -- tree in question
+            //
+            // Returns:
+            //   true if tree could be evaluated just before loop and get the
+            //   same value.
+            //
+            // Note:
+            //   Calls are optimistically assumed to be invariant.
+            //   Caller must do their own analysis for these tree types.
+            //
+            bool IsTreeLoopMemoryInvariant(GenTree* tree)
             {
-                WalkTree(stmt->GetRootNodePointer(), nullptr);
-                Value& top = m_valueStack.TopRef();
-                assert(top.Node() == stmt->GetRootNode());
-
-                // hoist the top node?
-                if (top.m_hoistable)
+                if (tree->IsCall())
                 {
-                    m_compiler->optHoistCandidate(stmt->GetRootNode(), block, m_loop, m_hoistContext);
-                }
-                else
-                {
-                    JITDUMP("      [%06u] %s: %s\n", dspTreeID(top.Node()),
-                            top.m_invariant ? "not hoistable" : "not invariant", top.m_failReason);
+                    // Calls are handled specially by hoisting, and loop memory dependence
+                    // must be checked by other means.
+                    //
+                    return true;
                 }
 
-                m_valueStack.Reset();
+                NodeToLoopMemoryBlockMap* const map            = m_compiler->GetNodeToLoopMemoryBlockMap();
+                BasicBlock*                     loopEntryBlock = nullptr;
+                if (map->Lookup(tree, &loopEntryBlock))
+                {
+                    for (MemoryKind memoryKind : allMemoryKinds())
+                    {
+                        ValueNum loopMemoryVN =
+                            m_compiler->GetMemoryPerSsaData(loopEntryBlock->bbMemorySsaNumIn[memoryKind])
+                                ->m_vnPair.GetLiberal();
+                        if (!m_compiler->optVNIsLoopInvariant(loopMemoryVN, m_loop,
+                                                              &m_hoistContext->m_curLoopVnInvariantCache))
+                        {
+                            return false;
+                        }
+                    }
+                }
+
+                return true;
             }
 
-            // Only unconditionally executed blocks in the loop are visited (see optHoistThisLoop)
-            // so after we're done visiting the first block we need to assume the worst, that the
-            // blocks that are not visited have side effects.
-            m_beforeSideEffect = false;
-        }
+        public:
+            enum {
+                ComputeStack      = false,
+                DoPreOrder        = true,
+                DoPostOrder       = true,
+                DoLclVarsOnly     = false,
+                UseExecutionOrder = true,
+            };
 
-        fgWalkResult PreOrderVisit(GenTree** use, GenTree* user)
-        {
-            GenTree* node = *use;
-            JITDUMP("----- PreOrderVisit for [%06u] %s\n", dspTreeID(node), GenTree::OpName(node->OperGet()));
-            m_valueStack.Emplace(node);
-            return fgWalkResult::WALK_CONTINUE;
-        }
-
-        fgWalkResult PostOrderVisit(GenTree** use, GenTree* user)
-        {
-            GenTree* tree = *use;
-            JITDUMP("----- PostOrderVisit for [%06u] %s\n", dspTreeID(tree), GenTree::OpName(tree->OperGet()));
-
-            if (tree->OperIsLocalRead())
+            HoistVisitor(Compiler* compiler, FlowGraphNaturalLoop* loop, LoopHoistContext* hoistContext)
+                : GenTreeVisitor(compiler)
+                , m_valueStack(compiler->getAllocator(CMK_LoopHoist))
+                , m_beforeSideEffect(true)
+                , m_loop(loop)
+                , m_hoistContext(hoistContext)
+                , m_currentBlock(nullptr)
             {
-                GenTreeLclVarCommon* lclVar = tree->AsLclVarCommon();
-                unsigned             lclNum = lclVar->GetLclNum();
+            }
 
-                // To be invariant the variable must be in SSA ...
-                bool isInvariant = lclVar->HasSsaName();
-                // and the SSA definition must be outside the loop we're hoisting from ...
-                isInvariant =
-                    isInvariant && !m_loop->ContainsBlock(
-                                       m_compiler->lvaGetDesc(lclNum)->GetPerSsaData(lclVar->GetSsaNum())->GetBlock());
-
-                // and the VN of the tree is considered invariant as well.
-                //
-                // TODO-CQ: This VN invariance check should not be necessary and in some cases it is conservative - it
-                // is possible that the SSA def is outside the loop but VN does not understand what the node is doing
-                // (e.g. LCL_FLD-based type reinterpretation) and assigns a "new, unique VN" to the node. This VN is
-                // associated with the block where the node is, a loop block, and thus the VN is considered to not be
-                // invariant.
-                // On the other hand, it is possible for a SSA def to be inside the loop yet the use to be invariant,
-                // if the defining expression is also invariant. In such a case the VN invariance would help but it is
-                // blocked by the SSA invariance check.
-                isInvariant = isInvariant && IsTreeVNInvariant(tree);
-
-                Value& top = m_valueStack.TopRef();
-                assert(top.Node() == tree);
-
-                if (isInvariant)
+            void HoistBlock(BasicBlock* block)
+            {
+                m_currentBlock = block;
+                for (Statement* const stmt : block->NonPhiStatements())
                 {
-                    top.m_invariant = true;
-                    // In general it doesn't make sense to hoist a local node but there are exceptions, for example
-                    // LCL_FLD nodes (because then the variable cannot be enregistered and the node always turns
-                    // into a memory access).
-                    top.m_hoistable = IsNodeHoistable(tree);
+                    WalkTree(stmt->GetRootNodePointer(), nullptr);
+                    Value& top = m_valueStack.TopRef();
+                    assert(top.Node() == stmt->GetRootNode());
+
+                    // hoist the top node?
+                    if (top.m_hoistable)
+                    {
+                        m_compiler->optHoistCandidate(stmt->GetRootNode(), block, m_loop, m_hoistContext);
+                    }
+                    else
+                    {
+                        JITDUMP("      [%06u] %s: %s\n", dspTreeID(top.Node()),
+                                top.m_invariant ? "not hoistable" : "not invariant", top.m_failReason);
+                    }
+
+                    m_valueStack.Reset();
                 }
 
-#ifdef DEBUG
-                if (!isInvariant)
-                {
-                    top.m_failReason = "local, not rvalue / not in SSA / defined within current loop";
-                }
-                else if (!top.m_hoistable)
-                {
-                    top.m_failReason = "not handled by hoisting or CSE";
-                }
-#endif
+                // Only unconditionally executed blocks in the loop are visited (see optHoistThisLoop)
+                // so after we're done visiting the first block we need to assume the worst, that the
+                // blocks that are not visited have side effects.
+                m_beforeSideEffect = false;
+            }
 
-                JITDUMP("      [%06u] %s: %s: %s\n", dspTreeID(tree), GenTree::OpName(tree->OperGet()),
-                        top.m_invariant ? (top.m_hoistable ? "hoistable" : "not hoistable") : "not invariant",
-                        top.m_failReason);
-
+            fgWalkResult PreOrderVisit(GenTree** use, GenTree* user)
+            {
+                GenTree* node = *use;
+                JITDUMP("----- PreOrderVisit for [%06u] %s\n", dspTreeID(node), GenTree::OpName(node->OperGet()));
+                m_valueStack.Emplace(node);
                 return fgWalkResult::WALK_CONTINUE;
             }
 
-            bool treeIsCctorDependent     = tree->OperIsIndir() && ((tree->gtFlags & GTF_IND_INITCLASS) != 0);
-            bool treeIsInvariant          = true;
-            bool treeHasHoistableChildren = false;
-            int  childCount;
+            fgWalkResult PostOrderVisit(GenTree** use, GenTree* user)
+            {
+                GenTree* tree = *use;
+                JITDUMP("----- PostOrderVisit for [%06u] %s\n", dspTreeID(tree), GenTree::OpName(tree->OperGet()));
+
+                if (tree->OperIsLocalRead())
+                {
+                    GenTreeLclVarCommon* lclVar = tree->AsLclVarCommon();
+                    unsigned             lclNum = lclVar->GetLclNum();
+
+                    // To be invariant the variable must be in SSA ...
+                    bool isInvariant = lclVar->HasSsaName();
+                    // and the SSA definition must be outside the loop we're hoisting from ...
+                    isInvariant = isInvariant &&
+                                  !m_loop->ContainsBlock(
+                                      m_compiler->lvaGetDesc(lclNum)->GetPerSsaData(lclVar->GetSsaNum())->GetBlock());
+
+                    // and the VN of the tree is considered invariant as well.
+                    //
+                    // TODO-CQ: This VN invariance check should not be necessary and in some cases it is conservative -
+                    // it is possible that the SSA def is outside the loop but VN does not understand what the node is
+                    // doing (e.g. LCL_FLD-based type reinterpretation) and assigns a "new, unique VN" to the node. This
+                    // VN is associated with the block where the node is, a loop block, and thus the VN is considered to
+                    // not be invariant. On the other hand, it is possible for a SSA def to be inside the loop yet the
+                    // use to be invariant, if the defining expression is also invariant. In such a case the VN
+                    // invariance would help but it is blocked by the SSA invariance check.
+                    isInvariant = isInvariant && IsTreeVNInvariant(tree);
+
+                    Value& top = m_valueStack.TopRef();
+                    assert(top.Node() == tree);
+
+                    if (isInvariant)
+                    {
+                        top.m_invariant = true;
+                        // In general it doesn't make sense to hoist a local node but there are exceptions, for example
+                        // LCL_FLD nodes (because then the variable cannot be enregistered and the node always turns
+                        // into a memory access).
+                        top.m_hoistable = IsNodeHoistable(tree);
+                    }
 
 #ifdef DEBUG
-            const char* failReason = "unknown";
+                    if (!isInvariant)
+                    {
+                        top.m_failReason = "local, not rvalue / not in SSA / defined within current loop";
+                    }
+                    else if (!top.m_hoistable)
+                    {
+                        top.m_failReason = "not handled by hoisting or CSE";
+                    }
 #endif
 
-            for (childCount = 0; m_valueStack.TopRef(childCount).Node() != tree; childCount++)
-            {
-                Value& child = m_valueStack.TopRef(childCount);
+                    JITDUMP("      [%06u] %s: %s: %s\n", dspTreeID(tree), GenTree::OpName(tree->OperGet()),
+                            top.m_invariant ? (top.m_hoistable ? "hoistable" : "not hoistable") : "not invariant",
+                            top.m_failReason);
 
-                if (child.m_hoistable)
-                {
-                    treeHasHoistableChildren = true;
+                    return fgWalkResult::WALK_CONTINUE;
                 }
 
-                if (!child.m_invariant)
-                {
-                    treeIsInvariant = false;
-                    INDEBUG(failReason = "variant child";)
-                }
+                bool treeIsCctorDependent     = tree->OperIsIndir() && ((tree->gtFlags & GTF_IND_INITCLASS) != 0);
+                bool treeIsInvariant          = true;
+                bool treeHasHoistableChildren = false;
+                int  childCount;
 
-                if (child.m_cctorDependent)
-                {
-                    // Normally, a parent of a cctor-dependent tree is also cctor-dependent.
-                    treeIsCctorDependent = true;
+#ifdef DEBUG
+                const char* failReason = "unknown";
+#endif
 
-                    // Check for the case where we can stop propagating cctor-dependent upwards.
-                    if (tree->OperIs(GT_COMMA) && (child.Node() == tree->gtGetOp2()))
+                for (childCount = 0; m_valueStack.TopRef(childCount).Node() != tree; childCount++)
+                {
+                    Value& child = m_valueStack.TopRef(childCount);
+
+                    if (child.m_hoistable)
                     {
-                        GenTree* op1 = tree->gtGetOp1();
-                        if (op1->OperIs(GT_CALL))
+                        treeHasHoistableChildren = true;
+                    }
+
+                    if (!child.m_invariant)
+                    {
+                        treeIsInvariant = false;
+                        INDEBUG(failReason = "variant child";)
+                    }
+
+                    if (child.m_cctorDependent)
+                    {
+                        // Normally, a parent of a cctor-dependent tree is also cctor-dependent.
+                        treeIsCctorDependent = true;
+
+                        // Check for the case where we can stop propagating cctor-dependent upwards.
+                        if (tree->OperIs(GT_COMMA) && (child.Node() == tree->gtGetOp2()))
                         {
-                            GenTreeCall* call = op1->AsCall();
-                            if ((call->gtCallType == CT_HELPER) &&
-                                s_helperCallProperties.MayRunCctor(eeGetHelperNum(call->gtCallMethHnd)))
+                            GenTree* op1 = tree->gtGetOp1();
+                            if (op1->OperIs(GT_CALL))
                             {
-                                // Hoisting the comma is ok because it would hoist the initialization along
-                                // with the static field reference.
-                                treeIsCctorDependent = false;
-                                // Hoisting the static field without hoisting the initialization would be
-                                // incorrect, make sure we consider the field (which we flagged as
-                                // cctor-dependent) non-hoistable.
-                                noway_assert(!child.m_hoistable);
+                                GenTreeCall* call = op1->AsCall();
+                                if ((call->gtCallType == CT_HELPER) &&
+                                    s_helperCallProperties.MayRunCctor(eeGetHelperNum(call->gtCallMethHnd)))
+                                {
+                                    // Hoisting the comma is ok because it would hoist the initialization along
+                                    // with the static field reference.
+                                    treeIsCctorDependent = false;
+                                    // Hoisting the static field without hoisting the initialization would be
+                                    // incorrect, make sure we consider the field (which we flagged as
+                                    // cctor-dependent) non-hoistable.
+                                    noway_assert(!child.m_hoistable);
+                                }
                             }
                         }
                     }
                 }
-            }
 
-            // If all the children of "tree" are hoistable, then "tree" itself can be hoisted,
-            // unless it has a static var reference that can't be hoisted past its cctor call.
-            bool treeIsHoistable = treeIsInvariant && !treeIsCctorDependent;
+                // If all the children of "tree" are hoistable, then "tree" itself can be hoisted,
+                // unless it has a static var reference that can't be hoisted past its cctor call.
+                bool treeIsHoistable = treeIsInvariant && !treeIsCctorDependent;
 
 #ifdef DEBUG
-            if (treeIsInvariant && !treeIsHoistable)
-            {
-                failReason = "cctor dependent";
-            }
+                if (treeIsInvariant && !treeIsHoistable)
+                {
+                    failReason = "cctor dependent";
+                }
 #endif
 
-            // But we must see if anything else prevents "tree" from being hoisted.
-            //
-            if (treeIsInvariant)
-            {
-                if (treeIsHoistable)
-                {
-                    treeIsHoistable = IsNodeHoistable(tree);
-                    if (!treeIsHoistable)
-                    {
-                        INDEBUG(failReason = "not handled by hoisting or CSE";)
-                    }
-                }
-
-                // If it's a call, it must be a helper call, and be pure.
-                // Further, if it may run a cctor, it must be labeled as "Hoistable"
-                // (meaning it won't run a cctor because the class is not precise-init).
-                if (treeIsHoistable && tree->IsCall())
-                {
-                    GenTreeCall* call = tree->AsCall();
-                    if (call->gtCallType != CT_HELPER)
-                    {
-                        INDEBUG(failReason = "non-helper call";)
-                        treeIsHoistable = false;
-                    }
-                    else
-                    {
-                        CorInfoHelpFunc helpFunc = eeGetHelperNum(call->gtCallMethHnd);
-                        if (!s_helperCallProperties.IsPure(helpFunc))
-                        {
-                            INDEBUG(failReason = "impure helper call";)
-                            treeIsHoistable = false;
-                        }
-                        else if (s_helperCallProperties.MayRunCctor(helpFunc) &&
-                                 ((call->gtFlags & GTF_CALL_HOISTABLE) == 0))
-                        {
-                            INDEBUG(failReason = "non-hoistable helper call";)
-                            treeIsHoistable = false;
-                        }
-                    }
-                }
-
-                if (treeIsHoistable)
-                {
-                    if (!m_beforeSideEffect)
-                    {
-                        // For now, we give up on an expression that might raise an exception if it is after the
-                        // first possible global side effect (and we assume we're after that if we're not in the first
-                        // block).
-                        // TODO-CQ: this is when we might do loop cloning.
-                        //
-                        if ((tree->gtFlags & GTF_EXCEPT) != 0)
-                        {
-                            INDEBUG(failReason = "side effect ordering constraint";)
-                            treeIsHoistable = false;
-                        }
-                    }
-                }
-
-                // Is the value of the whole tree loop invariant?
-                treeIsInvariant = IsTreeVNInvariant(tree);
-
-                // Is the value of the whole tree loop invariant?
-                if (!treeIsInvariant)
-                {
-                    // Here we have a tree that is not loop invariant and we thus cannot hoist
-                    INDEBUG(failReason = "tree VN is loop variant";)
-                    treeIsHoistable = false;
-                }
-            }
-
-            // Next check if we need to set 'm_beforeSideEffect' to false.
-            //
-            // If we have already set it to false then we can skip these checks
-            //
-            if (m_beforeSideEffect)
-            {
-                // Is the value of the whole tree loop invariant?
-                if (!treeIsInvariant)
-                {
-                    // We have a tree that is not loop invariant and we thus cannot hoist
-                    assert(treeIsHoistable == false);
-
-                    // Check if we should clear m_beforeSideEffect.
-                    // If 'tree' can throw an exception then we need to set m_beforeSideEffect to false.
-                    // Note that calls are handled below
-                    if (tree->OperMayThrow(m_compiler) && !tree->IsCall())
-                    {
-                        m_beforeSideEffect = false;
-                    }
-                }
-
-                // In the section below, we only care about memory side effects.  We assume that expressions will
-                // be hoisted so that they are evaluated in the same order as they would have been in the loop,
-                // and therefore throw exceptions in the same order.
+                // But we must see if anything else prevents "tree" from being hoisted.
                 //
-                if (tree->IsCall())
+                if (treeIsInvariant)
                 {
-                    // If it's a call, it must be a helper call that does not mutate the heap.
+                    if (treeIsHoistable)
+                    {
+                        treeIsHoistable = IsNodeHoistable(tree);
+                        if (!treeIsHoistable)
+                        {
+                            INDEBUG(failReason = "not handled by hoisting or CSE";)
+                        }
+                    }
+
+                    // If it's a call, it must be a helper call, and be pure.
                     // Further, if it may run a cctor, it must be labeled as "Hoistable"
                     // (meaning it won't run a cctor because the class is not precise-init).
-                    GenTreeCall* call = tree->AsCall();
-                    if (call->gtCallType != CT_HELPER)
+                    if (treeIsHoistable && tree->IsCall())
                     {
-                        m_beforeSideEffect = false;
+                        GenTreeCall* call = tree->AsCall();
+                        if (call->gtCallType != CT_HELPER)
+                        {
+                            INDEBUG(failReason = "non-helper call";)
+                            treeIsHoistable = false;
+                        }
+                        else
+                        {
+                            CorInfoHelpFunc helpFunc = eeGetHelperNum(call->gtCallMethHnd);
+                            if (!s_helperCallProperties.IsPure(helpFunc))
+                            {
+                                INDEBUG(failReason = "impure helper call";)
+                                treeIsHoistable = false;
+                            }
+                            else if (s_helperCallProperties.MayRunCctor(helpFunc) &&
+                                     ((call->gtFlags & GTF_CALL_HOISTABLE) == 0))
+                            {
+                                INDEBUG(failReason = "non-hoistable helper call";)
+                                treeIsHoistable = false;
+                            }
+                        }
                     }
-                    else
+
+                    if (treeIsHoistable)
                     {
-                        CorInfoHelpFunc helpFunc = eeGetHelperNum(call->gtCallMethHnd);
-                        if (s_helperCallProperties.MutatesHeap(helpFunc))
+                        if (!m_beforeSideEffect)
+                        {
+                            // For now, we give up on an expression that might raise an exception if it is after the
+                            // first possible global side effect (and we assume we're after that if we're not in the
+                            // first block).
+                            // TODO-CQ: this is when we might do loop cloning.
+                            //
+                            if ((tree->gtFlags & GTF_EXCEPT) != 0)
+                            {
+                                INDEBUG(failReason = "side effect ordering constraint";)
+                                treeIsHoistable = false;
+                            }
+                        }
+                    }
+
+                    // Is the value of the whole tree loop invariant?
+                    treeIsInvariant = IsTreeVNInvariant(tree);
+
+                    // Is the value of the whole tree loop invariant?
+                    if (!treeIsInvariant)
+                    {
+                        // Here we have a tree that is not loop invariant and we thus cannot hoist
+                        INDEBUG(failReason = "tree VN is loop variant";)
+                        treeIsHoistable = false;
+                    }
+                }
+
+                // Next check if we need to set 'm_beforeSideEffect' to false.
+                //
+                // If we have already set it to false then we can skip these checks
+                //
+                if (m_beforeSideEffect)
+                {
+                    // Is the value of the whole tree loop invariant?
+                    if (!treeIsInvariant)
+                    {
+                        // We have a tree that is not loop invariant and we thus cannot hoist
+                        assert(treeIsHoistable == false);
+
+                        // Check if we should clear m_beforeSideEffect.
+                        // If 'tree' can throw an exception then we need to set m_beforeSideEffect to false.
+                        // Note that calls are handled below
+                        if (tree->OperMayThrow(m_compiler) && !tree->IsCall())
                         {
                             m_beforeSideEffect = false;
                         }
-                        else if (s_helperCallProperties.MayRunCctor(helpFunc) &&
-                                 (call->gtFlags & GTF_CALL_HOISTABLE) == 0)
+                    }
+
+                    // In the section below, we only care about memory side effects.  We assume that expressions will
+                    // be hoisted so that they are evaluated in the same order as they would have been in the loop,
+                    // and therefore throw exceptions in the same order.
+                    //
+                    if (tree->IsCall())
+                    {
+                        // If it's a call, it must be a helper call that does not mutate the heap.
+                        // Further, if it may run a cctor, it must be labeled as "Hoistable"
+                        // (meaning it won't run a cctor because the class is not precise-init).
+                        GenTreeCall* call = tree->AsCall();
+                        if (call->gtCallType != CT_HELPER)
                         {
                             m_beforeSideEffect = false;
                         }
-
-                        // Additional check for helper calls that throw exceptions
-                        if (!treeIsInvariant)
+                        else
                         {
-                            // We have a tree that is not loop invariant and we thus cannot hoist
-                            assert(treeIsHoistable == false);
-
-                            // Does this helper call throw?
-                            if (!s_helperCallProperties.NoThrow(helpFunc))
+                            CorInfoHelpFunc helpFunc = eeGetHelperNum(call->gtCallMethHnd);
+                            if (s_helperCallProperties.MutatesHeap(helpFunc))
                             {
                                 m_beforeSideEffect = false;
                             }
+                            else if (s_helperCallProperties.MayRunCctor(helpFunc) &&
+                                     (call->gtFlags & GTF_CALL_HOISTABLE) == 0)
+                            {
+                                m_beforeSideEffect = false;
+                            }
+
+                            // Additional check for helper calls that throw exceptions
+                            if (!treeIsInvariant)
+                            {
+                                // We have a tree that is not loop invariant and we thus cannot hoist
+                                assert(treeIsHoistable == false);
+
+                                // Does this helper call throw?
+                                if (!s_helperCallProperties.NoThrow(helpFunc))
+                                {
+                                    m_beforeSideEffect = false;
+                                }
+                            }
                         }
                     }
-                }
-                else if (tree->OperRequiresAsgFlag())
-                {
-                    // Assume all stores except "STORE_LCL_VAR<non-addr-exposed lcl>(...)" are globally visible.
-                    bool isGloballyVisibleStore;
-                    if (tree->OperIsLocalStore())
+                    else if (tree->OperRequiresAsgFlag())
                     {
-                        isGloballyVisibleStore = m_compiler->lvaGetDesc(tree->AsLclVarCommon())->IsAddressExposed();
-                    }
-                    else
-                    {
-                        isGloballyVisibleStore = true;
-                    }
-
-                    if (isGloballyVisibleStore)
-                    {
-                        INDEBUG(failReason = "store to globally visible memory");
-                        treeIsHoistable    = false;
-                        m_beforeSideEffect = false;
-                    }
-                }
-            }
-
-            // If this 'tree' is hoistable then we return and the caller will
-            // decide to hoist it as part of larger hoistable expression.
-            //
-            if (!treeIsHoistable && treeHasHoistableChildren)
-            {
-                // The current tree is not hoistable but it has hoistable children that we need
-                // to hoist now.
-                //
-                // In order to preserve the original execution order, we also need to hoist any
-                // other hoistable trees that we encountered so far.
-                // At this point the stack contains (in top to bottom order):
-                //   - the current node's children
-                //   - the current node
-                //   - ancestors of the current node and some of their descendants
-                //
-                // The ancestors have not been visited yet in post order so they're not hoistable
-                // (and they cannot become hoistable because the current node is not) but some of
-                // their descendants may have already been traversed and be hoistable.
-                //
-                // The execution order is actually bottom to top so we'll start hoisting from
-                // the bottom of the stack, skipping the current node (which is expected to not
-                // be hoistable).
-                //
-                // Note that the treeHasHoistableChildren check avoids unnecessary stack traversing
-                // and also prevents hoisting trees too early. If the current tree is not hoistable
-                // and it doesn't have any hoistable children then there's no point in hoisting any
-                // other trees. Doing so would interfere with the cctor dependent case, where the
-                // cctor dependent node is initially not hoistable and may become hoistable later,
-                // when its parent comma node is visited.
-                //
-                // TODO-CQ: Ideally, we should be hoisting all the nodes having side-effects in execution
-                // order as well as the ones that don't have side-effects at all. However, currently, we
-                // just restrict hoisting a node(s) (that are children of `comma`) if one of the siblings
-                // (which is executed before the given node) has side-effects (exceptions). Descendants
-                // of ancestors might have side-effects and we might hoist nodes past them. This needs
-                // to be addressed properly.
-                bool visitedCurr = false;
-                bool isCommaTree = tree->OperIs(GT_COMMA);
-                bool hasExcep    = false;
-                for (int i = 0; i < m_valueStack.Height(); i++)
-                {
-                    Value& value = m_valueStack.BottomRef(i);
-
-                    if (value.m_hoistable)
-                    {
-                        assert(value.Node() != tree);
-
-                        if (IsHoistableOverExcepSibling(value.Node(), hasExcep))
+                        // Assume all stores except "STORE_LCL_VAR<non-addr-exposed lcl>(...)" are globally visible.
+                        bool isGloballyVisibleStore;
+                        if (tree->OperIsLocalStore())
                         {
-                            m_compiler->optHoistCandidate(value.Node(), m_currentBlock, m_loop, m_hoistContext);
+                            isGloballyVisibleStore = m_compiler->lvaGetDesc(tree->AsLclVarCommon())->IsAddressExposed();
+                        }
+                        else
+                        {
+                            isGloballyVisibleStore = true;
                         }
 
-                        // Don't hoist this tree again.
-                        value.m_hoistable = false;
-                        value.m_invariant = false;
-                    }
-                    else if (value.Node() != tree)
-                    {
-                        if (visitedCurr && isCommaTree)
+                        if (isGloballyVisibleStore)
                         {
-                            // If we have visited current tree, now we are visiting children.
-                            // For GT_COMMA nodes, we want to track if any children throws and
-                            // should not hoist further children past it.
-                            hasExcep = (tree->gtFlags & GTF_EXCEPT) != 0;
+                            INDEBUG(failReason = "store to globally visible memory");
+                            treeIsHoistable    = false;
+                            m_beforeSideEffect = false;
                         }
-                        JITDUMP("      [%06u] %s: %s\n", dspTreeID(value.Node()),
-                                value.m_invariant ? "not hoistable" : "not invariant", value.m_failReason);
-                    }
-                    else
-                    {
-                        visitedCurr = true;
-                        JITDUMP("      [%06u] not hoistable : current node\n", dspTreeID(value.Node()));
                     }
                 }
-            }
 
-            m_valueStack.Pop(childCount);
+                // If this 'tree' is hoistable then we return and the caller will
+                // decide to hoist it as part of larger hoistable expression.
+                //
+                if (!treeIsHoistable && treeHasHoistableChildren)
+                {
+                    // The current tree is not hoistable but it has hoistable children that we need
+                    // to hoist now.
+                    //
+                    // In order to preserve the original execution order, we also need to hoist any
+                    // other hoistable trees that we encountered so far.
+                    // At this point the stack contains (in top to bottom order):
+                    //   - the current node's children
+                    //   - the current node
+                    //   - ancestors of the current node and some of their descendants
+                    //
+                    // The ancestors have not been visited yet in post order so they're not hoistable
+                    // (and they cannot become hoistable because the current node is not) but some of
+                    // their descendants may have already been traversed and be hoistable.
+                    //
+                    // The execution order is actually bottom to top so we'll start hoisting from
+                    // the bottom of the stack, skipping the current node (which is expected to not
+                    // be hoistable).
+                    //
+                    // Note that the treeHasHoistableChildren check avoids unnecessary stack traversing
+                    // and also prevents hoisting trees too early. If the current tree is not hoistable
+                    // and it doesn't have any hoistable children then there's no point in hoisting any
+                    // other trees. Doing so would interfere with the cctor dependent case, where the
+                    // cctor dependent node is initially not hoistable and may become hoistable later,
+                    // when its parent comma node is visited.
+                    //
+                    // TODO-CQ: Ideally, we should be hoisting all the nodes having side-effects in execution
+                    // order as well as the ones that don't have side-effects at all. However, currently, we
+                    // just restrict hoisting a node(s) (that are children of `comma`) if one of the siblings
+                    // (which is executed before the given node) has side-effects (exceptions). Descendants
+                    // of ancestors might have side-effects and we might hoist nodes past them. This needs
+                    // to be addressed properly.
+                    bool visitedCurr = false;
+                    bool isCommaTree = tree->OperIs(GT_COMMA);
+                    bool hasExcep    = false;
+                    for (int i = 0; i < m_valueStack.Height(); i++)
+                    {
+                        Value& value = m_valueStack.BottomRef(i);
 
-            Value& top = m_valueStack.TopRef();
-            assert(top.Node() == tree);
-            top.m_hoistable      = treeIsHoistable;
-            top.m_cctorDependent = treeIsCctorDependent;
-            top.m_invariant      = treeIsInvariant;
+                        if (value.m_hoistable)
+                        {
+                            assert(value.Node() != tree);
+
+                            if (IsHoistableOverExcepSibling(value.Node(), hasExcep))
+                            {
+                                m_compiler->optHoistCandidate(value.Node(), m_currentBlock, m_loop, m_hoistContext);
+                            }
+
+                            // Don't hoist this tree again.
+                            value.m_hoistable = false;
+                            value.m_invariant = false;
+                        }
+                        else if (value.Node() != tree)
+                        {
+                            if (visitedCurr && isCommaTree)
+                            {
+                                // If we have visited current tree, now we are visiting children.
+                                // For GT_COMMA nodes, we want to track if any children throws and
+                                // should not hoist further children past it.
+                                hasExcep = (tree->gtFlags & GTF_EXCEPT) != 0;
+                            }
+                            JITDUMP("      [%06u] %s: %s\n", dspTreeID(value.Node()),
+                                    value.m_invariant ? "not hoistable" : "not invariant", value.m_failReason);
+                        }
+                        else
+                        {
+                            visitedCurr = true;
+                            JITDUMP("      [%06u] not hoistable : current node\n", dspTreeID(value.Node()));
+                        }
+                    }
+                }
+
+                m_valueStack.Pop(childCount);
+
+                Value& top = m_valueStack.TopRef();
+                assert(top.Node() == tree);
+                top.m_hoistable      = treeIsHoistable;
+                top.m_cctorDependent = treeIsCctorDependent;
+                top.m_invariant      = treeIsInvariant;
 
 #ifdef DEBUG
-            if (!top.m_invariant || !top.m_hoistable)
-            {
-                top.m_failReason = failReason;
-            }
+                if (!top.m_invariant || !top.m_hoistable)
+                {
+                    top.m_failReason = failReason;
+                }
 #endif
 
-            return fgWalkResult::WALK_CONTINUE;
-        }
+                return fgWalkResult::WALK_CONTINUE;
+            }
     };
 
     HoistVisitor visitor(this, loop, hoistContext);
@@ -5478,7 +5473,9 @@ PhaseStatus Compiler::fgCanonicalizeFirstBB()
     return PhaseStatus::MODIFIED_EVERYTHING;
 }
 
-LoopSideEffects::LoopSideEffects() : VarInOut(VarSetOps::UninitVal()), VarUseDef(VarSetOps::UninitVal())
+LoopSideEffects::LoopSideEffects()
+    : VarInOut(VarSetOps::UninitVal())
+    , VarUseDef(VarSetOps::UninitVal())
 {
     for (MemoryKind mk : allMemoryKinds())
     {
@@ -5510,15 +5507,13 @@ void Compiler::optComputeLoopSideEffects()
 
         // The side effect code benefits from seeing things in RPO as it has some
         // limited treatment assignments it has seen the value of.
-        loop->VisitLoopBlocksReversePostOrder(
-            [=](BasicBlock* loopBlock)
-            {
-                FlowGraphNaturalLoop* loop = m_blockToLoop->GetLoop(loopBlock);
-                assert(loop != nullptr);
-                optComputeLoopSideEffectsOfBlock(loopBlock, loop);
+        loop->VisitLoopBlocksReversePostOrder([=](BasicBlock* loopBlock) {
+            FlowGraphNaturalLoop* loop = m_blockToLoop->GetLoop(loopBlock);
+            assert(loop != nullptr);
+            optComputeLoopSideEffectsOfBlock(loopBlock, loop);
 
-                return BasicBlockVisit::Continue;
-            });
+            return BasicBlockVisit::Continue;
+        });
     }
 }
 
@@ -5619,98 +5614,99 @@ void Compiler::optComputeLoopSideEffectsOfBlock(BasicBlock* blk, FlowGraphNatura
             {
                 case GT_STORE_LCL_VAR:
                 case GT_STORE_LCL_FLD:
-                {
-                    GenTreeLclVarCommon* lcl    = tree->AsLclVarCommon();
-                    ValueNum             dataVN = lcl->Data()->gtVNPair.GetLiberal();
-
-                    // If we gave the data a value number, propagate it.
-                    if (lcl->OperIs(GT_STORE_LCL_VAR) && (dataVN != ValueNumStore::NoVN))
                     {
-                        dataVN = vnStore->VNNormalValue(dataVN);
-                        if (lcl->HasSsaName())
+                        GenTreeLclVarCommon* lcl    = tree->AsLclVarCommon();
+                        ValueNum             dataVN = lcl->Data()->gtVNPair.GetLiberal();
+
+                        // If we gave the data a value number, propagate it.
+                        if (lcl->OperIs(GT_STORE_LCL_VAR) && (dataVN != ValueNumStore::NoVN))
                         {
-                            lvaTable[lcl->GetLclNum()].GetPerSsaData(lcl->GetSsaNum())->m_vnPair.SetLiberal(dataVN);
+                            dataVN = vnStore->VNNormalValue(dataVN);
+                            if (lcl->HasSsaName())
+                            {
+                                lvaTable[lcl->GetLclNum()].GetPerSsaData(lcl->GetSsaNum())->m_vnPair.SetLiberal(dataVN);
+                            }
+                        }
+
+                        // If the local is address-exposed, count this as ByrefExposed havoc
+                        if (lvaVarAddrExposed(lcl->GetLclNum()))
+                        {
+                            memoryHavoc |= memoryKindSet(ByrefExposed);
                         }
                     }
-
-                    // If the local is address-exposed, count this as ByrefExposed havoc
-                    if (lvaVarAddrExposed(lcl->GetLclNum()))
-                    {
-                        memoryHavoc |= memoryKindSet(ByrefExposed);
-                    }
-                }
-                break;
+                    break;
 
                 case GT_STOREIND:
                 case GT_STORE_BLK:
-                {
-                    if (tree->AsIndir()->IsVolatile())
                     {
-                        memoryHavoc |= memoryKindSet(GcHeap, ByrefExposed);
-                        continue;
-                    }
-
-                    GenTree* addr = tree->AsIndir()->Addr()->gtEffectiveVal();
-
-                    if (addr->TypeGet() == TYP_BYREF && addr->OperGet() == GT_LCL_VAR)
-                    {
-                        // If it's a local byref for which we recorded a value number, use that...
-                        GenTreeLclVar* argLcl = addr->AsLclVar();
-                        if (argLcl->HasSsaName())
+                        if (tree->AsIndir()->IsVolatile())
                         {
-                            ValueNum argVN =
-                                lvaTable[argLcl->GetLclNum()].GetPerSsaData(argLcl->GetSsaNum())->m_vnPair.GetLiberal();
-                            VNFuncApp funcApp;
-                            if (argVN != ValueNumStore::NoVN && vnStore->GetVNFunc(argVN, &funcApp) &&
-                                funcApp.m_func == VNF_PtrToArrElem)
+                            memoryHavoc |= memoryKindSet(GcHeap, ByrefExposed);
+                            continue;
+                        }
+
+                        GenTree* addr = tree->AsIndir()->Addr()->gtEffectiveVal();
+
+                        if (addr->TypeGet() == TYP_BYREF && addr->OperGet() == GT_LCL_VAR)
+                        {
+                            // If it's a local byref for which we recorded a value number, use that...
+                            GenTreeLclVar* argLcl = addr->AsLclVar();
+                            if (argLcl->HasSsaName())
                             {
-                                assert(vnStore->IsVNHandle(funcApp.m_args[0]));
-                                CORINFO_CLASS_HANDLE elemType =
-                                    CORINFO_CLASS_HANDLE(vnStore->ConstantValue<size_t>(funcApp.m_args[0]));
-                                AddModifiedElemTypeAllContainingLoops(mostNestedLoop, elemType);
-                                // Don't set memoryHavoc for GcHeap below.  Do set memoryHavoc for ByrefExposed
-                                // (conservatively assuming that a byref may alias the array element)
-                                memoryHavoc |= memoryKindSet(ByrefExposed);
-                                continue;
+                                ValueNum argVN = lvaTable[argLcl->GetLclNum()]
+                                                     .GetPerSsaData(argLcl->GetSsaNum())
+                                                     ->m_vnPair.GetLiberal();
+                                VNFuncApp funcApp;
+                                if (argVN != ValueNumStore::NoVN && vnStore->GetVNFunc(argVN, &funcApp) &&
+                                    funcApp.m_func == VNF_PtrToArrElem)
+                                {
+                                    assert(vnStore->IsVNHandle(funcApp.m_args[0]));
+                                    CORINFO_CLASS_HANDLE elemType =
+                                        CORINFO_CLASS_HANDLE(vnStore->ConstantValue<size_t>(funcApp.m_args[0]));
+                                    AddModifiedElemTypeAllContainingLoops(mostNestedLoop, elemType);
+                                    // Don't set memoryHavoc for GcHeap below.  Do set memoryHavoc for ByrefExposed
+                                    // (conservatively assuming that a byref may alias the array element)
+                                    memoryHavoc |= memoryKindSet(ByrefExposed);
+                                    continue;
+                                }
                             }
-                        }
-                        // Otherwise...
-                        memoryHavoc |= memoryKindSet(GcHeap, ByrefExposed);
-                    }
-                    else
-                    {
-                        GenTreeArrAddr* arrAddr  = nullptr;
-                        GenTree*        baseAddr = nullptr;
-                        FieldSeq*       fldSeq   = nullptr;
-                        ssize_t         offset   = 0;
-
-                        if (addr->IsArrayAddr(&arrAddr))
-                        {
-                            // We will not collect "fldSeq" -- any modification to an S[], at
-                            // any field of "S", will lose all information about the array type.
-                            CORINFO_CLASS_HANDLE elemTypeEq =
-                                EncodeElemType(arrAddr->GetElemType(), arrAddr->GetElemClassHandle());
-                            AddModifiedElemTypeAllContainingLoops(mostNestedLoop, elemTypeEq);
-                            // Conservatively assume byrefs may alias this array element
-                            memoryHavoc |= memoryKindSet(ByrefExposed);
-                        }
-                        else if (addr->IsFieldAddr(this, &baseAddr, &fldSeq, &offset))
-                        {
-                            assert(fldSeq != nullptr);
-
-                            FieldKindForVN fieldKind =
-                                (baseAddr != nullptr) ? FieldKindForVN::WithBaseAddr : FieldKindForVN::SimpleStatic;
-                            AddModifiedFieldAllContainingLoops(mostNestedLoop, fldSeq->GetFieldHandle(), fieldKind);
-                            // Conservatively assume byrefs may alias this object.
-                            memoryHavoc |= memoryKindSet(ByrefExposed);
+                            // Otherwise...
+                            memoryHavoc |= memoryKindSet(GcHeap, ByrefExposed);
                         }
                         else
                         {
-                            memoryHavoc |= memoryKindSet(GcHeap, ByrefExposed);
+                            GenTreeArrAddr* arrAddr  = nullptr;
+                            GenTree*        baseAddr = nullptr;
+                            FieldSeq*       fldSeq   = nullptr;
+                            ssize_t         offset   = 0;
+
+                            if (addr->IsArrayAddr(&arrAddr))
+                            {
+                                // We will not collect "fldSeq" -- any modification to an S[], at
+                                // any field of "S", will lose all information about the array type.
+                                CORINFO_CLASS_HANDLE elemTypeEq =
+                                    EncodeElemType(arrAddr->GetElemType(), arrAddr->GetElemClassHandle());
+                                AddModifiedElemTypeAllContainingLoops(mostNestedLoop, elemTypeEq);
+                                // Conservatively assume byrefs may alias this array element
+                                memoryHavoc |= memoryKindSet(ByrefExposed);
+                            }
+                            else if (addr->IsFieldAddr(this, &baseAddr, &fldSeq, &offset))
+                            {
+                                assert(fldSeq != nullptr);
+
+                                FieldKindForVN fieldKind =
+                                    (baseAddr != nullptr) ? FieldKindForVN::WithBaseAddr : FieldKindForVN::SimpleStatic;
+                                AddModifiedFieldAllContainingLoops(mostNestedLoop, fldSeq->GetFieldHandle(), fieldKind);
+                                // Conservatively assume byrefs may alias this object.
+                                memoryHavoc |= memoryKindSet(ByrefExposed);
+                            }
+                            else
+                            {
+                                memoryHavoc |= memoryKindSet(GcHeap, ByrefExposed);
+                            }
                         }
                     }
-                }
-                break;
+                    break;
 
                 case GT_COMMA:
                     tree->gtVNPair = tree->AsOp()->gtOp2->gtVNPair;
@@ -5718,32 +5714,32 @@ void Compiler::optComputeLoopSideEffectsOfBlock(BasicBlock* blk, FlowGraphNatura
 
                 // Is it an addr of an array index expression?
                 case GT_ARR_ADDR:
-                {
-                    CORINFO_CLASS_HANDLE elemTypeEq =
-                        EncodeElemType(tree->AsArrAddr()->GetElemType(), tree->AsArrAddr()->GetElemClassHandle());
-                    ValueNum elemTypeEqVN = vnStore->VNForHandle(ssize_t(elemTypeEq), GTF_ICON_CLASS_HDL);
+                    {
+                        CORINFO_CLASS_HANDLE elemTypeEq =
+                            EncodeElemType(tree->AsArrAddr()->GetElemType(), tree->AsArrAddr()->GetElemClassHandle());
+                        ValueNum elemTypeEqVN = vnStore->VNForHandle(ssize_t(elemTypeEq), GTF_ICON_CLASS_HDL);
 
-                    // Label this with a "dummy" PtrToArrElem so that we pick it up when looking at the ASG.
-                    ValueNum ptrToArrElemVN =
-                        vnStore->VNForFunc(TYP_BYREF, VNF_PtrToArrElem, elemTypeEqVN, vnStore->VNForNull(),
-                                           vnStore->VNForNull(), vnStore->VNForNull());
-                    tree->gtVNPair.SetBoth(ptrToArrElemVN);
-                }
-                break;
+                        // Label this with a "dummy" PtrToArrElem so that we pick it up when looking at the ASG.
+                        ValueNum ptrToArrElemVN =
+                            vnStore->VNForFunc(TYP_BYREF, VNF_PtrToArrElem, elemTypeEqVN, vnStore->VNForNull(),
+                                               vnStore->VNForNull(), vnStore->VNForNull());
+                        tree->gtVNPair.SetBoth(ptrToArrElemVN);
+                    }
+                    break;
 
 #ifdef FEATURE_HW_INTRINSICS
                 case GT_HWINTRINSIC:
-                {
-                    GenTreeHWIntrinsic* hwintrinsic = tree->AsHWIntrinsic();
-                    NamedIntrinsic      intrinsicId = hwintrinsic->GetHWIntrinsicId();
-
-                    if (hwintrinsic->OperIsMemoryStoreOrBarrier())
                     {
-                        // For barriers, we model the behavior after GT_MEMORYBARRIER
-                        memoryHavoc |= memoryKindSet(GcHeap, ByrefExposed);
+                        GenTreeHWIntrinsic* hwintrinsic = tree->AsHWIntrinsic();
+                        NamedIntrinsic      intrinsicId = hwintrinsic->GetHWIntrinsicId();
+
+                        if (hwintrinsic->OperIsMemoryStoreOrBarrier())
+                        {
+                            // For barriers, we model the behavior after GT_MEMORYBARRIER
+                            memoryHavoc |= memoryKindSet(GcHeap, ByrefExposed);
+                        }
+                        break;
                     }
-                    break;
-                }
 #endif // FEATURE_HW_INTRINSICS
 
                 case GT_LOCKADD:
@@ -5753,43 +5749,43 @@ void Compiler::optComputeLoopSideEffectsOfBlock(BasicBlock* blk, FlowGraphNatura
                 case GT_XCHG:
                 case GT_CMPXCHG:
                 case GT_MEMORYBARRIER:
-                {
-                    memoryHavoc |= memoryKindSet(GcHeap, ByrefExposed);
-                }
-                break;
-
-                case GT_CALL:
-                {
-                    GenTreeCall* call = tree->AsCall();
-
-                    // Record that this loop contains a call
-                    AddContainsCallAllContainingLoops(mostNestedLoop);
-
-                    if (call->gtCallType == CT_HELPER)
-                    {
-                        CorInfoHelpFunc helpFunc = eeGetHelperNum(call->gtCallMethHnd);
-                        if (s_helperCallProperties.MutatesHeap(helpFunc))
-                        {
-                            memoryHavoc |= memoryKindSet(GcHeap, ByrefExposed);
-                        }
-                        else if (s_helperCallProperties.MayRunCctor(helpFunc))
-                        {
-                            // If the call is labeled as "Hoistable", then we've checked the
-                            // class that would be constructed, and it is not precise-init, so
-                            // the cctor will not be run by this call.  Otherwise, it might be,
-                            // and might have arbitrary side effects.
-                            if ((tree->gtFlags & GTF_CALL_HOISTABLE) == 0)
-                            {
-                                memoryHavoc |= memoryKindSet(GcHeap, ByrefExposed);
-                            }
-                        }
-                    }
-                    else
                     {
                         memoryHavoc |= memoryKindSet(GcHeap, ByrefExposed);
                     }
                     break;
-                }
+
+                case GT_CALL:
+                    {
+                        GenTreeCall* call = tree->AsCall();
+
+                        // Record that this loop contains a call
+                        AddContainsCallAllContainingLoops(mostNestedLoop);
+
+                        if (call->gtCallType == CT_HELPER)
+                        {
+                            CorInfoHelpFunc helpFunc = eeGetHelperNum(call->gtCallMethHnd);
+                            if (s_helperCallProperties.MutatesHeap(helpFunc))
+                            {
+                                memoryHavoc |= memoryKindSet(GcHeap, ByrefExposed);
+                            }
+                            else if (s_helperCallProperties.MayRunCctor(helpFunc))
+                            {
+                                // If the call is labeled as "Hoistable", then we've checked the
+                                // class that would be constructed, and it is not precise-init, so
+                                // the cctor will not be run by this call.  Otherwise, it might be,
+                                // and might have arbitrary side effects.
+                                if ((tree->gtFlags & GTF_CALL_HOISTABLE) == 0)
+                                {
+                                    memoryHavoc |= memoryKindSet(GcHeap, ByrefExposed);
+                                }
+                            }
+                        }
+                        else
+                        {
+                            memoryHavoc |= memoryKindSet(GcHeap, ByrefExposed);
+                        }
+                        break;
+                    }
 
                 default:
                     // All other gtOper node kinds, leave 'memoryHavoc' unchanged (i.e. false)
@@ -6089,161 +6085,161 @@ void Compiler::optRemoveRedundantZeroInits()
                     case GT_LCL_ADDR:
                     case GT_STORE_LCL_VAR:
                     case GT_STORE_LCL_FLD:
-                    {
-                        GenTreeLclVarCommon* lclNode   = tree->AsLclVarCommon();
-                        unsigned             lclNum    = lclNode->GetLclNum();
-                        unsigned*            pRefCount = refCounts.LookupPointer(lclNum);
-                        if (pRefCount != nullptr)
                         {
-                            *pRefCount = (*pRefCount) + 1;
-                        }
-                        else
-                        {
-                            refCounts.Set(lclNum, 1);
-                        }
-
-                        if ((tree->gtFlags & GTF_VAR_DEF) == 0)
-                        {
-                            break;
-                        }
-
-                        // We need to count the number of tracked var defs in the block
-                        // so that we can update block->bbVarDef if we remove any tracked var defs.
-                        LclVarDsc* const lclDsc = lvaGetDesc(lclNum);
-                        if (lclDsc->lvTracked)
-                        {
-                            unsigned* pDefsCount = defsInBlock.LookupPointer(lclNum);
-                            if (pDefsCount != nullptr)
+                            GenTreeLclVarCommon* lclNode   = tree->AsLclVarCommon();
+                            unsigned             lclNum    = lclNode->GetLclNum();
+                            unsigned*            pRefCount = refCounts.LookupPointer(lclNum);
+                            if (pRefCount != nullptr)
                             {
-                                *pDefsCount = (*pDefsCount) + 1;
+                                *pRefCount = (*pRefCount) + 1;
                             }
                             else
                             {
-                                defsInBlock.Set(lclNum, 1);
+                                refCounts.Set(lclNum, 1);
                             }
-                        }
-                        else if (varTypeIsStruct(lclDsc) && ((tree->gtFlags & GTF_VAR_USEASG) == 0) &&
-                                 lvaGetPromotionType(lclDsc) != PROMOTION_TYPE_NONE)
-                        {
-                            for (unsigned i = lclDsc->lvFieldLclStart; i < lclDsc->lvFieldLclStart + lclDsc->lvFieldCnt;
-                                 ++i)
+
+                            if ((tree->gtFlags & GTF_VAR_DEF) == 0)
                             {
-                                if (lvaGetDesc(i)->lvTracked)
+                                break;
+                            }
+
+                            // We need to count the number of tracked var defs in the block
+                            // so that we can update block->bbVarDef if we remove any tracked var defs.
+                            LclVarDsc* const lclDsc = lvaGetDesc(lclNum);
+                            if (lclDsc->lvTracked)
+                            {
+                                unsigned* pDefsCount = defsInBlock.LookupPointer(lclNum);
+                                if (pDefsCount != nullptr)
                                 {
-                                    unsigned* pDefsCount = defsInBlock.LookupPointer(i);
-                                    if (pDefsCount != nullptr)
-                                    {
-                                        *pDefsCount = (*pDefsCount) + 1;
-                                    }
-                                    else
-                                    {
-                                        defsInBlock.Set(i, 1);
-                                    }
+                                    *pDefsCount = (*pDefsCount) + 1;
+                                }
+                                else
+                                {
+                                    defsInBlock.Set(lclNum, 1);
                                 }
                             }
-                        }
-
-                        if (!tree->OperIsLocalStore())
-                        {
-                            break;
-                        }
-
-                        // TODO-Cleanup: there is potential for cleaning this algorithm up by deleting
-                        // double lookups of various reference counts. This is complicated somewhat by
-                        // the present of LCL_ADDR (GTF_CALL_M_RETBUFFARG_LCLOPT) definitions.
-                        pRefCount = refCounts.LookupPointer(lclNum);
-                        if (*pRefCount != 1)
-                        {
-                            break;
-                        }
-
-                        unsigned parentRefCount = 0;
-                        if (lclDsc->lvIsStructField && refCounts.Lookup(lclDsc->lvParentLcl, &parentRefCount) &&
-                            (parentRefCount != 0))
-                        {
-                            break;
-                        }
-
-                        unsigned fieldRefCount = 0;
-                        if (lclDsc->lvPromoted)
-                        {
-                            for (unsigned i = lclDsc->lvFieldLclStart;
-                                 (fieldRefCount == 0) && (i < lclDsc->lvFieldLclStart + lclDsc->lvFieldCnt); ++i)
+                            else if (varTypeIsStruct(lclDsc) && ((tree->gtFlags & GTF_VAR_USEASG) == 0) &&
+                                     lvaGetPromotionType(lclDsc) != PROMOTION_TYPE_NONE)
                             {
-                                refCounts.Lookup(i, &fieldRefCount);
-                            }
-                        }
-
-                        if (fieldRefCount != 0)
-                        {
-                            break;
-                        }
-
-                        // The local hasn't been referenced before this assignment.
-                        bool removedExplicitZeroInit = false;
-                        bool isEntire                = !tree->IsPartialLclFld(this);
-
-                        if (tree->Data()->IsIntegralConst(0))
-                        {
-                            bool bbInALoop  = block->HasFlag(BBF_BACKWARD_JUMP);
-                            bool bbIsReturn = block->KindIs(BBJ_RETURN);
-
-                            if (!bbInALoop || bbIsReturn)
-                            {
-                                bool neverTracked = lclDsc->IsAddressExposed() || lclDsc->lvPinned ||
-                                                    (lclDsc->lvPromoted && varTypeIsStruct(lclDsc));
-
-                                if (BitVecOps::IsMember(&bitVecTraits, zeroInitLocals, lclNum) ||
-                                    (lclDsc->lvIsStructField &&
-                                     BitVecOps::IsMember(&bitVecTraits, zeroInitLocals, lclDsc->lvParentLcl)) ||
-                                    ((neverTracked || !isEntire) &&
-                                     !fgVarNeedsExplicitZeroInit(lclNum, bbInALoop, bbIsReturn)))
+                                for (unsigned i = lclDsc->lvFieldLclStart;
+                                     i < lclDsc->lvFieldLclStart + lclDsc->lvFieldCnt; ++i)
                                 {
-                                    // We are guaranteed to have a zero initialization in the prolog or a
-                                    // dominating explicit zero initialization and the local hasn't been redefined
-                                    // between the prolog and this explicit zero initialization so the assignment
-                                    // can be safely removed.
-                                    if (tree == stmt->GetRootNode())
+                                    if (lvaGetDesc(i)->lvTracked)
                                     {
-                                        fgRemoveStmt(block, stmt);
-                                        removedExplicitZeroInit      = true;
-                                        lclDsc->lvSuppressedZeroInit = 1;
-
-                                        if (lclDsc->lvTracked)
+                                        unsigned* pDefsCount = defsInBlock.LookupPointer(i);
+                                        if (pDefsCount != nullptr)
                                         {
-                                            removedTrackedDefs   = true;
-                                            unsigned* pDefsCount = defsInBlock.LookupPointer(lclNum);
-                                            *pDefsCount          = (*pDefsCount) - 1;
+                                            *pDefsCount = (*pDefsCount) + 1;
+                                        }
+                                        else
+                                        {
+                                            defsInBlock.Set(i, 1);
                                         }
                                     }
                                 }
-
-                                if (isEntire)
-                                {
-                                    BitVecOps::AddElemD(&bitVecTraits, zeroInitLocals, lclNum);
-                                }
-                                *pRefCount = 0;
                             }
-                        }
 
-                        if (!removedExplicitZeroInit && isEntire &&
-                            (!hasImplicitControlFlow || (lclDsc->lvTracked && !lclDsc->lvLiveInOutOfHndlr)))
-                        {
-                            // If compMethodRequiresPInvokeFrame() returns true, lower may later
-                            // insert a call to CORINFO_HELP_INIT_PINVOKE_FRAME which is a gc-safe point.
-                            if (!lclDsc->HasGCPtr() ||
-                                (!GetInterruptible() && !hasGCSafePoint && !compMethodRequiresPInvokeFrame()))
+                            if (!tree->OperIsLocalStore())
                             {
-                                // The local hasn't been used and won't be reported to the gc between
-                                // the prolog and this explicit initialization. Therefore, it doesn't
-                                // require zero initialization in the prolog.
-                                lclDsc->lvHasExplicitInit = 1;
-                                lclNode->gtFlags |= GTF_VAR_EXPLICIT_INIT;
-                                JITDUMP("Marking V%02u as having an explicit init\n", lclNum);
+                                break;
                             }
+
+                            // TODO-Cleanup: there is potential for cleaning this algorithm up by deleting
+                            // double lookups of various reference counts. This is complicated somewhat by
+                            // the present of LCL_ADDR (GTF_CALL_M_RETBUFFARG_LCLOPT) definitions.
+                            pRefCount = refCounts.LookupPointer(lclNum);
+                            if (*pRefCount != 1)
+                            {
+                                break;
+                            }
+
+                            unsigned parentRefCount = 0;
+                            if (lclDsc->lvIsStructField && refCounts.Lookup(lclDsc->lvParentLcl, &parentRefCount) &&
+                                (parentRefCount != 0))
+                            {
+                                break;
+                            }
+
+                            unsigned fieldRefCount = 0;
+                            if (lclDsc->lvPromoted)
+                            {
+                                for (unsigned i = lclDsc->lvFieldLclStart;
+                                     (fieldRefCount == 0) && (i < lclDsc->lvFieldLclStart + lclDsc->lvFieldCnt); ++i)
+                                {
+                                    refCounts.Lookup(i, &fieldRefCount);
+                                }
+                            }
+
+                            if (fieldRefCount != 0)
+                            {
+                                break;
+                            }
+
+                            // The local hasn't been referenced before this assignment.
+                            bool removedExplicitZeroInit = false;
+                            bool isEntire                = !tree->IsPartialLclFld(this);
+
+                            if (tree->Data()->IsIntegralConst(0))
+                            {
+                                bool bbInALoop  = block->HasFlag(BBF_BACKWARD_JUMP);
+                                bool bbIsReturn = block->KindIs(BBJ_RETURN);
+
+                                if (!bbInALoop || bbIsReturn)
+                                {
+                                    bool neverTracked = lclDsc->IsAddressExposed() || lclDsc->lvPinned ||
+                                                        (lclDsc->lvPromoted && varTypeIsStruct(lclDsc));
+
+                                    if (BitVecOps::IsMember(&bitVecTraits, zeroInitLocals, lclNum) ||
+                                        (lclDsc->lvIsStructField &&
+                                         BitVecOps::IsMember(&bitVecTraits, zeroInitLocals, lclDsc->lvParentLcl)) ||
+                                        ((neverTracked || !isEntire) &&
+                                         !fgVarNeedsExplicitZeroInit(lclNum, bbInALoop, bbIsReturn)))
+                                    {
+                                        // We are guaranteed to have a zero initialization in the prolog or a
+                                        // dominating explicit zero initialization and the local hasn't been redefined
+                                        // between the prolog and this explicit zero initialization so the assignment
+                                        // can be safely removed.
+                                        if (tree == stmt->GetRootNode())
+                                        {
+                                            fgRemoveStmt(block, stmt);
+                                            removedExplicitZeroInit      = true;
+                                            lclDsc->lvSuppressedZeroInit = 1;
+
+                                            if (lclDsc->lvTracked)
+                                            {
+                                                removedTrackedDefs   = true;
+                                                unsigned* pDefsCount = defsInBlock.LookupPointer(lclNum);
+                                                *pDefsCount          = (*pDefsCount) - 1;
+                                            }
+                                        }
+                                    }
+
+                                    if (isEntire)
+                                    {
+                                        BitVecOps::AddElemD(&bitVecTraits, zeroInitLocals, lclNum);
+                                    }
+                                    *pRefCount = 0;
+                                }
+                            }
+
+                            if (!removedExplicitZeroInit && isEntire &&
+                                (!hasImplicitControlFlow || (lclDsc->lvTracked && !lclDsc->lvLiveInOutOfHndlr)))
+                            {
+                                // If compMethodRequiresPInvokeFrame() returns true, lower may later
+                                // insert a call to CORINFO_HELP_INIT_PINVOKE_FRAME which is a gc-safe point.
+                                if (!lclDsc->HasGCPtr() ||
+                                    (!GetInterruptible() && !hasGCSafePoint && !compMethodRequiresPInvokeFrame()))
+                                {
+                                    // The local hasn't been used and won't be reported to the gc between
+                                    // the prolog and this explicit initialization. Therefore, it doesn't
+                                    // require zero initialization in the prolog.
+                                    lclDsc->lvHasExplicitInit = 1;
+                                    lclNode->gtFlags |= GTF_VAR_EXPLICIT_INIT;
+                                    JITDUMP("Marking V%02u as having an explicit init\n", lclNum);
+                                }
+                            }
+                            break;
                         }
-                        break;
-                    }
                     default:
                         break;
                 }

@@ -21,72 +21,78 @@ PhaseStatus Compiler::optRedundantBranches()
 
     class OptRedundantBranchesDomTreeVisitor : public DomTreeVisitor<OptRedundantBranchesDomTreeVisitor>
     {
-    public:
-        bool madeChanges;
+        public:
+            bool madeChanges;
 
-        OptRedundantBranchesDomTreeVisitor(Compiler* compiler) : DomTreeVisitor(compiler), madeChanges(false) {}
-
-        void PreOrderVisit(BasicBlock* block) {}
-
-        void PostOrderVisit(BasicBlock* block)
-        {
-            // Skip over any removed blocks.
-            //
-            if (block->HasFlag(BBF_REMOVED))
+            OptRedundantBranchesDomTreeVisitor(Compiler* compiler)
+                : DomTreeVisitor(compiler)
+                , madeChanges(false)
             {
-                return;
             }
 
-            // We currently can optimize some BBJ_CONDs.
-            //
-            if (block->KindIs(BBJ_COND))
+            void PreOrderVisit(BasicBlock* block)
             {
-                bool madeChangesThisBlock = m_compiler->optRedundantRelop(block);
+            }
 
-                BasicBlock* const bbFalse = block->GetFalseTarget();
-                BasicBlock* const bbTrue  = block->GetTrueTarget();
-
-                madeChangesThisBlock |= m_compiler->optRedundantBranch(block);
-
-                // If we modified some flow out of block but it's still referenced and
-                // a BBJ_COND, retry; perhaps one of the later optimizations
-                // we can do has enabled one of the earlier optimizations.
+            void PostOrderVisit(BasicBlock* block)
+            {
+                // Skip over any removed blocks.
                 //
-                if (madeChangesThisBlock && block->KindIs(BBJ_COND) && (block->countOfInEdges() > 0))
+                if (block->HasFlag(BBF_REMOVED))
                 {
-                    JITDUMP("Will retry RBO in " FMT_BB " after partial optimization\n", block->bbNum);
+                    return;
+                }
+
+                // We currently can optimize some BBJ_CONDs.
+                //
+                if (block->KindIs(BBJ_COND))
+                {
+                    bool madeChangesThisBlock = m_compiler->optRedundantRelop(block);
+
+                    BasicBlock* const bbFalse = block->GetFalseTarget();
+                    BasicBlock* const bbTrue  = block->GetTrueTarget();
+
                     madeChangesThisBlock |= m_compiler->optRedundantBranch(block);
-                }
 
-                // It's possible that the changed flow into bbFalse or bbTrue may unblock
-                // further optimizations there.
-                //
-                // Note this misses cascading retries, consider reworking the overall
-                // strategy here to iterate until closure.
-                //
-                if (madeChangesThisBlock && (bbFalse->countOfInEdges() == 0))
-                {
-                    for (BasicBlock* succ : bbFalse->Succs())
+                    // If we modified some flow out of block but it's still referenced and
+                    // a BBJ_COND, retry; perhaps one of the later optimizations
+                    // we can do has enabled one of the earlier optimizations.
+                    //
+                    if (madeChangesThisBlock && block->KindIs(BBJ_COND) && (block->countOfInEdges() > 0))
                     {
-                        JITDUMP("Will retry RBO in " FMT_BB "; pred " FMT_BB " now unreachable\n", succ->bbNum,
-                                bbFalse->bbNum);
-                        m_compiler->optRedundantBranch(succ);
+                        JITDUMP("Will retry RBO in " FMT_BB " after partial optimization\n", block->bbNum);
+                        madeChangesThisBlock |= m_compiler->optRedundantBranch(block);
                     }
-                }
 
-                if (madeChangesThisBlock && (bbTrue->countOfInEdges() == 0))
-                {
-                    for (BasicBlock* succ : bbTrue->Succs())
+                    // It's possible that the changed flow into bbFalse or bbTrue may unblock
+                    // further optimizations there.
+                    //
+                    // Note this misses cascading retries, consider reworking the overall
+                    // strategy here to iterate until closure.
+                    //
+                    if (madeChangesThisBlock && (bbFalse->countOfInEdges() == 0))
                     {
-                        JITDUMP("Will retry RBO in " FMT_BB "; pred " FMT_BB " now unreachable\n", succ->bbNum,
-                                bbFalse->bbNum);
-                        m_compiler->optRedundantBranch(succ);
+                        for (BasicBlock* succ : bbFalse->Succs())
+                        {
+                            JITDUMP("Will retry RBO in " FMT_BB "; pred " FMT_BB " now unreachable\n", succ->bbNum,
+                                    bbFalse->bbNum);
+                            m_compiler->optRedundantBranch(succ);
+                        }
                     }
-                }
 
-                madeChanges |= madeChangesThisBlock;
+                    if (madeChangesThisBlock && (bbTrue->countOfInEdges() == 0))
+                    {
+                        for (BasicBlock* succ : bbTrue->Succs())
+                        {
+                            JITDUMP("Will retry RBO in " FMT_BB "; pred " FMT_BB " now unreachable\n", succ->bbNum,
+                                    bbFalse->bbNum);
+                            m_compiler->optRedundantBranch(succ);
+                        }
+                    }
+
+                    madeChanges |= madeChangesThisBlock;
+                }
             }
-        }
     };
 
     optReachableBitVecTraits = nullptr;
@@ -119,20 +125,20 @@ static const ValueNumStore::VN_RELATION_KIND s_vnRelations[] = {ValueNumStore::V
 //
 struct RelopImplicationInfo
 {
-    // Dominating relop, whose value may be determined by control flow
-    ValueNum domCmpNormVN = ValueNumStore::NoVN;
-    // Dominated relop, whose value we would like to determine
-    ValueNum treeNormVN = ValueNumStore::NoVN;
-    // Relationship between the two relops, if any
-    ValueNumStore::VN_RELATION_KIND vnRelation = ValueNumStore::VN_RELATION_KIND::VRK_Same;
-    // Can we draw an inference?
-    bool canInfer = false;
-    // If canInfer and dominating relop is true, can we infer value of dominated relop?
-    bool canInferFromTrue = true;
-    // If canInfer and dominating relop is false, can we infer value of dominated relop?
-    bool canInferFromFalse = true;
-    // Reverse the sense of the inference
-    bool reverseSense = false;
+        // Dominating relop, whose value may be determined by control flow
+        ValueNum domCmpNormVN = ValueNumStore::NoVN;
+        // Dominated relop, whose value we would like to determine
+        ValueNum treeNormVN = ValueNumStore::NoVN;
+        // Relationship between the two relops, if any
+        ValueNumStore::VN_RELATION_KIND vnRelation = ValueNumStore::VN_RELATION_KIND::VRK_Same;
+        // Can we draw an inference?
+        bool canInfer = false;
+        // If canInfer and dominating relop is true, can we infer value of dominated relop?
+        bool canInferFromTrue = true;
+        // If canInfer and dominating relop is false, can we infer value of dominated relop?
+        bool canInferFromFalse = true;
+        // Reverse the sense of the inference
+        bool reverseSense = false;
 };
 
 //------------------------------------------------------------------------
@@ -143,15 +149,14 @@ struct RelopImplicationInfo
 //
 struct RelopImplicationRule
 {
-    VNFunc domRelop;
-    bool   canInferFromTrue;
-    bool   canInferFromFalse;
-    VNFunc treeRelop;
-    bool   reverse;
+        VNFunc domRelop;
+        bool   canInferFromTrue;
+        bool   canInferFromFalse;
+        VNFunc treeRelop;
+        bool   reverse;
 };
 
-enum RelopResult
-{
+enum RelopResult {
     Unknown,
     AlwaysFalse,
     AlwaysTrue
@@ -182,18 +187,18 @@ RelopResult IsCmp2ImpliedByCmp1(genTreeOps oper1, target_ssize_t bound1, genTree
 {
     struct IntegralRange
     {
-        target_ssize_t startIncl; // inclusive
-        target_ssize_t endIncl;   // inclusive
+            target_ssize_t startIncl; // inclusive
+            target_ssize_t endIncl;   // inclusive
 
-        bool Intersects(const IntegralRange other) const
-        {
-            return (startIncl <= other.endIncl) && (other.startIncl <= endIncl);
-        }
+            bool Intersects(const IntegralRange other) const
+            {
+                return (startIncl <= other.endIncl) && (other.startIncl <= endIncl);
+            }
 
-        bool Contains(const IntegralRange other) const
-        {
-            return (startIncl <= other.startIncl) && (other.endIncl <= endIncl);
-        }
+            bool Contains(const IntegralRange other) const
+            {
+                return (startIncl <= other.startIncl) && (other.endIncl <= endIncl);
+            }
     };
 
     constexpr target_ssize_t minValue = TARGET_POINTER_SIZE == 4 ? INT32_MIN : INT64_MIN;
@@ -204,8 +209,7 @@ RelopResult IsCmp2ImpliedByCmp1(genTreeOps oper1, target_ssize_t bound1, genTree
     IntegralRange range2 = {minValue, maxValue};
 
     // Update ranges based on inputs
-    auto setRange = [](genTreeOps oper, target_ssize_t bound, IntegralRange* range) -> bool
-    {
+    auto setRange = [](genTreeOps oper, target_ssize_t bound, IntegralRange* range) -> bool {
         switch (oper)
         {
             case GT_LT:
@@ -936,48 +940,48 @@ bool Compiler::optRedundantBranch(BasicBlock* const block)
 //
 struct JumpThreadInfo
 {
-    JumpThreadInfo(Compiler* comp, BasicBlock* block)
-        : m_block(block)
-        , m_trueTarget(block->GetTrueTarget())
-        , m_falseTarget(block->GetFalseTarget())
-        , m_ambiguousVNBlock(nullptr)
-        , m_truePreds(BlockSetOps::MakeEmpty(comp))
-        , m_ambiguousPreds(BlockSetOps::MakeEmpty(comp))
-        , m_numPreds(0)
-        , m_numAmbiguousPreds(0)
-        , m_numTruePreds(0)
-        , m_numFalsePreds(0)
-        , m_ambiguousVN(ValueNumStore::NoVN)
-        , m_isPhiBased(false)
-    {
-    }
+        JumpThreadInfo(Compiler* comp, BasicBlock* block)
+            : m_block(block)
+            , m_trueTarget(block->GetTrueTarget())
+            , m_falseTarget(block->GetFalseTarget())
+            , m_ambiguousVNBlock(nullptr)
+            , m_truePreds(BlockSetOps::MakeEmpty(comp))
+            , m_ambiguousPreds(BlockSetOps::MakeEmpty(comp))
+            , m_numPreds(0)
+            , m_numAmbiguousPreds(0)
+            , m_numTruePreds(0)
+            , m_numFalsePreds(0)
+            , m_ambiguousVN(ValueNumStore::NoVN)
+            , m_isPhiBased(false)
+        {
+        }
 
-    // Block we're trying to optimize
-    BasicBlock* const m_block;
-    // Block successor if predicate is true
-    BasicBlock* const m_trueTarget;
-    // Block successor if predicate is false
-    BasicBlock* const m_falseTarget;
-    // Block that brings in the ambiguous VN
-    BasicBlock* m_ambiguousVNBlock;
-    // Pred blocks for which the predicate will be true
-    BlockSet m_truePreds;
-    // Pred blocks that can't be threaded or for which the predicate
-    // value can't be determined
-    BlockSet m_ambiguousPreds;
-    // Total number of predecessors
-    int m_numPreds;
-    // Number of predecessors that can't be threaded or for which the predicate
-    // value can't be determined
-    int m_numAmbiguousPreds;
-    // Number of predecessors for which predicate is true
-    int m_numTruePreds;
-    // Number of predecessors for which predicate is false
-    int m_numFalsePreds;
-    // Refined VN for ambiguous cases
-    ValueNum m_ambiguousVN;
-    // True if this was a phi-based jump thread
-    bool m_isPhiBased;
+        // Block we're trying to optimize
+        BasicBlock* const m_block;
+        // Block successor if predicate is true
+        BasicBlock* const m_trueTarget;
+        // Block successor if predicate is false
+        BasicBlock* const m_falseTarget;
+        // Block that brings in the ambiguous VN
+        BasicBlock* m_ambiguousVNBlock;
+        // Pred blocks for which the predicate will be true
+        BlockSet m_truePreds;
+        // Pred blocks that can't be threaded or for which the predicate
+        // value can't be determined
+        BlockSet m_ambiguousPreds;
+        // Total number of predecessors
+        int m_numPreds;
+        // Number of predecessors that can't be threaded or for which the predicate
+        // value can't be determined
+        int m_numAmbiguousPreds;
+        // Number of predecessors for which predicate is true
+        int m_numTruePreds;
+        // Number of predecessors for which predicate is false
+        int m_numFalsePreds;
+        // Refined VN for ambiguous cases
+        ValueNum m_ambiguousVN;
+        // True if this was a phi-based jump thread
+        bool m_isPhiBased;
 };
 
 //------------------------------------------------------------------------
@@ -1843,8 +1847,7 @@ bool Compiler::optRedundantRelop(BasicBlock* const block)
     //
     // The table size here also implicitly limits how far back we'll search.
     //
-    enum
-    {
+    enum {
         DEFINED_LOCALS_SIZE = 10
     };
     unsigned definedLocals[DEFINED_LOCALS_SIZE];
@@ -2183,26 +2186,22 @@ bool Compiler::optReachable(BasicBlock* const fromBlock, BasicBlock* const toBlo
             continue;
         }
 
-        BasicBlockVisit result =
-            nextBlock->VisitAllSuccs(this,
-                                     [this, toBlock, &stack](BasicBlock* succ)
-                                     {
-                                         if (succ == toBlock)
-                                         {
-                                             return BasicBlockVisit::Abort;
-                                         }
+        BasicBlockVisit result = nextBlock->VisitAllSuccs(this, [this, toBlock, &stack](BasicBlock* succ) {
+            if (succ == toBlock)
+            {
+                return BasicBlockVisit::Abort;
+            }
 
-                                         if (BitVecOps::IsMember(optReachableBitVecTraits, optReachableBitVec,
-                                                                 succ->bbNum))
-                                         {
-                                             return BasicBlockVisit::Continue;
-                                         }
+            if (BitVecOps::IsMember(optReachableBitVecTraits, optReachableBitVec, succ->bbNum))
+            {
+                return BasicBlockVisit::Continue;
+            }
 
-                                         BitVecOps::AddElemD(optReachableBitVecTraits, optReachableBitVec, succ->bbNum);
+            BitVecOps::AddElemD(optReachableBitVecTraits, optReachableBitVec, succ->bbNum);
 
-                                         stack.Push(succ);
-                                         return BasicBlockVisit::Continue;
-                                     });
+            stack.Push(succ);
+            return BasicBlockVisit::Continue;
+        });
 
         if (result == BasicBlockVisit::Abort)
         {

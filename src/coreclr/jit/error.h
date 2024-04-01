@@ -14,13 +14,13 @@ class Compiler;
 
 struct ErrorTrapParam
 {
-    int                errc;
-    ICorJitInfo*       jitInfo;
-    EXCEPTION_POINTERS exceptionPointers;
-    ErrorTrapParam()
-    {
-        jitInfo = nullptr;
-    }
+        int                errc;
+        ICorJitInfo*       jitInfo;
+        EXCEPTION_POINTERS exceptionPointers;
+        ErrorTrapParam()
+        {
+            jitInfo = nullptr;
+        }
 };
 
 // Only catch JIT internal errors (will not catch EE generated Errors)
@@ -29,7 +29,7 @@ extern LONG __JITfilter(PEXCEPTION_POINTERS pExceptionPointers, LPVOID lpvParam)
 #define setErrorTrap(compHnd, ParamType, paramDef, paramRef)                                                           \
     struct __JITParam : ErrorTrapParam                                                                                 \
     {                                                                                                                  \
-        ParamType param;                                                                                               \
+            ParamType param;                                                                                           \
     } __JITparam;                                                                                                      \
     __JITparam.errc    = CORJIT_INTERNALERROR;                                                                         \
     __JITparam.jitInfo = compHnd;                                                                                      \
@@ -265,15 +265,13 @@ DWORD getBreakOnBadCode();
 // a more useful file/line for the error message.  But then we have to use comma expressions
 // so that these can be used in expressions, etc., which is ugly.  So I propose we rely on
 // getting stack traces in other ways.)
-template <typename Dst, typename Src>
-inline Dst SafeCvtAssert(Src val)
+template <typename Dst, typename Src> inline Dst SafeCvtAssert(Src val)
 {
     assert(FitsIn<Dst>(val));
     return static_cast<Dst>(val);
 }
 
-template <typename Dst, typename Src>
-inline Dst SafeCvtNowayAssert(Src val)
+template <typename Dst, typename Src> inline Dst SafeCvtNowayAssert(Src val)
 {
     noway_assert(FitsIn<Dst>(val));
     return static_cast<Dst>(val);

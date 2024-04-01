@@ -24,31 +24,32 @@
 #include "compilerbitsettraits.h"
 #include "bitsetasshortlong.h"
 
-class BlockSetOps : public BitSetOps</*BitSetType*/ BitSetShortLongRep,
-                                     /*Brand*/ BSShortLong,
-                                     /*Env*/ Compiler*,
-                                     /*BitSetTraits*/ BasicBlockBitSetTraits>
+class BlockSetOps
+    : public BitSetOps</*BitSetType*/ BitSetShortLongRep,
+                       /*Brand*/ BSShortLong,
+                       /*Env*/ Compiler*,
+                       /*BitSetTraits*/ BasicBlockBitSetTraits>
 {
-public:
-    // Specialize BlockSetOps::MakeFull(). Since we number basic blocks from one, we remove bit zero from
-    // the block set. Otherwise, IsEmpty() would never return true.
-    static BitSetShortLongRep MakeFull(Compiler* env)
-    {
-        BitSetShortLongRep retval;
+    public:
+        // Specialize BlockSetOps::MakeFull(). Since we number basic blocks from one, we remove bit zero from
+        // the block set. Otherwise, IsEmpty() would never return true.
+        static BitSetShortLongRep MakeFull(Compiler* env)
+        {
+            BitSetShortLongRep retval;
 
-        // First, make a full set using the BitSetOps::MakeFull
+            // First, make a full set using the BitSetOps::MakeFull
 
-        retval = BitSetOps</*BitSetType*/ BitSetShortLongRep,
-                           /*Brand*/ BSShortLong,
-                           /*Env*/ Compiler*,
-                           /*BitSetTraits*/ BasicBlockBitSetTraits>::MakeFull(env);
+            retval = BitSetOps</*BitSetType*/ BitSetShortLongRep,
+                               /*Brand*/ BSShortLong,
+                               /*Env*/ Compiler*,
+                               /*BitSetTraits*/ BasicBlockBitSetTraits>::MakeFull(env);
 
-        // Now, remove element zero, since we number basic blocks starting at one, and index the set with the
-        // basic block number. If we left this, then IsEmpty() would never return true.
-        BlockSetOps::RemoveElemD(env, retval, 0);
+            // Now, remove element zero, since we number basic blocks starting at one, and index the set with the
+            // basic block number. If we left this, then IsEmpty() would never return true.
+            BlockSetOps::RemoveElemD(env, retval, 0);
 
-        return retval;
-    }
+            return retval;
+        }
 };
 
 typedef BitSetShortLongRep BlockSet;

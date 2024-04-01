@@ -619,7 +619,7 @@ bool Compiler::ehHasCallableHandlers()
 
     return compHndBBtabCount > 0;
 
-#else // !FEATURE_EH_FUNCLETS
+#else  // !FEATURE_EH_FUNCLETS
 
     return ehNeedsShadowSPslots();
 
@@ -1369,11 +1369,11 @@ void Compiler::fgAllocEHTable()
     compHndBBtabAllocCount = info.compXcptnsCount * 2;
 #endif                                             // DEBUG
 
-#else // !FEATURE_EH_FUNCLETS
+#else                                              // !FEATURE_EH_FUNCLETS
 
     compHndBBtabAllocCount = info.compXcptnsCount;
 
-#endif // !FEATURE_EH_FUNCLETS
+#endif                                             // !FEATURE_EH_FUNCLETS
 
     compHndBBtab = new (this, CMK_BasicBlock) EHblkDsc[compHndBBtabAllocCount];
 
@@ -3464,39 +3464,39 @@ void Compiler::fgVerifyHandlerTab()
         switch (block->GetKind())
         {
             case BBJ_EHFINALLYRET:
-            {
-                // Can only exist within a 'finally' handler
-                EHblkDsc* ehDsc = ehGetDsc(block->getHndIndex());
-                assert(ehDsc->HasFinallyHandler());
-                break;
-            }
+                {
+                    // Can only exist within a 'finally' handler
+                    EHblkDsc* ehDsc = ehGetDsc(block->getHndIndex());
+                    assert(ehDsc->HasFinallyHandler());
+                    break;
+                }
 
             case BBJ_EHFAULTRET:
-            {
-                // Can only exist within a 'fault' handler
-                EHblkDsc* ehDsc = ehGetDsc(block->getHndIndex());
-                assert(ehDsc->HasFaultHandler());
-                break;
-            }
+                {
+                    // Can only exist within a 'fault' handler
+                    EHblkDsc* ehDsc = ehGetDsc(block->getHndIndex());
+                    assert(ehDsc->HasFaultHandler());
+                    break;
+                }
 
             case BBJ_EHFILTERRET:
-            {
-                // Can only exist within a filter region of a 'try/filter/filter-handler' handler
-                EHblkDsc* ehDsc = ehGetDsc(block->getHndIndex());
-                assert(ehDsc->HasFilter());
-                // Make sure it's in the filter region itself.
-                assert((blockNumMap[ehDsc->ebdFilter->bbNum] <= blockNumMap[block->bbNum]) &&
-                       (blockNumMap[block->bbNum] < blockNumMap[ehDsc->ebdHndBeg->bbNum]));
-                break;
-            }
+                {
+                    // Can only exist within a filter region of a 'try/filter/filter-handler' handler
+                    EHblkDsc* ehDsc = ehGetDsc(block->getHndIndex());
+                    assert(ehDsc->HasFilter());
+                    // Make sure it's in the filter region itself.
+                    assert((blockNumMap[ehDsc->ebdFilter->bbNum] <= blockNumMap[block->bbNum]) &&
+                           (blockNumMap[block->bbNum] < blockNumMap[ehDsc->ebdHndBeg->bbNum]));
+                    break;
+                }
 
             case BBJ_EHCATCHRET:
-            {
-                // Can only exist within a 'catch' region of a 'try/catch' handler
-                EHblkDsc* ehDsc = ehGetDsc(block->getHndIndex());
-                assert(ehDsc->HasCatchHandler());
-                break;
-            }
+                {
+                    // Can only exist within a 'catch' region of a 'try/catch' handler
+                    EHblkDsc* ehDsc = ehGetDsc(block->getHndIndex());
+                    assert(ehDsc->HasCatchHandler());
+                    break;
+                }
 
             default:
                 // No EH-related requirements.
@@ -4027,7 +4027,7 @@ bool Compiler::fgIsIntraHandlerPred(BasicBlock* predBlock, BasicBlock* block)
 #if FEATURE_EH_CALLFINALLY_THUNKS
     if (xtab->HasFinallyHandler())
     {
-        assert((xtab->ebdHndBeg == block) || // The normal case
+        assert((xtab->ebdHndBeg == block) ||              // The normal case
                (xtab->ebdHndBeg->NextIs(block) &&
                 xtab->ebdHndBeg->HasFlag(BBF_INTERNAL))); // After we've already inserted a header block, and we're
                                                           // trying to decide how to split up the predecessor edges.

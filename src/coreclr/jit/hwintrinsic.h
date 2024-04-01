@@ -7,8 +7,7 @@
 #ifdef FEATURE_HW_INTRINSICS
 
 #ifdef TARGET_XARCH
-enum HWIntrinsicCategory : uint8_t
-{
+enum HWIntrinsicCategory : uint8_t {
     // Simple SIMD intrinsics
     // - take Vector128/256<T> parameters
     // - return a Vector128/256<T>
@@ -41,8 +40,7 @@ enum HWIntrinsicCategory : uint8_t
     HW_Category_Special
 };
 #elif defined(TARGET_ARM64)
-enum HWIntrinsicCategory : uint8_t
-{
+enum HWIntrinsicCategory : uint8_t {
     // Most of the Arm64 intrinsic fall into SIMD category:
     // - vector or scalar intrinsics that operate on one-or-many SIMD registers
     HW_Category_SIMD,
@@ -71,8 +69,7 @@ enum HWIntrinsicCategory : uint8_t
 #else
 #error Unsupported platform
 #endif
-enum HWIntrinsicFlag : unsigned int
-{
+enum HWIntrinsicFlag : unsigned int {
     HW_Flag_NoFlag = 0,
 
     // Commutative
@@ -232,8 +229,7 @@ enum HWIntrinsicFlag : unsigned int
 
 #if defined(TARGET_XARCH)
 // This mirrors the System.Runtime.Intrinsics.X86.FloatComparisonMode enumeration
-enum class FloatComparisonMode : uint8_t
-{
+enum class FloatComparisonMode : uint8_t {
     // _CMP_EQ_OQ
     OrderedEqualNonSignaling = 0,
 
@@ -331,8 +327,7 @@ enum class FloatComparisonMode : uint8_t
     UnorderedTrueSignaling = 31,
 };
 
-enum class FloatRoundingMode : uint8_t
-{
+enum class FloatRoundingMode : uint8_t {
     // _MM_FROUND_TO_NEAREST_INT
     ToNearestInteger = 0x00,
 
@@ -355,8 +350,7 @@ enum class FloatRoundingMode : uint8_t
     NoException = 0x08,
 };
 
-enum class IntComparisonMode : uint8_t
-{
+enum class IntComparisonMode : uint8_t {
     Equal           = 0,
     LessThan        = 1,
     LessThanOrEqual = 2,
@@ -374,8 +368,7 @@ enum class IntComparisonMode : uint8_t
     NotLessThanOrEqual = GreaterThan
 };
 
-enum class TernaryLogicUseFlags : uint8_t
-{
+enum class TernaryLogicUseFlags : uint8_t {
     // Indicates no flags are present
     None = 0,
 
@@ -401,8 +394,7 @@ enum class TernaryLogicUseFlags : uint8_t
     ABC = (A | B | C),
 };
 
-enum class TernaryLogicOperKind : uint8_t
-{
+enum class TernaryLogicOperKind : uint8_t {
     // Indicates no operation is done
     None = 0,
 
@@ -448,477 +440,477 @@ enum class TernaryLogicOperKind : uint8_t
 
 struct TernaryLogicInfo
 {
-    // We have 256 entries, so we compress as much as possible
-    // This gives us 3-bytes per entry (21-bits)
+        // We have 256 entries, so we compress as much as possible
+        // This gives us 3-bytes per entry (21-bits)
 
-    TernaryLogicOperKind oper1 : 4;
-    TernaryLogicUseFlags oper1Use : 3;
+        TernaryLogicOperKind oper1    : 4;
+        TernaryLogicUseFlags oper1Use : 3;
 
-    TernaryLogicOperKind oper2 : 4;
-    TernaryLogicUseFlags oper2Use : 3;
+        TernaryLogicOperKind oper2    : 4;
+        TernaryLogicUseFlags oper2Use : 3;
 
-    TernaryLogicOperKind oper3 : 4;
-    TernaryLogicUseFlags oper3Use : 3;
+        TernaryLogicOperKind oper3    : 4;
+        TernaryLogicUseFlags oper3Use : 3;
 
-    static const TernaryLogicInfo& lookup(uint8_t control);
+        static const TernaryLogicInfo& lookup(uint8_t control);
 
-    TernaryLogicUseFlags GetAllUseFlags() const
-    {
-        uint8_t useFlagsBits = 0;
+        TernaryLogicUseFlags GetAllUseFlags() const
+        {
+            uint8_t useFlagsBits = 0;
 
-        useFlagsBits |= static_cast<uint8_t>(oper1Use);
-        useFlagsBits |= static_cast<uint8_t>(oper2Use);
-        useFlagsBits |= static_cast<uint8_t>(oper3Use);
+            useFlagsBits |= static_cast<uint8_t>(oper1Use);
+            useFlagsBits |= static_cast<uint8_t>(oper2Use);
+            useFlagsBits |= static_cast<uint8_t>(oper3Use);
 
-        return static_cast<TernaryLogicUseFlags>(useFlagsBits);
-    }
+            return static_cast<TernaryLogicUseFlags>(useFlagsBits);
+        }
 };
 #endif // TARGET_XARCH
 
 struct HWIntrinsicInfo
 {
-    // 32-bit: 36-bytes (34+2 trailing padding)
-    // 64-bit: 40-bytes (38+2 trailing padding)
+        // 32-bit: 36-bytes (34+2 trailing padding)
+        // 64-bit: 40-bytes (38+2 trailing padding)
 
-    const char*         name;     // 4 or 8-bytes
-    HWIntrinsicFlag     flags;    // 4-bytes
-    NamedIntrinsic      id;       // 2-bytes
-    uint16_t            ins[10];  // 10 * 2-bytes
-    uint8_t             isa;      // 1-byte
-    int8_t              simdSize; // 1-byte
-    int8_t              numArgs;  // 1-byte
-    HWIntrinsicCategory category; // 1-byte
+        const char*         name;     // 4 or 8-bytes
+        HWIntrinsicFlag     flags;    // 4-bytes
+        NamedIntrinsic      id;       // 2-bytes
+        uint16_t            ins[10];  // 10 * 2-bytes
+        uint8_t             isa;      // 1-byte
+        int8_t              simdSize; // 1-byte
+        int8_t              numArgs;  // 1-byte
+        HWIntrinsicCategory category; // 1-byte
 
-    static const HWIntrinsicInfo& lookup(NamedIntrinsic id);
+        static const HWIntrinsicInfo& lookup(NamedIntrinsic id);
 
-    static NamedIntrinsic         lookupId(Compiler*         comp,
-                                           CORINFO_SIG_INFO* sig,
-                                           const char*       className,
-                                           const char*       methodName,
-                                           const char*       enclosingClassName);
-    static CORINFO_InstructionSet lookupIsa(const char* className, const char* enclosingClassName);
+        static NamedIntrinsic         lookupId(Compiler*         comp,
+                                               CORINFO_SIG_INFO* sig,
+                                               const char*       className,
+                                               const char*       methodName,
+                                               const char*       enclosingClassName);
+        static CORINFO_InstructionSet lookupIsa(const char* className, const char* enclosingClassName);
 
-    static unsigned lookupSimdSize(Compiler* comp, NamedIntrinsic id, CORINFO_SIG_INFO* sig);
+        static unsigned lookupSimdSize(Compiler* comp, NamedIntrinsic id, CORINFO_SIG_INFO* sig);
 
 #if defined(TARGET_XARCH)
-    static int lookupImmUpperBound(NamedIntrinsic intrinsic);
+        static int lookupImmUpperBound(NamedIntrinsic intrinsic);
 #elif defined(TARGET_ARM64)
-    static void lookupImmBounds(
-        NamedIntrinsic intrinsic, int simdSize, var_types baseType, int* lowerBound, int* upperBound);
+        static void lookupImmBounds(
+            NamedIntrinsic intrinsic, int simdSize, var_types baseType, int* lowerBound, int* upperBound);
 #else
 #error Unsupported platform
 #endif
 
-    static bool isImmOp(NamedIntrinsic id, const GenTree* op);
-    static bool isFullyImplementedIsa(CORINFO_InstructionSet isa);
-    static bool isScalarIsa(CORINFO_InstructionSet isa);
+        static bool isImmOp(NamedIntrinsic id, const GenTree* op);
+        static bool isFullyImplementedIsa(CORINFO_InstructionSet isa);
+        static bool isScalarIsa(CORINFO_InstructionSet isa);
 
 #ifdef TARGET_XARCH
-    static bool                isAVX2GatherIntrinsic(NamedIntrinsic id);
-    static FloatComparisonMode lookupFloatComparisonModeForSwappedArgs(FloatComparisonMode comparison);
+        static bool                isAVX2GatherIntrinsic(NamedIntrinsic id);
+        static FloatComparisonMode lookupFloatComparisonModeForSwappedArgs(FloatComparisonMode comparison);
 #endif
 
-    // Member lookup
+        // Member lookup
 
-    static NamedIntrinsic lookupId(NamedIntrinsic id)
-    {
-        return lookup(id).id;
-    }
+        static NamedIntrinsic lookupId(NamedIntrinsic id)
+        {
+            return lookup(id).id;
+        }
 
-    static const char* lookupName(NamedIntrinsic id)
-    {
-        return lookup(id).name;
-    }
+        static const char* lookupName(NamedIntrinsic id)
+        {
+            return lookup(id).name;
+        }
 
-    static CORINFO_InstructionSet lookupIsa(NamedIntrinsic id)
-    {
-        uint8_t result = lookup(id).isa;
-        return static_cast<CORINFO_InstructionSet>(result);
-    }
+        static CORINFO_InstructionSet lookupIsa(NamedIntrinsic id)
+        {
+            uint8_t result = lookup(id).isa;
+            return static_cast<CORINFO_InstructionSet>(result);
+        }
 
 #ifdef TARGET_XARCH
-    static int lookupIval(Compiler* comp, NamedIntrinsic id, var_types simdBaseType);
+        static int lookupIval(Compiler* comp, NamedIntrinsic id, var_types simdBaseType);
 #endif
 
-    static bool tryLookupSimdSize(NamedIntrinsic id, unsigned* pSimdSize)
-    {
-        bool succeeded = false;
-        if (lookup(id).simdSize != -1)
+        static bool tryLookupSimdSize(NamedIntrinsic id, unsigned* pSimdSize)
         {
-            *pSimdSize = lookup(id).simdSize;
-            succeeded  = true;
-        }
-        return succeeded;
-    }
-
-    static int lookupNumArgs(NamedIntrinsic id)
-    {
-        return lookup(id).numArgs;
-    }
-
-    static instruction lookupIns(NamedIntrinsic id, var_types type)
-    {
-        if ((type < TYP_BYTE) || (type > TYP_DOUBLE))
-        {
-            assert(!"Unexpected type");
-            return INS_invalid;
+            bool succeeded = false;
+            if (lookup(id).simdSize != -1)
+            {
+                *pSimdSize = lookup(id).simdSize;
+                succeeded  = true;
+            }
+            return succeeded;
         }
 
-        uint16_t result = lookup(id).ins[type - TYP_BYTE];
-        return static_cast<instruction>(result);
-    }
-
-    static instruction lookupIns(GenTreeHWIntrinsic* intrinsicNode)
-    {
-        assert(intrinsicNode != nullptr);
-
-        NamedIntrinsic intrinsic = intrinsicNode->GetHWIntrinsicId();
-        var_types      type      = TYP_UNKNOWN;
-
-        if (lookupCategory(intrinsic) == HW_Category_Scalar)
+        static int lookupNumArgs(NamedIntrinsic id)
         {
-            type = intrinsicNode->TypeGet();
-        }
-        else
-        {
-            type = intrinsicNode->GetSimdBaseType();
+            return lookup(id).numArgs;
         }
 
-        return lookupIns(intrinsic, type);
-    }
+        static instruction lookupIns(NamedIntrinsic id, var_types type)
+        {
+            if ((type < TYP_BYTE) || (type > TYP_DOUBLE))
+            {
+                assert(!"Unexpected type");
+                return INS_invalid;
+            }
 
-    static HWIntrinsicCategory lookupCategory(NamedIntrinsic id)
-    {
-        return lookup(id).category;
-    }
+            uint16_t result = lookup(id).ins[type - TYP_BYTE];
+            return static_cast<instruction>(result);
+        }
 
-    static HWIntrinsicFlag lookupFlags(NamedIntrinsic id)
-    {
-        return lookup(id).flags;
-    }
+        static instruction lookupIns(GenTreeHWIntrinsic* intrinsicNode)
+        {
+            assert(intrinsicNode != nullptr);
 
-    // Flags lookup
+            NamedIntrinsic intrinsic = intrinsicNode->GetHWIntrinsicId();
+            var_types      type      = TYP_UNKNOWN;
 
-    static bool IsCommutative(NamedIntrinsic id)
-    {
-        HWIntrinsicFlag flags = lookupFlags(id);
-        return (flags & HW_Flag_Commutative) != 0;
-    }
+            if (lookupCategory(intrinsic) == HW_Category_Scalar)
+            {
+                type = intrinsicNode->TypeGet();
+            }
+            else
+            {
+                type = intrinsicNode->GetSimdBaseType();
+            }
+
+            return lookupIns(intrinsic, type);
+        }
+
+        static HWIntrinsicCategory lookupCategory(NamedIntrinsic id)
+        {
+            return lookup(id).category;
+        }
+
+        static HWIntrinsicFlag lookupFlags(NamedIntrinsic id)
+        {
+            return lookup(id).flags;
+        }
+
+        // Flags lookup
+
+        static bool IsCommutative(NamedIntrinsic id)
+        {
+            HWIntrinsicFlag flags = lookupFlags(id);
+            return (flags & HW_Flag_Commutative) != 0;
+        }
 
 #if defined(TARGET_XARCH)
-    static bool IsEmbBroadcastCompatible(NamedIntrinsic id)
-    {
-        HWIntrinsicFlag flags = lookupFlags(id);
-        return (flags & HW_Flag_EmbBroadcastCompatible) != 0;
-    }
+        static bool IsEmbBroadcastCompatible(NamedIntrinsic id)
+        {
+            HWIntrinsicFlag flags = lookupFlags(id);
+            return (flags & HW_Flag_EmbBroadcastCompatible) != 0;
+        }
 
-    static bool IsEmbRoundingCompatible(NamedIntrinsic id)
-    {
-        HWIntrinsicFlag flags = lookupFlags(id);
-        return (flags & HW_Flag_EmbRoundingCompatible) != 0;
-    }
+        static bool IsEmbRoundingCompatible(NamedIntrinsic id)
+        {
+            HWIntrinsicFlag flags = lookupFlags(id);
+            return (flags & HW_Flag_EmbRoundingCompatible) != 0;
+        }
 
-    static bool IsEmbMaskingCompatible(NamedIntrinsic id)
-    {
-        HWIntrinsicFlag flags = lookupFlags(id);
-        return (flags & HW_Flag_EmbMaskingIncompatible) == 0;
-    }
+        static bool IsEmbMaskingCompatible(NamedIntrinsic id)
+        {
+            HWIntrinsicFlag flags = lookupFlags(id);
+            return (flags & HW_Flag_EmbMaskingIncompatible) == 0;
+        }
 #endif // TARGET_XARCH
 
-    static bool CanBenefitFromConstantProp(NamedIntrinsic id)
-    {
-        HWIntrinsicFlag flags = lookupFlags(id);
-        return (flags & HW_Flag_CanBenefitFromConstantProp) != 0;
-    }
+        static bool CanBenefitFromConstantProp(NamedIntrinsic id)
+        {
+            HWIntrinsicFlag flags = lookupFlags(id);
+            return (flags & HW_Flag_CanBenefitFromConstantProp) != 0;
+        }
 
-    static bool IsMaybeCommutative(NamedIntrinsic id)
-    {
-        HWIntrinsicFlag flags = lookupFlags(id);
+        static bool IsMaybeCommutative(NamedIntrinsic id)
+        {
+            HWIntrinsicFlag flags = lookupFlags(id);
 #if defined(TARGET_XARCH)
-        return (flags & HW_Flag_MaybeCommutative) != 0;
+            return (flags & HW_Flag_MaybeCommutative) != 0;
 #elif defined(TARGET_ARM64)
-        return false;
+            return false;
 #else
 #error Unsupported platform
 #endif
-    }
+        }
 
-    static bool RequiresCodegen(NamedIntrinsic id)
-    {
-        HWIntrinsicFlag flags = lookupFlags(id);
-        return (flags & HW_Flag_NoCodeGen) == 0;
-    }
+        static bool RequiresCodegen(NamedIntrinsic id)
+        {
+            HWIntrinsicFlag flags = lookupFlags(id);
+            return (flags & HW_Flag_NoCodeGen) == 0;
+        }
 
-    static bool GeneratesMultipleIns(NamedIntrinsic id)
-    {
-        HWIntrinsicFlag flags = lookupFlags(id);
-        return (flags & HW_Flag_MultiIns) != 0;
-    }
+        static bool GeneratesMultipleIns(NamedIntrinsic id)
+        {
+            HWIntrinsicFlag flags = lookupFlags(id);
+            return (flags & HW_Flag_MultiIns) != 0;
+        }
 
-    static bool SupportsContainment(NamedIntrinsic id)
-    {
-        HWIntrinsicFlag flags = lookupFlags(id);
+        static bool SupportsContainment(NamedIntrinsic id)
+        {
+            HWIntrinsicFlag flags = lookupFlags(id);
 #if defined(TARGET_XARCH)
-        return (flags & HW_Flag_NoContainment) == 0;
+            return (flags & HW_Flag_NoContainment) == 0;
 #elif defined(TARGET_ARM64)
-        return (flags & HW_Flag_SupportsContainment) != 0;
+            return (flags & HW_Flag_SupportsContainment) != 0;
 #else
 #error Unsupported platform
 #endif
-    }
+        }
 
-    static bool ReturnsPerElementMask(NamedIntrinsic id)
-    {
-        HWIntrinsicFlag flags = lookupFlags(id);
+        static bool ReturnsPerElementMask(NamedIntrinsic id)
+        {
+            HWIntrinsicFlag flags = lookupFlags(id);
 #if defined(TARGET_XARCH) || defined(TARGET_ARM64)
-        return (flags & HW_Flag_ReturnsPerElementMask) != 0;
+            return (flags & HW_Flag_ReturnsPerElementMask) != 0;
 #else
 #error Unsupported platform
 #endif
-    }
+        }
 
 #if defined(TARGET_XARCH)
-    static bool AvxOnlyCompatible(NamedIntrinsic id)
-    {
-        HWIntrinsicFlag flags = lookupFlags(id);
-        return (flags & HW_Flag_AvxOnlyCompatible) != 0;
-    }
-#endif
-
-    static bool BaseTypeFromFirstArg(NamedIntrinsic id)
-    {
-        HWIntrinsicFlag flags = lookupFlags(id);
-        return (flags & HW_Flag_BaseTypeFromFirstArg) != 0;
-    }
-
-    static bool IsFloatingPointUsed(NamedIntrinsic id)
-    {
-        HWIntrinsicFlag flags = lookupFlags(id);
-        return (flags & HW_Flag_NoFloatingPointUsed) == 0;
-    }
-
-#ifdef TARGET_XARCH
-    static bool HasFullRangeImm(NamedIntrinsic id)
-    {
-        HWIntrinsicFlag flags = lookupFlags(id);
-        return (flags & HW_Flag_FullRangeIMM) != 0;
-    }
-
-    static bool MaybeImm(NamedIntrinsic id)
-    {
-        HWIntrinsicFlag flags = lookupFlags(id);
-        return (flags & HW_Flag_MaybeIMM) != 0;
-    }
-
-    static bool CopiesUpperBits(NamedIntrinsic id)
-    {
-        HWIntrinsicFlag flags = lookupFlags(id);
-        return (flags & HW_Flag_CopyUpperBits) != 0;
-    }
-
-    static bool MaybeMemoryLoad(NamedIntrinsic id)
-    {
-        HWIntrinsicFlag flags = lookupFlags(id);
-        return (flags & HW_Flag_MaybeMemoryLoad) != 0;
-    }
-
-    static bool MaybeMemoryStore(NamedIntrinsic id)
-    {
-        HWIntrinsicFlag flags = lookupFlags(id);
-        return (flags & HW_Flag_MaybeMemoryStore) != 0;
-    }
-#endif
-
-    static bool NoJmpTableImm(NamedIntrinsic id)
-    {
-        HWIntrinsicFlag flags = lookupFlags(id);
-        return (flags & HW_Flag_NoJmpTableIMM) != 0;
-    }
-
-    static bool BaseTypeFromSecondArg(NamedIntrinsic id)
-    {
-        HWIntrinsicFlag flags = lookupFlags(id);
-        return (flags & HW_Flag_BaseTypeFromSecondArg) != 0;
-    }
-
-    static bool HasSpecialCodegen(NamedIntrinsic id)
-    {
-        HWIntrinsicFlag flags = lookupFlags(id);
-        return (flags & HW_Flag_SpecialCodeGen) != 0;
-    }
-
-#ifdef TARGET_ARM64
-    static bool NeedsConsecutiveRegisters(NamedIntrinsic id)
-    {
-        HWIntrinsicFlag flags = lookupFlags(id);
-        return (flags & HW_Flag_NeedsConsecutiveRegisters) != 0;
-    }
-#endif
-
-    static bool HasRMWSemantics(NamedIntrinsic id)
-    {
-        HWIntrinsicFlag flags = lookupFlags(id);
-#if defined(TARGET_XARCH)
-        return (flags & HW_Flag_NoRMWSemantics) == 0;
-#elif defined(TARGET_ARM64)
-        return (flags & HW_Flag_HasRMWSemantics) != 0;
-#else
-#error Unsupported platform
-#endif
-    }
-    //------------------------------------------------------------------------
-    // HasEvexSemantics: Checks if the NamedIntrinsic has a lowering to
-    // to an instruction with an EVEX form.
-    //
-    // Return Value:
-    // true if the NamedIntrinsic lowering has an EVEX form.
-    //
-    static bool HasEvexSemantics(NamedIntrinsic id)
-    {
-#if defined(TARGET_XARCH)
-        HWIntrinsicFlag flags = lookupFlags(id);
-        return (flags & HW_Flag_NoEvexSemantics) == 0;
-#else
-        return false;
-#endif
-    }
-
-    static bool HasSpecialImport(NamedIntrinsic id)
-    {
-        HWIntrinsicFlag flags = lookupFlags(id);
-        return (flags & HW_Flag_SpecialImport) != 0;
-    }
-
-    static bool IsMultiReg(NamedIntrinsic id)
-    {
-        const HWIntrinsicFlag flags = lookupFlags(id);
-        return (flags & HW_Flag_MultiReg) != 0;
-    }
-
-    static int GetMultiRegCount(NamedIntrinsic id)
-    {
-        assert(IsMultiReg(id));
-
-        switch (id)
+        static bool AvxOnlyCompatible(NamedIntrinsic id)
         {
+            HWIntrinsicFlag flags = lookupFlags(id);
+            return (flags & HW_Flag_AvxOnlyCompatible) != 0;
+        }
+#endif
+
+        static bool BaseTypeFromFirstArg(NamedIntrinsic id)
+        {
+            HWIntrinsicFlag flags = lookupFlags(id);
+            return (flags & HW_Flag_BaseTypeFromFirstArg) != 0;
+        }
+
+        static bool IsFloatingPointUsed(NamedIntrinsic id)
+        {
+            HWIntrinsicFlag flags = lookupFlags(id);
+            return (flags & HW_Flag_NoFloatingPointUsed) == 0;
+        }
+
+#ifdef TARGET_XARCH
+        static bool HasFullRangeImm(NamedIntrinsic id)
+        {
+            HWIntrinsicFlag flags = lookupFlags(id);
+            return (flags & HW_Flag_FullRangeIMM) != 0;
+        }
+
+        static bool MaybeImm(NamedIntrinsic id)
+        {
+            HWIntrinsicFlag flags = lookupFlags(id);
+            return (flags & HW_Flag_MaybeIMM) != 0;
+        }
+
+        static bool CopiesUpperBits(NamedIntrinsic id)
+        {
+            HWIntrinsicFlag flags = lookupFlags(id);
+            return (flags & HW_Flag_CopyUpperBits) != 0;
+        }
+
+        static bool MaybeMemoryLoad(NamedIntrinsic id)
+        {
+            HWIntrinsicFlag flags = lookupFlags(id);
+            return (flags & HW_Flag_MaybeMemoryLoad) != 0;
+        }
+
+        static bool MaybeMemoryStore(NamedIntrinsic id)
+        {
+            HWIntrinsicFlag flags = lookupFlags(id);
+            return (flags & HW_Flag_MaybeMemoryStore) != 0;
+        }
+#endif
+
+        static bool NoJmpTableImm(NamedIntrinsic id)
+        {
+            HWIntrinsicFlag flags = lookupFlags(id);
+            return (flags & HW_Flag_NoJmpTableIMM) != 0;
+        }
+
+        static bool BaseTypeFromSecondArg(NamedIntrinsic id)
+        {
+            HWIntrinsicFlag flags = lookupFlags(id);
+            return (flags & HW_Flag_BaseTypeFromSecondArg) != 0;
+        }
+
+        static bool HasSpecialCodegen(NamedIntrinsic id)
+        {
+            HWIntrinsicFlag flags = lookupFlags(id);
+            return (flags & HW_Flag_SpecialCodeGen) != 0;
+        }
+
 #ifdef TARGET_ARM64
-            case NI_AdvSimd_Arm64_LoadPairScalarVector64:
-            case NI_AdvSimd_Arm64_LoadPairScalarVector64NonTemporal:
-            case NI_AdvSimd_Arm64_LoadPairVector64:
-            case NI_AdvSimd_Arm64_LoadPairVector64NonTemporal:
-            case NI_AdvSimd_Arm64_LoadPairVector128:
-            case NI_AdvSimd_Arm64_LoadPairVector128NonTemporal:
-            case NI_AdvSimd_LoadVector64x2AndUnzip:
-            case NI_AdvSimd_Arm64_LoadVector128x2AndUnzip:
-            case NI_AdvSimd_LoadVector64x2:
-            case NI_AdvSimd_Arm64_LoadVector128x2:
-            case NI_AdvSimd_LoadAndInsertScalarVector64x2:
-            case NI_AdvSimd_Arm64_LoadAndInsertScalarVector128x2:
-            case NI_AdvSimd_LoadAndReplicateToVector64x2:
-            case NI_AdvSimd_Arm64_LoadAndReplicateToVector128x2:
-                return 2;
+        static bool NeedsConsecutiveRegisters(NamedIntrinsic id)
+        {
+            HWIntrinsicFlag flags = lookupFlags(id);
+            return (flags & HW_Flag_NeedsConsecutiveRegisters) != 0;
+        }
+#endif
 
-            case NI_AdvSimd_LoadVector64x3AndUnzip:
-            case NI_AdvSimd_Arm64_LoadVector128x3AndUnzip:
-            case NI_AdvSimd_LoadVector64x3:
-            case NI_AdvSimd_Arm64_LoadVector128x3:
-            case NI_AdvSimd_LoadAndInsertScalarVector64x3:
-            case NI_AdvSimd_Arm64_LoadAndInsertScalarVector128x3:
-            case NI_AdvSimd_LoadAndReplicateToVector64x3:
-            case NI_AdvSimd_Arm64_LoadAndReplicateToVector128x3:
-                return 3;
+        static bool HasRMWSemantics(NamedIntrinsic id)
+        {
+            HWIntrinsicFlag flags = lookupFlags(id);
+#if defined(TARGET_XARCH)
+            return (flags & HW_Flag_NoRMWSemantics) == 0;
+#elif defined(TARGET_ARM64)
+            return (flags & HW_Flag_HasRMWSemantics) != 0;
+#else
+#error Unsupported platform
+#endif
+        }
+        //------------------------------------------------------------------------
+        // HasEvexSemantics: Checks if the NamedIntrinsic has a lowering to
+        // to an instruction with an EVEX form.
+        //
+        // Return Value:
+        // true if the NamedIntrinsic lowering has an EVEX form.
+        //
+        static bool HasEvexSemantics(NamedIntrinsic id)
+        {
+#if defined(TARGET_XARCH)
+            HWIntrinsicFlag flags = lookupFlags(id);
+            return (flags & HW_Flag_NoEvexSemantics) == 0;
+#else
+            return false;
+#endif
+        }
 
-            case NI_AdvSimd_LoadVector64x4AndUnzip:
-            case NI_AdvSimd_Arm64_LoadVector128x4AndUnzip:
-            case NI_AdvSimd_LoadVector64x4:
-            case NI_AdvSimd_Arm64_LoadVector128x4:
-            case NI_AdvSimd_LoadAndInsertScalarVector64x4:
-            case NI_AdvSimd_Arm64_LoadAndInsertScalarVector128x4:
-            case NI_AdvSimd_LoadAndReplicateToVector64x4:
-            case NI_AdvSimd_Arm64_LoadAndReplicateToVector128x4:
-                return 4;
+        static bool HasSpecialImport(NamedIntrinsic id)
+        {
+            HWIntrinsicFlag flags = lookupFlags(id);
+            return (flags & HW_Flag_SpecialImport) != 0;
+        }
+
+        static bool IsMultiReg(NamedIntrinsic id)
+        {
+            const HWIntrinsicFlag flags = lookupFlags(id);
+            return (flags & HW_Flag_MultiReg) != 0;
+        }
+
+        static int GetMultiRegCount(NamedIntrinsic id)
+        {
+            assert(IsMultiReg(id));
+
+            switch (id)
+            {
+#ifdef TARGET_ARM64
+                case NI_AdvSimd_Arm64_LoadPairScalarVector64:
+                case NI_AdvSimd_Arm64_LoadPairScalarVector64NonTemporal:
+                case NI_AdvSimd_Arm64_LoadPairVector64:
+                case NI_AdvSimd_Arm64_LoadPairVector64NonTemporal:
+                case NI_AdvSimd_Arm64_LoadPairVector128:
+                case NI_AdvSimd_Arm64_LoadPairVector128NonTemporal:
+                case NI_AdvSimd_LoadVector64x2AndUnzip:
+                case NI_AdvSimd_Arm64_LoadVector128x2AndUnzip:
+                case NI_AdvSimd_LoadVector64x2:
+                case NI_AdvSimd_Arm64_LoadVector128x2:
+                case NI_AdvSimd_LoadAndInsertScalarVector64x2:
+                case NI_AdvSimd_Arm64_LoadAndInsertScalarVector128x2:
+                case NI_AdvSimd_LoadAndReplicateToVector64x2:
+                case NI_AdvSimd_Arm64_LoadAndReplicateToVector128x2:
+                    return 2;
+
+                case NI_AdvSimd_LoadVector64x3AndUnzip:
+                case NI_AdvSimd_Arm64_LoadVector128x3AndUnzip:
+                case NI_AdvSimd_LoadVector64x3:
+                case NI_AdvSimd_Arm64_LoadVector128x3:
+                case NI_AdvSimd_LoadAndInsertScalarVector64x3:
+                case NI_AdvSimd_Arm64_LoadAndInsertScalarVector128x3:
+                case NI_AdvSimd_LoadAndReplicateToVector64x3:
+                case NI_AdvSimd_Arm64_LoadAndReplicateToVector128x3:
+                    return 3;
+
+                case NI_AdvSimd_LoadVector64x4AndUnzip:
+                case NI_AdvSimd_Arm64_LoadVector128x4AndUnzip:
+                case NI_AdvSimd_LoadVector64x4:
+                case NI_AdvSimd_Arm64_LoadVector128x4:
+                case NI_AdvSimd_LoadAndInsertScalarVector64x4:
+                case NI_AdvSimd_Arm64_LoadAndInsertScalarVector128x4:
+                case NI_AdvSimd_LoadAndReplicateToVector64x4:
+                case NI_AdvSimd_Arm64_LoadAndReplicateToVector128x4:
+                    return 4;
 #endif
 
 #ifdef TARGET_XARCH
-            case NI_X86Base_DivRem:
-            case NI_X86Base_X64_DivRem:
-                return 2;
+                case NI_X86Base_DivRem:
+                case NI_X86Base_X64_DivRem:
+                    return 2;
 #endif // TARGET_XARCH
 
-            default:
-                unreached();
+                default:
+                    unreached();
+            }
         }
-    }
 
 #ifdef TARGET_ARM64
-    static bool SIMDScalar(NamedIntrinsic id)
-    {
-        const HWIntrinsicFlag flags = lookupFlags(id);
-        return (flags & HW_Flag_SIMDScalar) != 0;
-    }
+        static bool SIMDScalar(NamedIntrinsic id)
+        {
+            const HWIntrinsicFlag flags = lookupFlags(id);
+            return (flags & HW_Flag_SIMDScalar) != 0;
+        }
 
-    static bool HasImmediateOperand(NamedIntrinsic id)
-    {
-        const HWIntrinsicFlag flags = lookupFlags(id);
-        return (flags & HW_Flag_HasImmediateOperand) != 0;
-    }
+        static bool HasImmediateOperand(NamedIntrinsic id)
+        {
+            const HWIntrinsicFlag flags = lookupFlags(id);
+            return (flags & HW_Flag_HasImmediateOperand) != 0;
+        }
 
-    static bool IsScalable(NamedIntrinsic id)
-    {
-        const HWIntrinsicFlag flags = lookupFlags(id);
-        return (flags & HW_Flag_Scalable) != 0;
-    }
+        static bool IsScalable(NamedIntrinsic id)
+        {
+            const HWIntrinsicFlag flags = lookupFlags(id);
+            return (flags & HW_Flag_Scalable) != 0;
+        }
 
-    static bool IsMaskedOperation(NamedIntrinsic id)
-    {
-        const HWIntrinsicFlag flags = lookupFlags(id);
-        return ((flags & HW_Flag_MaskedOperation) != 0) || IsLowMaskedOperation(id);
-    }
+        static bool IsMaskedOperation(NamedIntrinsic id)
+        {
+            const HWIntrinsicFlag flags = lookupFlags(id);
+            return ((flags & HW_Flag_MaskedOperation) != 0) || IsLowMaskedOperation(id);
+        }
 
-    static bool IsLowMaskedOperation(NamedIntrinsic id)
-    {
-        const HWIntrinsicFlag flags = lookupFlags(id);
-        return (flags & HW_Flag_LowMaskedOperation) != 0;
-    }
+        static bool IsLowMaskedOperation(NamedIntrinsic id)
+        {
+            const HWIntrinsicFlag flags = lookupFlags(id);
+            return (flags & HW_Flag_LowMaskedOperation) != 0;
+        }
 
 #endif // TARGET_ARM64
 
-    static bool HasSpecialSideEffect(NamedIntrinsic id)
-    {
-        HWIntrinsicFlag flags = lookupFlags(id);
-        return (flags & HW_Flag_SpecialSideEffectMask) != 0;
-    }
+        static bool HasSpecialSideEffect(NamedIntrinsic id)
+        {
+            HWIntrinsicFlag flags = lookupFlags(id);
+            return (flags & HW_Flag_SpecialSideEffectMask) != 0;
+        }
 
-    static bool HasSpecialSideEffect_Barrier(NamedIntrinsic id)
-    {
-        HWIntrinsicFlag flags = lookupFlags(id);
-        return (flags & HW_Flag_SpecialSideEffect_Barrier) != 0;
-    }
+        static bool HasSpecialSideEffect_Barrier(NamedIntrinsic id)
+        {
+            HWIntrinsicFlag flags = lookupFlags(id);
+            return (flags & HW_Flag_SpecialSideEffect_Barrier) != 0;
+        }
 
-    static bool MaybeNoJmpTableImm(NamedIntrinsic id)
-    {
-        HWIntrinsicFlag flags = lookupFlags(id);
-        return (flags & HW_Flag_MaybeNoJmpTableIMM) != 0;
-    }
+        static bool MaybeNoJmpTableImm(NamedIntrinsic id)
+        {
+            HWIntrinsicFlag flags = lookupFlags(id);
+            return (flags & HW_Flag_MaybeNoJmpTableIMM) != 0;
+        }
 
 #if defined(TARGET_XARCH)
-    static bool IsRmwIntrinsic(NamedIntrinsic id)
-    {
-        HWIntrinsicFlag flags = lookupFlags(id);
-        return (flags & HW_Flag_RmwIntrinsic) != 0;
-    }
+        static bool IsRmwIntrinsic(NamedIntrinsic id)
+        {
+            HWIntrinsicFlag flags = lookupFlags(id);
+            return (flags & HW_Flag_RmwIntrinsic) != 0;
+        }
 
-    static bool IsFmaIntrinsic(NamedIntrinsic id)
-    {
-        HWIntrinsicFlag flags = lookupFlags(id);
-        return (flags & HW_Flag_FmaIntrinsic) != 0;
-    }
+        static bool IsFmaIntrinsic(NamedIntrinsic id)
+        {
+            HWIntrinsicFlag flags = lookupFlags(id);
+            return (flags & HW_Flag_FmaIntrinsic) != 0;
+        }
 
-    static bool IsPermuteVar2x(NamedIntrinsic id)
-    {
-        HWIntrinsicFlag flags = lookupFlags(id);
-        return (flags & HW_Flag_PermuteVar2x) != 0;
-    }
+        static bool IsPermuteVar2x(NamedIntrinsic id)
+        {
+            HWIntrinsicFlag flags = lookupFlags(id);
+            return (flags & HW_Flag_PermuteVar2x) != 0;
+        }
 #endif // TARGET_XARCH
 };
 
@@ -926,94 +918,100 @@ struct HWIntrinsicInfo
 
 struct HWIntrinsic final
 {
-    HWIntrinsic(const GenTreeHWIntrinsic* node)
-        : op1(nullptr), op2(nullptr), op3(nullptr), op4(nullptr), numOperands(0), baseType(TYP_UNDEF)
-    {
-        assert(node != nullptr);
-
-        id       = node->GetHWIntrinsicId();
-        category = HWIntrinsicInfo::lookupCategory(id);
-
-        assert(HWIntrinsicInfo::RequiresCodegen(id));
-
-        InitializeOperands(node);
-        InitializeBaseType(node);
-    }
-
-    bool codeGenIsTableDriven() const
-    {
-        // TODO-Arm64-Cleanup - make more categories to the table-driven framework
-        bool isTableDrivenCategory = category != HW_Category_Helper;
-        bool isTableDrivenFlag = !HWIntrinsicInfo::GeneratesMultipleIns(id) && !HWIntrinsicInfo::HasSpecialCodegen(id);
-
-        return isTableDrivenCategory && isTableDrivenFlag;
-    }
-
-    NamedIntrinsic      id;
-    HWIntrinsicCategory category;
-    GenTree*            op1;
-    GenTree*            op2;
-    GenTree*            op3;
-    GenTree*            op4;
-    size_t              numOperands;
-    var_types           baseType;
-
-private:
-    void InitializeOperands(const GenTreeHWIntrinsic* node)
-    {
-        numOperands = node->GetOperandCount();
-
-        switch (numOperands)
+        HWIntrinsic(const GenTreeHWIntrinsic* node)
+            : op1(nullptr)
+            , op2(nullptr)
+            , op3(nullptr)
+            , op4(nullptr)
+            , numOperands(0)
+            , baseType(TYP_UNDEF)
         {
-            case 4:
-                op4 = node->Op(4);
-                FALLTHROUGH;
-            case 3:
-                op3 = node->Op(3);
-                FALLTHROUGH;
-            case 2:
-                op2 = node->Op(2);
-                FALLTHROUGH;
-            case 1:
-                op1 = node->Op(1);
-                FALLTHROUGH;
-            case 0:
-                break;
+            assert(node != nullptr);
 
-            default:
-                unreached();
+            id       = node->GetHWIntrinsicId();
+            category = HWIntrinsicInfo::lookupCategory(id);
+
+            assert(HWIntrinsicInfo::RequiresCodegen(id));
+
+            InitializeOperands(node);
+            InitializeBaseType(node);
         }
-    }
 
-    void InitializeBaseType(const GenTreeHWIntrinsic* node)
-    {
-        baseType = node->GetSimdBaseType();
-
-        if (baseType == TYP_UNKNOWN)
+        bool codeGenIsTableDriven() const
         {
-            assert((category == HW_Category_Scalar) || (category == HW_Category_Special));
+            // TODO-Arm64-Cleanup - make more categories to the table-driven framework
+            bool isTableDrivenCategory = category != HW_Category_Helper;
+            bool isTableDrivenFlag =
+                !HWIntrinsicInfo::GeneratesMultipleIns(id) && !HWIntrinsicInfo::HasSpecialCodegen(id);
 
-            if (HWIntrinsicInfo::BaseTypeFromFirstArg(id))
-            {
-                assert(op1 != nullptr);
-                baseType = op1->TypeGet();
-            }
-            else if (HWIntrinsicInfo::BaseTypeFromSecondArg(id))
-            {
-                assert(op2 != nullptr);
-                baseType = op2->TypeGet();
-            }
-            else
-            {
-                baseType = node->TypeGet();
-            }
+            return isTableDrivenCategory && isTableDrivenFlag;
+        }
 
-            if (category == HW_Category_Scalar)
+        NamedIntrinsic      id;
+        HWIntrinsicCategory category;
+        GenTree*            op1;
+        GenTree*            op2;
+        GenTree*            op3;
+        GenTree*            op4;
+        size_t              numOperands;
+        var_types           baseType;
+
+    private:
+        void InitializeOperands(const GenTreeHWIntrinsic* node)
+        {
+            numOperands = node->GetOperandCount();
+
+            switch (numOperands)
             {
-                baseType = genActualType(baseType);
+                case 4:
+                    op4 = node->Op(4);
+                    FALLTHROUGH;
+                case 3:
+                    op3 = node->Op(3);
+                    FALLTHROUGH;
+                case 2:
+                    op2 = node->Op(2);
+                    FALLTHROUGH;
+                case 1:
+                    op1 = node->Op(1);
+                    FALLTHROUGH;
+                case 0:
+                    break;
+
+                default:
+                    unreached();
             }
         }
-    }
+
+        void InitializeBaseType(const GenTreeHWIntrinsic* node)
+        {
+            baseType = node->GetSimdBaseType();
+
+            if (baseType == TYP_UNKNOWN)
+            {
+                assert((category == HW_Category_Scalar) || (category == HW_Category_Special));
+
+                if (HWIntrinsicInfo::BaseTypeFromFirstArg(id))
+                {
+                    assert(op1 != nullptr);
+                    baseType = op1->TypeGet();
+                }
+                else if (HWIntrinsicInfo::BaseTypeFromSecondArg(id))
+                {
+                    assert(op2 != nullptr);
+                    baseType = op2->TypeGet();
+                }
+                else
+                {
+                    baseType = node->TypeGet();
+                }
+
+                if (category == HW_Category_Scalar)
+                {
+                    baseType = genActualType(baseType);
+                }
+            }
+        }
 };
 
 #endif // TARGET_ARM64

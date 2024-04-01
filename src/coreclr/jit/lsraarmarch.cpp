@@ -645,22 +645,22 @@ int LinearScan::BuildBlockStore(GenTreeBlk* blkNode)
         {
             case GenTreeBlk::BlkOpKindUnroll:
 #ifdef TARGET_ARM64
-            {
-                if (dstAddr->isContained())
                 {
-                    // Since the dstAddr is contained the address will be computed in CodeGen.
-                    // This might require an integer register to store the value.
-                    buildInternalIntRegisterDefForNode(blkNode);
-                }
+                    if (dstAddr->isContained())
+                    {
+                        // Since the dstAddr is contained the address will be computed in CodeGen.
+                        // This might require an integer register to store the value.
+                        buildInternalIntRegisterDefForNode(blkNode);
+                    }
 
-                if (size > FP_REGSIZE_BYTES)
-                {
-                    // For larger block sizes CodeGen can choose to use 16-byte SIMD instructions.
-                    buildInternalFloatRegisterDefForNode(blkNode, internalFloatRegCandidates());
+                    if (size > FP_REGSIZE_BYTES)
+                    {
+                        // For larger block sizes CodeGen can choose to use 16-byte SIMD instructions.
+                        buildInternalFloatRegisterDefForNode(blkNode, internalFloatRegCandidates());
+                    }
                 }
-            }
 #endif // TARGET_ARM64
-            break;
+                break;
 
             case GenTreeBlk::BlkOpKindLoop:
                 // Needed for offsetReg
@@ -682,129 +682,129 @@ int LinearScan::BuildBlockStore(GenTreeBlk* blkNode)
         switch (blkNode->gtBlkOpKind)
         {
             case GenTreeBlk::BlkOpKindCpObjUnroll:
-            {
-                // We don't need to materialize the struct size but we still need
-                // a temporary register to perform the sequence of loads and stores.
-                // We can't use the special Write Barrier registers, so exclude them from the mask
-                regMaskTP internalIntCandidates =
-                    allRegs(TYP_INT) & ~(RBM_WRITE_BARRIER_DST_BYREF | RBM_WRITE_BARRIER_SRC_BYREF);
-                buildInternalIntRegisterDefForNode(blkNode, internalIntCandidates);
-
-                if (size >= 2 * REGSIZE_BYTES)
                 {
-                    // We will use ldp/stp to reduce code size and improve performance
-                    // so we need to reserve an extra internal register
+                    // We don't need to materialize the struct size but we still need
+                    // a temporary register to perform the sequence of loads and stores.
+                    // We can't use the special Write Barrier registers, so exclude them from the mask
+                    regMaskTP internalIntCandidates =
+                        allRegs(TYP_INT) & ~(RBM_WRITE_BARRIER_DST_BYREF | RBM_WRITE_BARRIER_SRC_BYREF);
                     buildInternalIntRegisterDefForNode(blkNode, internalIntCandidates);
-                }
 
-                if (size >= 4 * REGSIZE_BYTES && compiler->IsBaselineSimdIsaSupported())
-                {
-                    // We can use 128-bit SIMD ldp/stp for larger block sizes
-                    buildInternalFloatRegisterDefForNode(blkNode, internalFloatRegCandidates());
-                    buildInternalFloatRegisterDefForNode(blkNode, internalFloatRegCandidates());
-                }
-
-                // If we have a dest address we want it in RBM_WRITE_BARRIER_DST_BYREF.
-                dstAddrRegMask = RBM_WRITE_BARRIER_DST_BYREF;
-
-                // If we have a source address we want it in REG_WRITE_BARRIER_SRC_BYREF.
-                // Otherwise, if it is a local, codegen will put its address in REG_WRITE_BARRIER_SRC_BYREF,
-                // which is killed by a StoreObj (and thus needn't be reserved).
-                if (srcAddrOrFill != nullptr)
-                {
-                    assert(!srcAddrOrFill->isContained());
-                    srcRegMask = RBM_WRITE_BARRIER_SRC_BYREF;
-                }
-            }
-            break;
-
-            case GenTreeBlk::BlkOpKindUnroll:
-            {
-                buildInternalIntRegisterDefForNode(blkNode);
-#ifdef TARGET_ARM64
-                const bool canUseLoadStorePairIntRegsInstrs = (size >= 2 * REGSIZE_BYTES);
-
-                if (canUseLoadStorePairIntRegsInstrs)
-                {
-                    // CodeGen can use ldp/stp instructions sequence.
-                    buildInternalIntRegisterDefForNode(blkNode);
-                }
-
-                const bool isSrcAddrLocal = src->OperIs(GT_LCL_VAR, GT_LCL_FLD) ||
-                                            ((srcAddrOrFill != nullptr) && srcAddrOrFill->OperIs(GT_LCL_ADDR));
-                const bool isDstAddrLocal = dstAddr->OperIs(GT_LCL_ADDR);
-
-                // CodeGen can use 16-byte SIMD ldp/stp for larger block sizes.
-                // This is the case, when both registers are either sp or fp.
-                bool canUse16ByteWideInstrs = (size >= 2 * FP_REGSIZE_BYTES);
-
-                // Note that the SIMD registers allocation is speculative - LSRA doesn't know at this point
-                // whether CodeGen will use SIMD registers (i.e. if such instruction sequence will be more optimal).
-                // Therefore, it must allocate an additional integer register anyway.
-                if (canUse16ByteWideInstrs)
-                {
-                    buildInternalFloatRegisterDefForNode(blkNode, internalFloatRegCandidates());
-                    buildInternalFloatRegisterDefForNode(blkNode, internalFloatRegCandidates());
-                }
-
-                const bool srcAddrMayNeedReg =
-                    isSrcAddrLocal || ((srcAddrOrFill != nullptr) && srcAddrOrFill->isContained());
-                const bool dstAddrMayNeedReg = isDstAddrLocal || dstAddr->isContained();
-
-                // The following allocates an additional integer register in a case
-                // when a load instruction and a store instruction cannot be encoded using offset
-                // from a corresponding base register.
-                if (srcAddrMayNeedReg && dstAddrMayNeedReg)
-                {
-                    buildInternalIntRegisterDefForNode(blkNode);
-                }
-#endif
-            }
-            break;
-
-            case GenTreeBlk::BlkOpKindUnrollMemmove:
-            {
-#ifdef TARGET_ARM64
-
-                // Prepare SIMD/GPR registers needed to perform an unrolled memmove. The idea that
-                // we can ignore the fact that src and dst might overlap if we save the whole src
-                // to temp regs in advance.
-
-                // Lowering was expected to get rid of memmove in case of zero
-                assert(size > 0);
-
-                const unsigned simdSize = FP_REGSIZE_BYTES;
-                if (size >= simdSize)
-                {
-                    unsigned simdRegs = size / simdSize;
-                    if ((size % simdSize) != 0)
+                    if (size >= 2 * REGSIZE_BYTES)
                     {
-                        // TODO-CQ: Consider using GPR load/store here if the reminder is 1,2,4 or 8
-                        simdRegs++;
+                        // We will use ldp/stp to reduce code size and improve performance
+                        // so we need to reserve an extra internal register
+                        buildInternalIntRegisterDefForNode(blkNode, internalIntCandidates);
                     }
-                    for (unsigned i = 0; i < simdRegs; i++)
+
+                    if (size >= 4 * REGSIZE_BYTES && compiler->IsBaselineSimdIsaSupported())
                     {
-                        // It's too late to revert the unrolling so we hope we'll have enough SIMD regs
-                        // no more than MaxInternalCount. Currently, it's controlled by getUnrollThreshold(memmove)
+                        // We can use 128-bit SIMD ldp/stp for larger block sizes
+                        buildInternalFloatRegisterDefForNode(blkNode, internalFloatRegCandidates());
                         buildInternalFloatRegisterDefForNode(blkNode, internalFloatRegCandidates());
                     }
+
+                    // If we have a dest address we want it in RBM_WRITE_BARRIER_DST_BYREF.
+                    dstAddrRegMask = RBM_WRITE_BARRIER_DST_BYREF;
+
+                    // If we have a source address we want it in REG_WRITE_BARRIER_SRC_BYREF.
+                    // Otherwise, if it is a local, codegen will put its address in REG_WRITE_BARRIER_SRC_BYREF,
+                    // which is killed by a StoreObj (and thus needn't be reserved).
+                    if (srcAddrOrFill != nullptr)
+                    {
+                        assert(!srcAddrOrFill->isContained());
+                        srcRegMask = RBM_WRITE_BARRIER_SRC_BYREF;
+                    }
                 }
-                else if (isPow2(size))
+                break;
+
+            case GenTreeBlk::BlkOpKindUnroll:
                 {
-                    // Single GPR for 1,2,4,8
-                    buildInternalIntRegisterDefForNode(blkNode, availableIntRegs);
-                }
-                else
-                {
-                    // Any size from 3 to 15 can be handled via two GPRs
-                    buildInternalIntRegisterDefForNode(blkNode, availableIntRegs);
-                    buildInternalIntRegisterDefForNode(blkNode, availableIntRegs);
-                }
-#else // TARGET_ARM64
-                unreached();
+                    buildInternalIntRegisterDefForNode(blkNode);
+#ifdef TARGET_ARM64
+                    const bool canUseLoadStorePairIntRegsInstrs = (size >= 2 * REGSIZE_BYTES);
+
+                    if (canUseLoadStorePairIntRegsInstrs)
+                    {
+                        // CodeGen can use ldp/stp instructions sequence.
+                        buildInternalIntRegisterDefForNode(blkNode);
+                    }
+
+                    const bool isSrcAddrLocal = src->OperIs(GT_LCL_VAR, GT_LCL_FLD) ||
+                                                ((srcAddrOrFill != nullptr) && srcAddrOrFill->OperIs(GT_LCL_ADDR));
+                    const bool isDstAddrLocal = dstAddr->OperIs(GT_LCL_ADDR);
+
+                    // CodeGen can use 16-byte SIMD ldp/stp for larger block sizes.
+                    // This is the case, when both registers are either sp or fp.
+                    bool canUse16ByteWideInstrs = (size >= 2 * FP_REGSIZE_BYTES);
+
+                    // Note that the SIMD registers allocation is speculative - LSRA doesn't know at this point
+                    // whether CodeGen will use SIMD registers (i.e. if such instruction sequence will be more optimal).
+                    // Therefore, it must allocate an additional integer register anyway.
+                    if (canUse16ByteWideInstrs)
+                    {
+                        buildInternalFloatRegisterDefForNode(blkNode, internalFloatRegCandidates());
+                        buildInternalFloatRegisterDefForNode(blkNode, internalFloatRegCandidates());
+                    }
+
+                    const bool srcAddrMayNeedReg =
+                        isSrcAddrLocal || ((srcAddrOrFill != nullptr) && srcAddrOrFill->isContained());
+                    const bool dstAddrMayNeedReg = isDstAddrLocal || dstAddr->isContained();
+
+                    // The following allocates an additional integer register in a case
+                    // when a load instruction and a store instruction cannot be encoded using offset
+                    // from a corresponding base register.
+                    if (srcAddrMayNeedReg && dstAddrMayNeedReg)
+                    {
+                        buildInternalIntRegisterDefForNode(blkNode);
+                    }
 #endif
-            }
-            break;
+                }
+                break;
+
+            case GenTreeBlk::BlkOpKindUnrollMemmove:
+                {
+#ifdef TARGET_ARM64
+
+                    // Prepare SIMD/GPR registers needed to perform an unrolled memmove. The idea that
+                    // we can ignore the fact that src and dst might overlap if we save the whole src
+                    // to temp regs in advance.
+
+                    // Lowering was expected to get rid of memmove in case of zero
+                    assert(size > 0);
+
+                    const unsigned simdSize = FP_REGSIZE_BYTES;
+                    if (size >= simdSize)
+                    {
+                        unsigned simdRegs = size / simdSize;
+                        if ((size % simdSize) != 0)
+                        {
+                            // TODO-CQ: Consider using GPR load/store here if the reminder is 1,2,4 or 8
+                            simdRegs++;
+                        }
+                        for (unsigned i = 0; i < simdRegs; i++)
+                        {
+                            // It's too late to revert the unrolling so we hope we'll have enough SIMD regs
+                            // no more than MaxInternalCount. Currently, it's controlled by getUnrollThreshold(memmove)
+                            buildInternalFloatRegisterDefForNode(blkNode, internalFloatRegCandidates());
+                        }
+                    }
+                    else if (isPow2(size))
+                    {
+                        // Single GPR for 1,2,4,8
+                        buildInternalIntRegisterDefForNode(blkNode, availableIntRegs);
+                    }
+                    else
+                    {
+                        // Any size from 3 to 15 can be handled via two GPRs
+                        buildInternalIntRegisterDefForNode(blkNode, availableIntRegs);
+                        buildInternalIntRegisterDefForNode(blkNode, availableIntRegs);
+                    }
+#else // TARGET_ARM64
+                    unreached();
+#endif
+                }
+                break;
 
             default:
                 unreached();

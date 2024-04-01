@@ -6,8 +6,7 @@
 #define _VARTYPESDEF_H_
 /*****************************************************************************/
 
-enum var_types : BYTE
-{
+enum var_types : BYTE {
 #define DEF_TP(tn, nm, jitType, sz, sze, asze, st, al, regTyp, regFld, csr, ctr, tf) TYP_##tn,
 #include "typelist.h"
 #undef DEF_TP

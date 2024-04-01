@@ -1818,53 +1818,53 @@ static int (*zeroFunc)() = zeroFN;
  */
 
 typedef unsigned pasMaskType;
-#define BITS_IN_pasMask (BITS_PER_BYTE * sizeof(pasMaskType))
+#define BITS_IN_pasMask     (BITS_PER_BYTE * sizeof(pasMaskType))
 #define HIGHEST_pasMask_BIT (((pasMaskType)0x1) << (BITS_IN_pasMask - 1))
 
 //-----------------------------------------------------------------------------
 
 class PendingArgsStack
 {
-public:
-    PendingArgsStack(unsigned maxDepth, Compiler* pComp);
+    public:
+        PendingArgsStack(unsigned maxDepth, Compiler* pComp);
 
-    void pasPush(GCtype gcType);
-    void pasPop(unsigned count);
-    void pasKill(unsigned gcCount);
+        void pasPush(GCtype gcType);
+        void pasPop(unsigned count);
+        void pasKill(unsigned gcCount);
 
-    unsigned pasCurDepth()
-    {
-        return pasDepth;
-    }
-    pasMaskType pasArgMask()
-    {
-        assert(pasDepth <= BITS_IN_pasMask);
-        return pasBottomMask;
-    }
-    pasMaskType pasByrefArgMask()
-    {
-        assert(pasDepth <= BITS_IN_pasMask);
-        return pasByrefBottomMask;
-    }
-    bool pasHasGCptrs();
+        unsigned pasCurDepth()
+        {
+            return pasDepth;
+        }
+        pasMaskType pasArgMask()
+        {
+            assert(pasDepth <= BITS_IN_pasMask);
+            return pasBottomMask;
+        }
+        pasMaskType pasByrefArgMask()
+        {
+            assert(pasDepth <= BITS_IN_pasMask);
+            return pasByrefBottomMask;
+        }
+        bool pasHasGCptrs();
 
-    // Use these in the case where there actually are more ptrs than pasArgMask
-    unsigned pasEnumGCoffsCount();
+        // Use these in the case where there actually are more ptrs than pasArgMask
+        unsigned pasEnumGCoffsCount();
 #define pasENUM_START ((unsigned)-1)
-#define pasENUM_LAST ((unsigned)-2)
-#define pasENUM_END ((unsigned)-3)
-    unsigned pasEnumGCoffs(unsigned iter, unsigned* offs);
+#define pasENUM_LAST  ((unsigned)-2)
+#define pasENUM_END   ((unsigned)-3)
+        unsigned pasEnumGCoffs(unsigned iter, unsigned* offs);
 
-protected:
-    unsigned pasMaxDepth;
+    protected:
+        unsigned pasMaxDepth;
 
-    unsigned pasDepth;
+        unsigned pasDepth;
 
-    pasMaskType pasBottomMask;      // The first 32 args
-    pasMaskType pasByrefBottomMask; // byref qualifier for pasBottomMask
+        pasMaskType pasBottomMask;      // The first 32 args
+        pasMaskType pasByrefBottomMask; // byref qualifier for pasBottomMask
 
-    BYTE*    pasTopArray;       // More than 32 args are represented here
-    unsigned pasPtrsInTopArray; // How many GCptrs here
+        BYTE*    pasTopArray;           // More than 32 args are represented here
+        unsigned pasPtrsInTopArray;     // How many GCptrs here
 };
 
 //-----------------------------------------------------------------------------
@@ -3166,10 +3166,10 @@ size_t GCInfo::gcMakeRegPtrTable(BYTE* dest, int mask, const InfoHdr& header, un
                 thisRegNum = genRegNumFromMask(tmpMask);
                 switch (thisRegNum)
                 {
-                    case 0: // EAX
-                    case 1: // ECX
-                    case 2: // EDX
-                    case 4: // ESP
+                    case 0:             // EAX
+                    case 1:             // ECX
+                    case 2:             // EDX
+                    case 4:             // ESP
                         break;
                     case 7:             // EDI
                         *dest++ = 0xF4; /* 11110100  This pointer is in EDI */
@@ -3369,7 +3369,7 @@ size_t GCInfo::gcMakeRegPtrTable(BYTE* dest, int mask, const InfoHdr& header, un
                             {
                                 if (codeDelta == callCommonDelta[inx])
                                 {
-                                EMIT_2ND_CALL_ENCODING:
+EMIT_2ND_CALL_ENCODING:
                                     // Emit IPtrMask if needed
                                     CHK_NON_INTRPT_ESP_IPtrMask;
 
@@ -3491,11 +3491,11 @@ size_t GCInfo::gcMakeRegPtrTable(BYTE* dest, int mask, const InfoHdr& header, un
                 }
             }
 
-        /*  We ignore the register live/dead information, since the
-         *  rpdCallRegMask contains all the liveness information
-         *  that we need
-         */
-        NEXT_RPD:
+/*  We ignore the register live/dead information, since the
+ *  rpdCallRegMask contains all the liveness information
+ *  that we need
+ */
+NEXT_RPD:
 
             totalSize += dest - base;
 
@@ -3617,7 +3617,7 @@ void GCInfo::gcFindPtrsInFrame(const void* infoBlock, const void* codeBlock, uns
 
 #endif // DUMP_GC_TABLES
 
-#else // !JIT32_GCENCODER
+#else  // !JIT32_GCENCODER
 
 #include "gcinfoencoder.h"
 
@@ -3642,174 +3642,177 @@ static const char* const GcSlotFlagsNames[] = {"",
 // I'm making a local wrapper class for GcInfoEncoder so that can add logging of my own (DLD).
 class GcInfoEncoderWithLogging
 {
-    GcInfoEncoder* m_gcInfoEncoder;
-    bool           m_doLogging;
+        GcInfoEncoder* m_gcInfoEncoder;
+        bool           m_doLogging;
 
-public:
-    GcInfoEncoderWithLogging(GcInfoEncoder* gcInfoEncoder, bool verbose)
-        : m_gcInfoEncoder(gcInfoEncoder), m_doLogging(verbose INDEBUG(|| JitConfig.JitGCInfoLogging() != 0))
-    {
-    }
-
-    GcSlotId GetStackSlotId(INT32 spOffset, GcSlotFlags flags, GcStackSlotBase spBase = GC_CALLER_SP_REL)
-    {
-        GcSlotId newSlotId = m_gcInfoEncoder->GetStackSlotId(spOffset, flags, spBase);
-        if (m_doLogging)
+    public:
+        GcInfoEncoderWithLogging(GcInfoEncoder* gcInfoEncoder, bool verbose)
+            : m_gcInfoEncoder(gcInfoEncoder)
+            , m_doLogging(verbose INDEBUG(|| JitConfig.JitGCInfoLogging() != 0))
         {
-            printf("Stack slot id for offset %d (%s0x%x) (%s) %s= %d.\n", spOffset, spOffset < 0 ? "-" : "",
-                   abs(spOffset), JitGcStackSlotBaseNames[spBase], GcSlotFlagsNames[flags & 7], newSlotId);
         }
-        return newSlotId;
-    }
 
-    GcSlotId GetRegisterSlotId(UINT32 regNum, GcSlotFlags flags)
-    {
-        GcSlotId newSlotId = m_gcInfoEncoder->GetRegisterSlotId(regNum, flags);
-        if (m_doLogging)
+        GcSlotId GetStackSlotId(INT32 spOffset, GcSlotFlags flags, GcStackSlotBase spBase = GC_CALLER_SP_REL)
         {
-            printf("Register slot id for reg %s %s= %d.\n", getRegName(regNum), GcSlotFlagsNames[flags & 7], newSlotId);
-        }
-        return newSlotId;
-    }
-
-    void SetSlotState(UINT32 instructionOffset, GcSlotId slotId, GcSlotState slotState)
-    {
-        m_gcInfoEncoder->SetSlotState(instructionOffset, slotId, slotState);
-        if (m_doLogging)
-        {
-            printf("Set state of slot %d at instr offset 0x%x to %s.\n", slotId, instructionOffset,
-                   (slotState == GC_SLOT_LIVE ? "Live" : "Dead"));
-        }
-    }
-
-    void DefineCallSites(UINT32* pCallSites, BYTE* pCallSiteSizes, UINT32 numCallSites)
-    {
-        m_gcInfoEncoder->DefineCallSites(pCallSites, pCallSiteSizes, numCallSites);
-        if (m_doLogging)
-        {
-            printf("Defining %d call sites:\n", numCallSites);
-            for (UINT32 k = 0; k < numCallSites; k++)
+            GcSlotId newSlotId = m_gcInfoEncoder->GetStackSlotId(spOffset, flags, spBase);
+            if (m_doLogging)
             {
-                printf("    Offset 0x%x, size %d.\n", pCallSites[k], pCallSiteSizes[k]);
+                printf("Stack slot id for offset %d (%s0x%x) (%s) %s= %d.\n", spOffset, spOffset < 0 ? "-" : "",
+                       abs(spOffset), JitGcStackSlotBaseNames[spBase], GcSlotFlagsNames[flags & 7], newSlotId);
+            }
+            return newSlotId;
+        }
+
+        GcSlotId GetRegisterSlotId(UINT32 regNum, GcSlotFlags flags)
+        {
+            GcSlotId newSlotId = m_gcInfoEncoder->GetRegisterSlotId(regNum, flags);
+            if (m_doLogging)
+            {
+                printf("Register slot id for reg %s %s= %d.\n", getRegName(regNum), GcSlotFlagsNames[flags & 7],
+                       newSlotId);
+            }
+            return newSlotId;
+        }
+
+        void SetSlotState(UINT32 instructionOffset, GcSlotId slotId, GcSlotState slotState)
+        {
+            m_gcInfoEncoder->SetSlotState(instructionOffset, slotId, slotState);
+            if (m_doLogging)
+            {
+                printf("Set state of slot %d at instr offset 0x%x to %s.\n", slotId, instructionOffset,
+                       (slotState == GC_SLOT_LIVE ? "Live" : "Dead"));
             }
         }
-    }
 
-    void DefineInterruptibleRange(UINT32 startInstructionOffset, UINT32 length)
-    {
-        m_gcInfoEncoder->DefineInterruptibleRange(startInstructionOffset, length);
-        if (m_doLogging)
+        void DefineCallSites(UINT32* pCallSites, BYTE* pCallSiteSizes, UINT32 numCallSites)
         {
-            printf("Defining interruptible range: [0x%x, 0x%x).\n", startInstructionOffset,
-                   startInstructionOffset + length);
+            m_gcInfoEncoder->DefineCallSites(pCallSites, pCallSiteSizes, numCallSites);
+            if (m_doLogging)
+            {
+                printf("Defining %d call sites:\n", numCallSites);
+                for (UINT32 k = 0; k < numCallSites; k++)
+                {
+                    printf("    Offset 0x%x, size %d.\n", pCallSites[k], pCallSiteSizes[k]);
+                }
+            }
         }
-    }
 
-    void SetCodeLength(UINT32 length)
-    {
-        m_gcInfoEncoder->SetCodeLength(length);
-        if (m_doLogging)
+        void DefineInterruptibleRange(UINT32 startInstructionOffset, UINT32 length)
         {
-            printf("Set code length to %d.\n", length);
+            m_gcInfoEncoder->DefineInterruptibleRange(startInstructionOffset, length);
+            if (m_doLogging)
+            {
+                printf("Defining interruptible range: [0x%x, 0x%x).\n", startInstructionOffset,
+                       startInstructionOffset + length);
+            }
         }
-    }
 
-    void SetReturnKind(ReturnKind returnKind)
-    {
-        m_gcInfoEncoder->SetReturnKind(returnKind);
-        if (m_doLogging)
+        void SetCodeLength(UINT32 length)
         {
-            printf("Set ReturnKind to %s.\n", ReturnKindToString(returnKind));
+            m_gcInfoEncoder->SetCodeLength(length);
+            if (m_doLogging)
+            {
+                printf("Set code length to %d.\n", length);
+            }
         }
-    }
 
-    void SetStackBaseRegister(UINT32 registerNumber)
-    {
-        m_gcInfoEncoder->SetStackBaseRegister(registerNumber);
-        if (m_doLogging)
+        void SetReturnKind(ReturnKind returnKind)
         {
-            printf("Set stack base register to %s.\n", getRegName(registerNumber));
+            m_gcInfoEncoder->SetReturnKind(returnKind);
+            if (m_doLogging)
+            {
+                printf("Set ReturnKind to %s.\n", ReturnKindToString(returnKind));
+            }
         }
-    }
 
-    void SetPrologSize(UINT32 prologSize)
-    {
-        m_gcInfoEncoder->SetPrologSize(prologSize);
-        if (m_doLogging)
+        void SetStackBaseRegister(UINT32 registerNumber)
         {
-            printf("Set prolog size 0x%x.\n", prologSize);
+            m_gcInfoEncoder->SetStackBaseRegister(registerNumber);
+            if (m_doLogging)
+            {
+                printf("Set stack base register to %s.\n", getRegName(registerNumber));
+            }
         }
-    }
 
-    void SetGSCookieStackSlot(INT32 spOffsetGSCookie, UINT32 validRangeStart, UINT32 validRangeEnd)
-    {
-        m_gcInfoEncoder->SetGSCookieStackSlot(spOffsetGSCookie, validRangeStart, validRangeEnd);
-        if (m_doLogging)
+        void SetPrologSize(UINT32 prologSize)
         {
-            printf("Set GS Cookie stack slot to %d, valid from 0x%x to 0x%x.\n", spOffsetGSCookie, validRangeStart,
-                   validRangeEnd);
+            m_gcInfoEncoder->SetPrologSize(prologSize);
+            if (m_doLogging)
+            {
+                printf("Set prolog size 0x%x.\n", prologSize);
+            }
         }
-    }
 
-    void SetPSPSymStackSlot(INT32 spOffsetPSPSym)
-    {
-        m_gcInfoEncoder->SetPSPSymStackSlot(spOffsetPSPSym);
-        if (m_doLogging)
+        void SetGSCookieStackSlot(INT32 spOffsetGSCookie, UINT32 validRangeStart, UINT32 validRangeEnd)
         {
-            printf("Set PSPSym stack slot to %d.\n", spOffsetPSPSym);
+            m_gcInfoEncoder->SetGSCookieStackSlot(spOffsetGSCookie, validRangeStart, validRangeEnd);
+            if (m_doLogging)
+            {
+                printf("Set GS Cookie stack slot to %d, valid from 0x%x to 0x%x.\n", spOffsetGSCookie, validRangeStart,
+                       validRangeEnd);
+            }
         }
-    }
 
-    void SetGenericsInstContextStackSlot(INT32 spOffsetGenericsContext, GENERIC_CONTEXTPARAM_TYPE type)
-    {
-        m_gcInfoEncoder->SetGenericsInstContextStackSlot(spOffsetGenericsContext, type);
-        if (m_doLogging)
+        void SetPSPSymStackSlot(INT32 spOffsetPSPSym)
         {
-            printf("Set generic instantiation context stack slot to %d, type is %s.\n", spOffsetGenericsContext,
-                   (type == GENERIC_CONTEXTPARAM_THIS
-                        ? "THIS"
-                        : (type == GENERIC_CONTEXTPARAM_MT ? "MT"
-                                                           : (type == GENERIC_CONTEXTPARAM_MD ? "MD" : "UNKNOWN!"))));
+            m_gcInfoEncoder->SetPSPSymStackSlot(spOffsetPSPSym);
+            if (m_doLogging)
+            {
+                printf("Set PSPSym stack slot to %d.\n", spOffsetPSPSym);
+            }
         }
-    }
 
-    void SetIsVarArg()
-    {
-        m_gcInfoEncoder->SetIsVarArg();
-        if (m_doLogging)
+        void SetGenericsInstContextStackSlot(INT32 spOffsetGenericsContext, GENERIC_CONTEXTPARAM_TYPE type)
         {
-            printf("SetIsVarArg.\n");
+            m_gcInfoEncoder->SetGenericsInstContextStackSlot(spOffsetGenericsContext, type);
+            if (m_doLogging)
+            {
+                printf("Set generic instantiation context stack slot to %d, type is %s.\n", spOffsetGenericsContext,
+                       (type == GENERIC_CONTEXTPARAM_THIS
+                            ? "THIS"
+                            : (type == GENERIC_CONTEXTPARAM_MT
+                                   ? "MT"
+                                   : (type == GENERIC_CONTEXTPARAM_MD ? "MD" : "UNKNOWN!"))));
+            }
         }
-    }
+
+        void SetIsVarArg()
+        {
+            m_gcInfoEncoder->SetIsVarArg();
+            if (m_doLogging)
+            {
+                printf("SetIsVarArg.\n");
+            }
+        }
 
 #ifdef TARGET_AMD64
-    void SetWantsReportOnlyLeaf()
-    {
-        m_gcInfoEncoder->SetWantsReportOnlyLeaf();
-        if (m_doLogging)
+        void SetWantsReportOnlyLeaf()
         {
-            printf("Set WantsReportOnlyLeaf.\n");
+            m_gcInfoEncoder->SetWantsReportOnlyLeaf();
+            if (m_doLogging)
+            {
+                printf("Set WantsReportOnlyLeaf.\n");
+            }
         }
-    }
 #elif defined(TARGET_ARMARCH)
-    void SetHasTailCalls()
-    {
-        m_gcInfoEncoder->SetHasTailCalls();
-        if (m_doLogging)
+        void SetHasTailCalls()
         {
-            printf("Set HasTailCalls.\n");
+            m_gcInfoEncoder->SetHasTailCalls();
+            if (m_doLogging)
+            {
+                printf("Set HasTailCalls.\n");
+            }
         }
-    }
 #endif // TARGET_AMD64
 
-    void SetSizeOfStackOutgoingAndScratchArea(UINT32 size)
-    {
-        m_gcInfoEncoder->SetSizeOfStackOutgoingAndScratchArea(size);
-        if (m_doLogging)
+        void SetSizeOfStackOutgoingAndScratchArea(UINT32 size)
         {
-            printf("Set Outgoing stack arg area size to %d.\n", size);
+            m_gcInfoEncoder->SetSizeOfStackOutgoingAndScratchArea(size);
+            if (m_doLogging)
+            {
+                printf("Set Outgoing stack arg area size to %d.\n", size);
+            }
         }
-    }
 };
 
 #define GCENCODER_WITH_LOGGING(withLog, realEncoder)                                                                   \
@@ -4021,38 +4024,39 @@ void GCInfo::gcInfoBlockHdrSave(GcInfoEncoder* gcInfoEncoder, unsigned methodSiz
 //
 struct InterruptibleRangeReporter
 {
-    unsigned prevStart;
-    Encoder* gcInfoEncoderWithLog;
+        unsigned prevStart;
+        Encoder* gcInfoEncoderWithLog;
 
-    InterruptibleRangeReporter(unsigned _prevStart, Encoder* _gcInfo)
-        : prevStart(_prevStart), gcInfoEncoderWithLog(_gcInfo)
-    {
-    }
-
-    // This callback is called for each insGroup marked with
-    // IGF_NOGCINTERRUPT (currently just prologs and epilogs).
-    // Report everything between the previous region and the current
-    // region as interruptible.
-
-    bool operator()(unsigned igFuncIdx, unsigned igOffs, unsigned igSize)
-    {
-        if (igOffs < prevStart)
+        InterruptibleRangeReporter(unsigned _prevStart, Encoder* _gcInfo)
+            : prevStart(_prevStart)
+            , gcInfoEncoderWithLog(_gcInfo)
         {
-            // We're still in the main method prolog, which has already
-            // had it's interruptible range reported.
-            assert(igFuncIdx == 0);
-            assert(igOffs + igSize <= prevStart);
+        }
+
+        // This callback is called for each insGroup marked with
+        // IGF_NOGCINTERRUPT (currently just prologs and epilogs).
+        // Report everything between the previous region and the current
+        // region as interruptible.
+
+        bool operator()(unsigned igFuncIdx, unsigned igOffs, unsigned igSize)
+        {
+            if (igOffs < prevStart)
+            {
+                // We're still in the main method prolog, which has already
+                // had it's interruptible range reported.
+                assert(igFuncIdx == 0);
+                assert(igOffs + igSize <= prevStart);
+                return true;
+            }
+
+            assert(igOffs >= prevStart);
+            if (igOffs > prevStart)
+            {
+                gcInfoEncoderWithLog->DefineInterruptibleRange(prevStart, igOffs - prevStart);
+            }
+            prevStart = igOffs + igSize;
             return true;
         }
-
-        assert(igOffs >= prevStart);
-        if (igOffs > prevStart)
-        {
-            gcInfoEncoderWithLog->DefineInterruptibleRange(prevStart, igOffs - prevStart);
-        }
-        prevStart = igOffs + igSize;
-        return true;
-    }
 };
 
 void GCInfo::gcMakeRegPtrTable(

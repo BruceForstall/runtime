@@ -25,105 +25,108 @@ typedef UINT32 ValueNum;
 // location between the two accesses, the observed property may no longer hold -- and conservative VNs make
 // it clear that the values need not be the same.
 //
-enum ValueNumKind
-{
+enum ValueNumKind {
     VNK_Liberal,
     VNK_Conservative
 };
 
 struct ValueNumPair
 {
-private:
-    ValueNum m_liberal;
-    ValueNum m_conservative;
+    private:
+        ValueNum m_liberal;
+        ValueNum m_conservative;
 
-public:
-    ValueNum GetLiberal() const
-    {
-        return m_liberal;
-    }
-    void SetLiberal(ValueNum vn)
-    {
-        m_liberal = vn;
-    }
-    ValueNum GetConservative() const
-    {
-        return m_conservative;
-    }
-    void SetConservative(ValueNum vn)
-    {
-        m_conservative = vn;
-    }
-
-    ValueNum* GetLiberalAddr()
-    {
-        return &m_liberal;
-    }
-    ValueNum* GetConservativeAddr()
-    {
-        return &m_conservative;
-    }
-
-    ValueNum Get(ValueNumKind vnk)
-    {
-        if (vnk == VNK_Liberal)
+    public:
+        ValueNum GetLiberal() const
         {
             return m_liberal;
         }
-        else
+        void SetLiberal(ValueNum vn)
         {
-            assert(vnk == VNK_Conservative);
+            m_liberal = vn;
+        }
+        ValueNum GetConservative() const
+        {
             return m_conservative;
         }
-    }
-
-    void Set(ValueNumKind vnk, ValueNum vn)
-    {
-        if (vnk == VNK_Liberal)
+        void SetConservative(ValueNum vn)
         {
-            SetLiberal(vn);
+            m_conservative = vn;
         }
-        else
+
+        ValueNum* GetLiberalAddr()
         {
-            assert(vnk == VNK_Conservative);
-            SetConservative(vn);
+            return &m_liberal;
         }
-    }
+        ValueNum* GetConservativeAddr()
+        {
+            return &m_conservative;
+        }
 
-    void SetBoth(ValueNum vn)
-    {
-        m_liberal      = vn;
-        m_conservative = vn;
-    }
+        ValueNum Get(ValueNumKind vnk)
+        {
+            if (vnk == VNK_Liberal)
+            {
+                return m_liberal;
+            }
+            else
+            {
+                assert(vnk == VNK_Conservative);
+                return m_conservative;
+            }
+        }
 
-    bool operator==(const ValueNumPair& other) const
-    {
-        return (m_liberal == other.m_liberal) && (m_conservative == other.m_conservative);
-    }
+        void Set(ValueNumKind vnk, ValueNum vn)
+        {
+            if (vnk == VNK_Liberal)
+            {
+                SetLiberal(vn);
+            }
+            else
+            {
+                assert(vnk == VNK_Conservative);
+                SetConservative(vn);
+            }
+        }
 
-    bool operator!=(const ValueNumPair& other) const
-    {
-        return !(*this == other);
-    }
+        void SetBoth(ValueNum vn)
+        {
+            m_liberal      = vn;
+            m_conservative = vn;
+        }
 
-    void operator=(const ValueNumPair& vn2)
-    {
-        m_liberal      = vn2.m_liberal;
-        m_conservative = vn2.m_conservative;
-    }
+        bool operator==(const ValueNumPair& other) const
+        {
+            return (m_liberal == other.m_liberal) && (m_conservative == other.m_conservative);
+        }
 
-    // Initializes both elements to "NoVN".  Defined in ValueNum.cpp.
-    ValueNumPair();
+        bool operator!=(const ValueNumPair& other) const
+        {
+            return !(*this == other);
+        }
 
-    ValueNumPair(ValueNum lib, ValueNum cons) : m_liberal(lib), m_conservative(cons) {}
+        void operator=(const ValueNumPair& vn2)
+        {
+            m_liberal      = vn2.m_liberal;
+            m_conservative = vn2.m_conservative;
+        }
 
-    // True iff neither element is "NoVN".  Defined in ValueNum.cpp.
-    bool BothDefined() const;
+        // Initializes both elements to "NoVN".  Defined in ValueNum.cpp.
+        ValueNumPair();
 
-    bool BothEqual() const
-    {
-        return m_liberal == m_conservative;
-    }
+        ValueNumPair(ValueNum lib, ValueNum cons)
+            : m_liberal(lib)
+            , m_conservative(cons)
+        {
+        }
+
+        // True iff neither element is "NoVN".  Defined in ValueNum.cpp.
+        bool BothDefined() const;
+
+        bool BothEqual() const
+        {
+            return m_liberal == m_conservative;
+        }
 };
 
 #endif // _VALUENUMTYPE_H_

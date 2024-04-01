@@ -284,8 +284,7 @@ void TreeLifeUpdater<ForCodeGen>::UpdateLifeVar(GenTree* tree, GenTreeLclVarComm
 // Arguments:
 //    tree - the tree which effect on liveness is processed.
 //
-template <bool ForCodeGen>
-void TreeLifeUpdater<ForCodeGen>::UpdateLife(GenTree* tree)
+template <bool ForCodeGen> void TreeLifeUpdater<ForCodeGen>::UpdateLife(GenTree* tree)
 {
     assert(compiler->GetCurLVEpoch() == epoch);
     // TODO-Cleanup: We shouldn't really be calling this more than once
@@ -338,8 +337,7 @@ void TreeLifeUpdater<ForCodeGen>::UpdateLifeBit(VARSET_TP& set, LclVarDsc* dsc, 
 // StoreCurrentLifeForDump: Store current liveness information so that deltas
 // can be dumped after potential updates.
 //
-template <bool ForCodeGen>
-void TreeLifeUpdater<ForCodeGen>::StoreCurrentLifeForDump()
+template <bool ForCodeGen> void TreeLifeUpdater<ForCodeGen>::StoreCurrentLifeForDump()
 {
 #ifdef DEBUG
     if (compiler->verbose)
@@ -358,8 +356,7 @@ void TreeLifeUpdater<ForCodeGen>::StoreCurrentLifeForDump()
 // DumpLifeDelta: Dump the delta of liveness changes that happened since
 // StoreCurrentLifeForDump was called.
 //
-template <bool ForCodeGen>
-void TreeLifeUpdater<ForCodeGen>::DumpLifeDelta(GenTree* tree)
+template <bool ForCodeGen> void TreeLifeUpdater<ForCodeGen>::DumpLifeDelta(GenTree* tree)
 {
 #ifdef DEBUG
     if (compiler->verbose && !VarSetOps::Equal(compiler, oldLife, compiler->compCurLife))

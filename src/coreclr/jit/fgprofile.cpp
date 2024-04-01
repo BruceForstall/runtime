@@ -77,17 +77,17 @@ bool Compiler::fgHaveSufficientProfileWeights()
             return true;
 
         case ICorJitInfo::PgoSource::Static:
-        {
-            // We sometimes call this very early, eg evaluating the prejit root.
-            //
-            if (fgFirstBB != nullptr)
             {
-                const weight_t sufficientSamples = 1000;
-                return fgFirstBB->bbWeight > sufficientSamples;
-            }
+                // We sometimes call this very early, eg evaluating the prejit root.
+                //
+                if (fgFirstBB != nullptr)
+                {
+                    const weight_t sufficientSamples = 1000;
+                    return fgFirstBB->bbWeight > sufficientSamples;
+                }
 
-            return true;
-        }
+                return true;
+            }
 
         default:
             return false;
@@ -302,46 +302,60 @@ typedef jitstd::vector<ICorJitInfo::PgoInstrumentationSchema> Schema;
 //
 class Instrumentor
 {
-protected:
-    Compiler* m_comp;
-    unsigned  m_schemaCount;
-    unsigned  m_instrCount;
-    bool      m_modifiedFlow;
+    protected:
+        Compiler* m_comp;
+        unsigned  m_schemaCount;
+        unsigned  m_instrCount;
+        bool      m_modifiedFlow;
 
-protected:
-    Instrumentor(Compiler* comp) : m_comp(comp), m_schemaCount(0), m_instrCount(0), m_modifiedFlow(false) {}
+    protected:
+        Instrumentor(Compiler* comp)
+            : m_comp(comp)
+            , m_schemaCount(0)
+            , m_instrCount(0)
+            , m_modifiedFlow(false)
+        {
+        }
 
-public:
-    virtual bool ShouldProcess(BasicBlock* block)
-    {
-        return false;
-    }
-    virtual bool ShouldInstrument(BasicBlock* block)
-    {
-        return ShouldProcess(block);
-    }
-    virtual void Prepare(bool preImport) {}
-    virtual void BuildSchemaElements(BasicBlock* block, Schema& schema) {}
-    virtual void Instrument(BasicBlock* block, Schema& schema, uint8_t* profileMemory) {}
-    virtual void InstrumentMethodEntry(Schema& schema, uint8_t* profileMemory) {}
-    unsigned     SchemaCount() const
-    {
-        return m_schemaCount;
-    }
-    unsigned InstrCount() const
-    {
-        return m_instrCount;
-    }
+    public:
+        virtual bool ShouldProcess(BasicBlock* block)
+        {
+            return false;
+        }
+        virtual bool ShouldInstrument(BasicBlock* block)
+        {
+            return ShouldProcess(block);
+        }
+        virtual void Prepare(bool preImport)
+        {
+        }
+        virtual void BuildSchemaElements(BasicBlock* block, Schema& schema)
+        {
+        }
+        virtual void Instrument(BasicBlock* block, Schema& schema, uint8_t* profileMemory)
+        {
+        }
+        virtual void InstrumentMethodEntry(Schema& schema, uint8_t* profileMemory)
+        {
+        }
+        unsigned SchemaCount() const
+        {
+            return m_schemaCount;
+        }
+        unsigned InstrCount() const
+        {
+            return m_instrCount;
+        }
 
-    void SetModifiedFlow()
-    {
-        m_modifiedFlow = true;
-    }
+        void SetModifiedFlow()
+        {
+            m_modifiedFlow = true;
+        }
 
-    bool ModifiedFlow() const
-    {
-        return m_modifiedFlow;
-    }
+        bool ModifiedFlow() const
+        {
+            return m_modifiedFlow;
+        }
 };
 
 //------------------------------------------------------------------------
@@ -349,8 +363,11 @@ public:
 //
 class NonInstrumentor : public Instrumentor
 {
-public:
-    NonInstrumentor(Compiler* comp) : Instrumentor(comp) {}
+    public:
+        NonInstrumentor(Compiler* comp)
+            : Instrumentor(comp)
+        {
+        }
 };
 
 //------------------------------------------------------------------------
@@ -359,22 +376,26 @@ public:
 //
 class BlockCountInstrumentor : public Instrumentor
 {
-private:
-    void        RelocateProbes();
-    BasicBlock* m_entryBlock;
+    private:
+        void        RelocateProbes();
+        BasicBlock* m_entryBlock;
 
-public:
-    BlockCountInstrumentor(Compiler* comp) : Instrumentor(comp), m_entryBlock(nullptr) {}
-    bool ShouldProcess(BasicBlock* block) override
-    {
-        return block->HasFlag(BBF_IMPORTED) && !block->HasFlag(BBF_INTERNAL);
-    }
-    void Prepare(bool isPreImport) override;
-    void BuildSchemaElements(BasicBlock* block, Schema& schema) override;
-    void Instrument(BasicBlock* block, Schema& schema, uint8_t* profileMemory) override;
-    void InstrumentMethodEntry(Schema& schema, uint8_t* profileMemory) override;
+    public:
+        BlockCountInstrumentor(Compiler* comp)
+            : Instrumentor(comp)
+            , m_entryBlock(nullptr)
+        {
+        }
+        bool ShouldProcess(BasicBlock* block) override
+        {
+            return block->HasFlag(BBF_IMPORTED) && !block->HasFlag(BBF_INTERNAL);
+        }
+        void Prepare(bool isPreImport) override;
+        void BuildSchemaElements(BasicBlock* block, Schema& schema) override;
+        void Instrument(BasicBlock* block, Schema& schema, uint8_t* profileMemory) override;
+        void InstrumentMethodEntry(Schema& schema, uint8_t* profileMemory) override;
 
-    static GenTree* CreateCounterIncrement(Compiler* comp, uint8_t* counterAddr, var_types countType);
+        static GenTree* CreateCounterIncrement(Compiler* comp, uint8_t* counterAddr, var_types countType);
 };
 
 //------------------------------------------------------------------------
@@ -806,31 +827,30 @@ GenTree* BlockCountInstrumentor::CreateCounterIncrement(Compiler* comp, uint8_t*
 //
 class SpanningTreeVisitor
 {
-public:
-    // To save visitors a bit of work, we also note
-    // for non-tree edges whether the edge postdominates
-    // the source, dominates the target, or is a critical edge.
-    //
-    // Later we may need to relocate or duplicate probes. We
-    // overload this enum to also represent those cases.
-    //
-    enum class EdgeKind
-    {
-        Unknown,
-        PostdominatesSource,
-        Pseudo,
-        DominatesTarget,
-        CriticalEdge,
-        Deleted,
-        Relocated,
-        Leader,
-        Duplicate
-    };
+    public:
+        // To save visitors a bit of work, we also note
+        // for non-tree edges whether the edge postdominates
+        // the source, dominates the target, or is a critical edge.
+        //
+        // Later we may need to relocate or duplicate probes. We
+        // overload this enum to also represent those cases.
+        //
+        enum class EdgeKind {
+            Unknown,
+            PostdominatesSource,
+            Pseudo,
+            DominatesTarget,
+            CriticalEdge,
+            Deleted,
+            Relocated,
+            Leader,
+            Duplicate
+        };
 
-    virtual void Badcode()                                                               = 0;
-    virtual void VisitBlock(BasicBlock* block)                                           = 0;
-    virtual void VisitTreeEdge(BasicBlock* source, BasicBlock* target)                   = 0;
-    virtual void VisitNonTreeEdge(BasicBlock* source, BasicBlock* target, EdgeKind kind) = 0;
+        virtual void Badcode()                                                               = 0;
+        virtual void VisitBlock(BasicBlock* block)                                           = 0;
+        virtual void VisitTreeEdge(BasicBlock* source, BasicBlock* target)                   = 0;
+        virtual void VisitNonTreeEdge(BasicBlock* source, BasicBlock* target, EdgeKind kind) = 0;
 };
 
 //------------------------------------------------------------------------
@@ -916,29 +936,29 @@ void Compiler::WalkSpanningTree(SpanningTreeVisitor* visitor)
         switch (block->GetKind())
         {
             case BBJ_CALLFINALLY:
-            {
-                // Just queue up the continuation block,
-                // unless the finally doesn't return, in which
-                // case we really should treat this block as a throw,
-                // and so this block would get instrumented.
-                //
-                // Since our keying scheme is IL based and this
-                // block has no IL offset, we'd need to invent
-                // some new keying scheme. For now we just
-                // ignore this (rare) case.
-                //
-                if (block->isBBCallFinallyPair())
                 {
-                    // This block should be the only pred of the continuation.
+                    // Just queue up the continuation block,
+                    // unless the finally doesn't return, in which
+                    // case we really should treat this block as a throw,
+                    // and so this block would get instrumented.
                     //
-                    BasicBlock* const target = block->Next();
-                    assert(!BlockSetOps::IsMember(this, marked, target->bbNum));
-                    visitor->VisitTreeEdge(block, target);
-                    stack.Push(target);
-                    BlockSetOps::AddElemD(this, marked, target->bbNum);
+                    // Since our keying scheme is IL based and this
+                    // block has no IL offset, we'd need to invent
+                    // some new keying scheme. For now we just
+                    // ignore this (rare) case.
+                    //
+                    if (block->isBBCallFinallyPair())
+                    {
+                        // This block should be the only pred of the continuation.
+                        //
+                        BasicBlock* const target = block->Next();
+                        assert(!BlockSetOps::IsMember(this, marked, target->bbNum));
+                        visitor->VisitTreeEdge(block, target);
+                        stack.Push(target);
+                        BlockSetOps::AddElemD(this, marked, target->bbNum);
+                    }
                 }
-            }
-            break;
+                break;
 
             case BBJ_THROW:
 
@@ -956,234 +976,235 @@ void Compiler::WalkSpanningTree(SpanningTreeVisitor* visitor)
                 __fallthrough;
 
             case BBJ_RETURN:
-            {
-                // Pseudo-edge back to method entry.
-                //
-                // Note if the throw is caught locally this will over-state the profile
-                // count for method entry. But we likely don't care too much about
-                // profiles for methods that throw lots of exceptions.
-                //
-                BasicBlock* const target = fgFirstBB;
-                assert(BlockSetOps::IsMember(this, marked, target->bbNum));
-                visitor->VisitNonTreeEdge(block, target, SpanningTreeVisitor::EdgeKind::Pseudo);
-            }
-            break;
+                {
+                    // Pseudo-edge back to method entry.
+                    //
+                    // Note if the throw is caught locally this will over-state the profile
+                    // count for method entry. But we likely don't care too much about
+                    // profiles for methods that throw lots of exceptions.
+                    //
+                    BasicBlock* const target = fgFirstBB;
+                    assert(BlockSetOps::IsMember(this, marked, target->bbNum));
+                    visitor->VisitNonTreeEdge(block, target, SpanningTreeVisitor::EdgeKind::Pseudo);
+                }
+                break;
 
             case BBJ_EHFINALLYRET:
             case BBJ_EHFAULTRET:
             case BBJ_EHCATCHRET:
             case BBJ_EHFILTERRET:
             case BBJ_LEAVE:
-            {
-                // See if we're leaving an EH handler region.
-                //
-                bool            isInTry     = false;
-                unsigned const  regionIndex = ehGetMostNestedRegionIndex(block, &isInTry);
-                EHblkDsc* const dsc         = ehGetBlockHndDsc(block);
-
-                if (isInTry || (dsc->ebdHandlerType == EH_HANDLER_CATCH))
                 {
-                    // We're leaving a try or catch, not a handler.
-                    // Treat this as a normal edge.
+                    // See if we're leaving an EH handler region.
                     //
-                    BasicBlock* const target = block->GetTarget();
+                    bool            isInTry     = false;
+                    unsigned const  regionIndex = ehGetMostNestedRegionIndex(block, &isInTry);
+                    EHblkDsc* const dsc         = ehGetBlockHndDsc(block);
 
-                    // In some bad IL cases we may not have a target.
-                    // In others we may see something other than LEAVE be most-nested in a try.
-                    //
-                    if (target == nullptr)
+                    if (isInTry || (dsc->ebdHandlerType == EH_HANDLER_CATCH))
                     {
-                        JITDUMP("No jump dest for " FMT_BB ", suspect bad code\n", block->bbNum);
-                        visitor->Badcode();
-                    }
-                    else if (!block->KindIs(BBJ_LEAVE))
-                    {
-                        JITDUMP("EH RET in " FMT_BB " most-nested in try, suspect bad code\n", block->bbNum);
-                        visitor->Badcode();
-                    }
-                    else
-                    {
-                        if (BlockSetOps::IsMember(this, marked, target->bbNum))
+                        // We're leaving a try or catch, not a handler.
+                        // Treat this as a normal edge.
+                        //
+                        BasicBlock* const target = block->GetTarget();
+
+                        // In some bad IL cases we may not have a target.
+                        // In others we may see something other than LEAVE be most-nested in a try.
+                        //
+                        if (target == nullptr)
                         {
-                            visitor->VisitNonTreeEdge(block, target,
-                                                      SpanningTreeVisitor::EdgeKind::PostdominatesSource);
+                            JITDUMP("No jump dest for " FMT_BB ", suspect bad code\n", block->bbNum);
+                            visitor->Badcode();
+                        }
+                        else if (!block->KindIs(BBJ_LEAVE))
+                        {
+                            JITDUMP("EH RET in " FMT_BB " most-nested in try, suspect bad code\n", block->bbNum);
+                            visitor->Badcode();
                         }
                         else
                         {
-                            visitor->VisitTreeEdge(block, target);
-                            stack.Push(target);
-                            BlockSetOps::AddElemD(this, marked, target->bbNum);
+                            if (BlockSetOps::IsMember(this, marked, target->bbNum))
+                            {
+                                visitor->VisitNonTreeEdge(block, target,
+                                                          SpanningTreeVisitor::EdgeKind::PostdominatesSource);
+                            }
+                            else
+                            {
+                                visitor->VisitTreeEdge(block, target);
+                                stack.Push(target);
+                                BlockSetOps::AddElemD(this, marked, target->bbNum);
+                            }
                         }
                     }
+                    else
+                    {
+                        // Pseudo-edge back to handler entry.
+                        //
+                        BasicBlock* const target = dsc->ebdHndBeg;
+                        assert(BlockSetOps::IsMember(this, marked, target->bbNum));
+                        visitor->VisitNonTreeEdge(block, target, SpanningTreeVisitor::EdgeKind::Pseudo);
+                    }
                 }
-                else
-                {
-                    // Pseudo-edge back to handler entry.
-                    //
-                    BasicBlock* const target = dsc->ebdHndBeg;
-                    assert(BlockSetOps::IsMember(this, marked, target->bbNum));
-                    visitor->VisitNonTreeEdge(block, target, SpanningTreeVisitor::EdgeKind::Pseudo);
-                }
-            }
-            break;
+                break;
 
             default:
-            {
-                // If this block is a control flow fork, we want to
-                // preferentially visit critical edges first; if these
-                // edges end up in the DFST then instrumentation will
-                // require edge splitting.
-                //
-                // We also want to preferentially visit edges to rare
-                // successors last, if this block is non-rare.
-                //
-                // It's not immediately clear if we should pass comp or this
-                // to NumSucc here (for inlinees).
-                //
-                // It matters for FINALLYRET and for SWITCHES. Currently
-                // we handle the first one specially, and it seems possible
-                // things will just work for switches either way, but it
-                // might work a bit better using the root compiler.
-                //
-                const unsigned numSucc = block->NumSucc(this);
-
-                if (numSucc == 1)
                 {
-                    // Not a fork. Just visit the sole successor.
+                    // If this block is a control flow fork, we want to
+                    // preferentially visit critical edges first; if these
+                    // edges end up in the DFST then instrumentation will
+                    // require edge splitting.
                     //
-                    BasicBlock* const target = block->GetSucc(0, this);
-                    if (BlockSetOps::IsMember(this, marked, target->bbNum))
+                    // We also want to preferentially visit edges to rare
+                    // successors last, if this block is non-rare.
+                    //
+                    // It's not immediately clear if we should pass comp or this
+                    // to NumSucc here (for inlinees).
+                    //
+                    // It matters for FINALLYRET and for SWITCHES. Currently
+                    // we handle the first one specially, and it seems possible
+                    // things will just work for switches either way, but it
+                    // might work a bit better using the root compiler.
+                    //
+                    const unsigned numSucc = block->NumSucc(this);
+
+                    if (numSucc == 1)
                     {
-                        // We can't instrument in the call finally pair tail block
-                        // so treat this as a critical edge.
+                        // Not a fork. Just visit the sole successor.
                         //
-                        visitor->VisitNonTreeEdge(block, target,
-                                                  block->isBBCallFinallyPairTail()
-                                                      ? SpanningTreeVisitor::EdgeKind::CriticalEdge
-                                                      : SpanningTreeVisitor::EdgeKind::PostdominatesSource);
+                        BasicBlock* const target = block->GetSucc(0, this);
+                        if (BlockSetOps::IsMember(this, marked, target->bbNum))
+                        {
+                            // We can't instrument in the call finally pair tail block
+                            // so treat this as a critical edge.
+                            //
+                            visitor->VisitNonTreeEdge(block, target,
+                                                      block->isBBCallFinallyPairTail()
+                                                          ? SpanningTreeVisitor::EdgeKind::CriticalEdge
+                                                          : SpanningTreeVisitor::EdgeKind::PostdominatesSource);
+                        }
+                        else
+                        {
+                            visitor->VisitTreeEdge(block, target);
+                            stack.Push(target);
+                            BlockSetOps::AddElemD(this, marked, target->bbNum);
+                        }
                     }
                     else
                     {
-                        visitor->VisitTreeEdge(block, target);
-                        stack.Push(target);
-                        BlockSetOps::AddElemD(this, marked, target->bbNum);
+                        // A block with multiple successors.
+                        //
+                        // Because we're using a stack up above, we work in reverse
+                        // order of "cost" here --  so we first consider rare,
+                        // then normal, then critical.
+                        //
+                        // That is, all things being equal we'd prefer to
+                        // have critical edges be tree edges, and
+                        // edges from non-rare to rare be non-tree edges.
+                        //
+                        scratch.Reset();
+                        BlockSetOps::ClearD(this, processed);
+
+                        for (unsigned i = 0; i < numSucc; i++)
+                        {
+                            BasicBlock* const succ = block->GetSucc(i, this);
+                            scratch.Push(succ);
+                        }
+
+                        // Rare successors of non-rare blocks
+                        //
+                        for (unsigned i = 0; i < numSucc; i++)
+                        {
+                            BasicBlock* const target = scratch.Top(i);
+
+                            if (BlockSetOps::IsMember(this, processed, i))
+                            {
+                                continue;
+                            }
+
+                            if (block->isRunRarely() || !target->isRunRarely())
+                            {
+                                continue;
+                            }
+
+                            BlockSetOps::AddElemD(this, processed, i);
+
+                            if (BlockSetOps::IsMember(this, marked, target->bbNum))
+                            {
+                                visitor->VisitNonTreeEdge(block, target,
+                                                          target->bbRefs > 1
+                                                              ? SpanningTreeVisitor::EdgeKind::CriticalEdge
+                                                              : SpanningTreeVisitor::EdgeKind::DominatesTarget);
+                            }
+                            else
+                            {
+                                visitor->VisitTreeEdge(block, target);
+                                stack.Push(target);
+                                BlockSetOps::AddElemD(this, marked, target->bbNum);
+                            }
+                        }
+
+                        // Non-critical edges
+                        //
+                        for (unsigned i = 0; i < numSucc; i++)
+                        {
+                            BasicBlock* const target = scratch.Top(i);
+
+                            if (BlockSetOps::IsMember(this, processed, i))
+                            {
+                                continue;
+                            }
+
+                            if (target->bbRefs != 1)
+                            {
+                                continue;
+                            }
+
+                            BlockSetOps::AddElemD(this, processed, i);
+
+                            if (BlockSetOps::IsMember(this, marked, target->bbNum))
+                            {
+                                visitor->VisitNonTreeEdge(block, target,
+                                                          SpanningTreeVisitor::EdgeKind::DominatesTarget);
+                            }
+                            else
+                            {
+                                visitor->VisitTreeEdge(block, target);
+                                stack.Push(target);
+                                BlockSetOps::AddElemD(this, marked, target->bbNum);
+                            }
+                        }
+
+                        // Critical edges
+                        //
+                        for (unsigned i = 0; i < numSucc; i++)
+                        {
+                            BasicBlock* const target = scratch.Top(i);
+
+                            if (BlockSetOps::IsMember(this, processed, i))
+                            {
+                                continue;
+                            }
+
+                            BlockSetOps::AddElemD(this, processed, i);
+
+                            if (BlockSetOps::IsMember(this, marked, target->bbNum))
+                            {
+                                visitor->VisitNonTreeEdge(block, target, SpanningTreeVisitor::EdgeKind::CriticalEdge);
+                            }
+                            else
+                            {
+                                visitor->VisitTreeEdge(block, target);
+                                stack.Push(target);
+                                BlockSetOps::AddElemD(this, marked, target->bbNum);
+                            }
+                        }
+
+                        // Verify we processed each successor.
+                        //
+                        assert(numSucc == BlockSetOps::Count(this, processed));
                     }
                 }
-                else
-                {
-                    // A block with multiple successors.
-                    //
-                    // Because we're using a stack up above, we work in reverse
-                    // order of "cost" here --  so we first consider rare,
-                    // then normal, then critical.
-                    //
-                    // That is, all things being equal we'd prefer to
-                    // have critical edges be tree edges, and
-                    // edges from non-rare to rare be non-tree edges.
-                    //
-                    scratch.Reset();
-                    BlockSetOps::ClearD(this, processed);
-
-                    for (unsigned i = 0; i < numSucc; i++)
-                    {
-                        BasicBlock* const succ = block->GetSucc(i, this);
-                        scratch.Push(succ);
-                    }
-
-                    // Rare successors of non-rare blocks
-                    //
-                    for (unsigned i = 0; i < numSucc; i++)
-                    {
-                        BasicBlock* const target = scratch.Top(i);
-
-                        if (BlockSetOps::IsMember(this, processed, i))
-                        {
-                            continue;
-                        }
-
-                        if (block->isRunRarely() || !target->isRunRarely())
-                        {
-                            continue;
-                        }
-
-                        BlockSetOps::AddElemD(this, processed, i);
-
-                        if (BlockSetOps::IsMember(this, marked, target->bbNum))
-                        {
-                            visitor->VisitNonTreeEdge(block, target,
-                                                      target->bbRefs > 1
-                                                          ? SpanningTreeVisitor::EdgeKind::CriticalEdge
-                                                          : SpanningTreeVisitor::EdgeKind::DominatesTarget);
-                        }
-                        else
-                        {
-                            visitor->VisitTreeEdge(block, target);
-                            stack.Push(target);
-                            BlockSetOps::AddElemD(this, marked, target->bbNum);
-                        }
-                    }
-
-                    // Non-critical edges
-                    //
-                    for (unsigned i = 0; i < numSucc; i++)
-                    {
-                        BasicBlock* const target = scratch.Top(i);
-
-                        if (BlockSetOps::IsMember(this, processed, i))
-                        {
-                            continue;
-                        }
-
-                        if (target->bbRefs != 1)
-                        {
-                            continue;
-                        }
-
-                        BlockSetOps::AddElemD(this, processed, i);
-
-                        if (BlockSetOps::IsMember(this, marked, target->bbNum))
-                        {
-                            visitor->VisitNonTreeEdge(block, target, SpanningTreeVisitor::EdgeKind::DominatesTarget);
-                        }
-                        else
-                        {
-                            visitor->VisitTreeEdge(block, target);
-                            stack.Push(target);
-                            BlockSetOps::AddElemD(this, marked, target->bbNum);
-                        }
-                    }
-
-                    // Critical edges
-                    //
-                    for (unsigned i = 0; i < numSucc; i++)
-                    {
-                        BasicBlock* const target = scratch.Top(i);
-
-                        if (BlockSetOps::IsMember(this, processed, i))
-                        {
-                            continue;
-                        }
-
-                        BlockSetOps::AddElemD(this, processed, i);
-
-                        if (BlockSetOps::IsMember(this, marked, target->bbNum))
-                        {
-                            visitor->VisitNonTreeEdge(block, target, SpanningTreeVisitor::EdgeKind::CriticalEdge);
-                        }
-                        else
-                        {
-                            visitor->VisitTreeEdge(block, target);
-                            stack.Push(target);
-                            BlockSetOps::AddElemD(this, marked, target->bbNum);
-                        }
-                    }
-
-                    // Verify we processed each successor.
-                    //
-                    assert(numSucc == BlockSetOps::Count(this, processed));
-                }
-            }
-            break;
+                break;
         }
     }
 
@@ -1225,166 +1246,172 @@ static int32_t EfficientEdgeCountBlockToKey(BasicBlock* block)
 // Based on "Optimally Profiling and Tracing Programs,"
 // Ball and Larus PLDI '92.
 //
-class EfficientEdgeCountInstrumentor : public Instrumentor, public SpanningTreeVisitor
+class EfficientEdgeCountInstrumentor
+    : public Instrumentor
+    , public SpanningTreeVisitor
 {
-private:
-    // A particular edge probe. These are linked
-    // on the source block via bbSparseProbeList.
-    //
-    struct Probe
-    {
-        BasicBlock* source;
-        BasicBlock* target;
-        Probe*      next;
-        int         schemaIndex;
-        EdgeKind    kind;
-        Probe*      leader;
-    };
-
-    // Add probe to block, representing edge from source to target.
-    //
-    Probe* NewProbe(BasicBlock* block, BasicBlock* source, BasicBlock* target)
-    {
-        Probe* p       = new (m_comp, CMK_Pgo) Probe();
-        p->source      = source;
-        p->target      = target;
-        p->kind        = EdgeKind::Unknown;
-        p->schemaIndex = -1;
-        p->next        = (Probe*)block->bbSparseProbeList;
-        p->leader      = nullptr;
-
-        block->bbSparseProbeList = p;
-        m_probeCount++;
-
-        return p;
-    }
-
-    void NewSourceProbe(BasicBlock* source, BasicBlock* target)
-    {
-        JITDUMP("[%u] New probe for " FMT_BB " -> " FMT_BB " [source]\n", m_probeCount, source->bbNum, target->bbNum);
-        Probe* p = NewProbe(source, source, target);
-        p->kind  = EdgeKind::PostdominatesSource;
-    }
-
-    void NewTargetProbe(BasicBlock* source, BasicBlock* target)
-    {
-        JITDUMP("[%u] New probe for " FMT_BB " -> " FMT_BB " [target]\n", m_probeCount, source->bbNum, target->bbNum);
-
-        Probe* p = NewProbe(source, source, target);
-        p->kind  = EdgeKind::DominatesTarget;
-    }
-
-    void NewEdgeProbe(BasicBlock* source, BasicBlock* target)
-    {
-        JITDUMP("[%u] New probe for " FMT_BB " -> " FMT_BB " [edge]\n", m_probeCount, source->bbNum, target->bbNum);
-
-        Probe* p = NewProbe(source, source, target);
-        p->kind  = EdgeKind::CriticalEdge;
-
-        m_edgeProbeCount++;
-    }
-
-    void NewRelocatedProbe(BasicBlock* block, BasicBlock* source, BasicBlock* target, Probe** pLeader = nullptr)
-    {
-        Probe*      p   = NewProbe(block, source, target);
-        const char* msg = "unknown";
-
-        // Are we starting or adding to a duplicate group?
+    private:
+        // A particular edge probe. These are linked
+        // on the source block via bbSparseProbeList.
         //
-        if (pLeader != nullptr)
+        struct Probe
         {
-            Probe* l = *pLeader;
-            if (l == nullptr)
+                BasicBlock* source;
+                BasicBlock* target;
+                Probe*      next;
+                int         schemaIndex;
+                EdgeKind    kind;
+                Probe*      leader;
+        };
+
+        // Add probe to block, representing edge from source to target.
+        //
+        Probe* NewProbe(BasicBlock* block, BasicBlock* source, BasicBlock* target)
+        {
+            Probe* p       = new (m_comp, CMK_Pgo) Probe();
+            p->source      = source;
+            p->target      = target;
+            p->kind        = EdgeKind::Unknown;
+            p->schemaIndex = -1;
+            p->next        = (Probe*)block->bbSparseProbeList;
+            p->leader      = nullptr;
+
+            block->bbSparseProbeList = p;
+            m_probeCount++;
+
+            return p;
+        }
+
+        void NewSourceProbe(BasicBlock* source, BasicBlock* target)
+        {
+            JITDUMP("[%u] New probe for " FMT_BB " -> " FMT_BB " [source]\n", m_probeCount, source->bbNum,
+                    target->bbNum);
+            Probe* p = NewProbe(source, source, target);
+            p->kind  = EdgeKind::PostdominatesSource;
+        }
+
+        void NewTargetProbe(BasicBlock* source, BasicBlock* target)
+        {
+            JITDUMP("[%u] New probe for " FMT_BB " -> " FMT_BB " [target]\n", m_probeCount, source->bbNum,
+                    target->bbNum);
+
+            Probe* p = NewProbe(source, source, target);
+            p->kind  = EdgeKind::DominatesTarget;
+        }
+
+        void NewEdgeProbe(BasicBlock* source, BasicBlock* target)
+        {
+            JITDUMP("[%u] New probe for " FMT_BB " -> " FMT_BB " [edge]\n", m_probeCount, source->bbNum, target->bbNum);
+
+            Probe* p = NewProbe(source, source, target);
+            p->kind  = EdgeKind::CriticalEdge;
+
+            m_edgeProbeCount++;
+        }
+
+        void NewRelocatedProbe(BasicBlock* block, BasicBlock* source, BasicBlock* target, Probe** pLeader = nullptr)
+        {
+            Probe*      p   = NewProbe(block, source, target);
+            const char* msg = "unknown";
+
+            // Are we starting or adding to a duplicate group?
+            //
+            if (pLeader != nullptr)
             {
-                // This probe will be the leader of the group
-                //
-                *pLeader = p;
-                p->kind  = EdgeKind::Leader;
-                msg      = "leader";
+                Probe* l = *pLeader;
+                if (l == nullptr)
+                {
+                    // This probe will be the leader of the group
+                    //
+                    *pLeader = p;
+                    p->kind  = EdgeKind::Leader;
+                    msg      = "leader";
+                }
+                else
+                {
+                    // This probe is a duplicate
+                    //
+                    p->leader = l;
+                    p->kind   = EdgeKind::Duplicate;
+                    msg       = "duplicate";
+                }
             }
             else
             {
-                // This probe is a duplicate
-                //
-                p->leader = l;
-                p->kind   = EdgeKind::Duplicate;
-                msg       = "duplicate";
+                p->kind = EdgeKind::Relocated;
+                msg     = "relocated";
+            }
+
+            JITDUMP("New %s probe for " FMT_BB " -> " FMT_BB " [reloc to " FMT_BB " ]\n", msg, source->bbNum,
+                    target->bbNum, block->bbNum);
+        }
+
+        void SplitCriticalEdges();
+        void RelocateProbes();
+
+        unsigned m_blockCount;
+        unsigned m_probeCount;
+        unsigned m_edgeProbeCount;
+        bool     m_badcode;
+        bool     m_minimal;
+
+    public:
+        EfficientEdgeCountInstrumentor(Compiler* comp, bool minimal)
+            : Instrumentor(comp)
+            , SpanningTreeVisitor()
+            , m_blockCount(0)
+            , m_probeCount(0)
+            , m_edgeProbeCount(0)
+            , m_badcode(false)
+            , m_minimal(minimal)
+        {
+        }
+        void Prepare(bool isPreImport) override;
+        bool ShouldProcess(BasicBlock* block) override
+        {
+            return block->HasFlag(BBF_IMPORTED);
+        }
+        bool ShouldInstrument(BasicBlock* block) override
+        {
+            return ShouldProcess(block) && ((!m_minimal) || (m_schemaCount > 1));
+        }
+        void BuildSchemaElements(BasicBlock* block, Schema& schema) override;
+        void Instrument(BasicBlock* block, Schema& schema, uint8_t* profileMemory) override;
+
+        void Badcode() override
+        {
+            m_badcode = true;
+        }
+
+        void VisitBlock(BasicBlock* block) override
+        {
+            m_blockCount++;
+            block->bbSparseProbeList = nullptr;
+        }
+
+        void VisitTreeEdge(BasicBlock* source, BasicBlock* target) override
+        {
+        }
+
+        void VisitNonTreeEdge(BasicBlock* source, BasicBlock* target, SpanningTreeVisitor::EdgeKind kind) override
+        {
+            switch (kind)
+            {
+                case EdgeKind::PostdominatesSource:
+                case EdgeKind::Pseudo:
+                    NewSourceProbe(source, target);
+                    break;
+                case EdgeKind::DominatesTarget:
+                    NewTargetProbe(source, target);
+                    break;
+                case EdgeKind::CriticalEdge:
+                    NewEdgeProbe(source, target);
+                    break;
+                default:
+                    assert(!"unexpected edge kind");
+                    break;
             }
         }
-        else
-        {
-            p->kind = EdgeKind::Relocated;
-            msg     = "relocated";
-        }
-
-        JITDUMP("New %s probe for " FMT_BB " -> " FMT_BB " [reloc to " FMT_BB " ]\n", msg, source->bbNum, target->bbNum,
-                block->bbNum);
-    }
-
-    void SplitCriticalEdges();
-    void RelocateProbes();
-
-    unsigned m_blockCount;
-    unsigned m_probeCount;
-    unsigned m_edgeProbeCount;
-    bool     m_badcode;
-    bool     m_minimal;
-
-public:
-    EfficientEdgeCountInstrumentor(Compiler* comp, bool minimal)
-        : Instrumentor(comp)
-        , SpanningTreeVisitor()
-        , m_blockCount(0)
-        , m_probeCount(0)
-        , m_edgeProbeCount(0)
-        , m_badcode(false)
-        , m_minimal(minimal)
-    {
-    }
-    void Prepare(bool isPreImport) override;
-    bool ShouldProcess(BasicBlock* block) override
-    {
-        return block->HasFlag(BBF_IMPORTED);
-    }
-    bool ShouldInstrument(BasicBlock* block) override
-    {
-        return ShouldProcess(block) && ((!m_minimal) || (m_schemaCount > 1));
-    }
-    void BuildSchemaElements(BasicBlock* block, Schema& schema) override;
-    void Instrument(BasicBlock* block, Schema& schema, uint8_t* profileMemory) override;
-
-    void Badcode() override
-    {
-        m_badcode = true;
-    }
-
-    void VisitBlock(BasicBlock* block) override
-    {
-        m_blockCount++;
-        block->bbSparseProbeList = nullptr;
-    }
-
-    void VisitTreeEdge(BasicBlock* source, BasicBlock* target) override {}
-
-    void VisitNonTreeEdge(BasicBlock* source, BasicBlock* target, SpanningTreeVisitor::EdgeKind kind) override
-    {
-        switch (kind)
-        {
-            case EdgeKind::PostdominatesSource:
-            case EdgeKind::Pseudo:
-                NewSourceProbe(source, target);
-                break;
-            case EdgeKind::DominatesTarget:
-                NewTargetProbe(source, target);
-                break;
-            case EdgeKind::CriticalEdge:
-                NewEdgeProbe(source, target);
-                break;
-            default:
-                assert(!"unexpected edge kind");
-                break;
-        }
-    }
 };
 
 //------------------------------------------------------------------------
@@ -1498,49 +1525,49 @@ void EfficientEdgeCountInstrumentor::SplitCriticalEdges()
                     instrumentedBlock = block;
                     break;
                 case EdgeKind::CriticalEdge:
-                {
-                    assert(block == source);
-
-                    // See if the edge still exists.
-                    //
-                    bool found = false;
-                    for (BasicBlock* const succ : block->Succs(m_comp))
                     {
-                        if (target == succ)
+                        assert(block == source);
+
+                        // See if the edge still exists.
+                        //
+                        bool found = false;
+                        for (BasicBlock* const succ : block->Succs(m_comp))
                         {
-                            found = true;
-                            break;
+                            if (target == succ)
+                            {
+                                found = true;
+                                break;
+                            }
                         }
-                    }
 
-                    if (found)
-                    {
-                        instrumentedBlock = m_comp->fgSplitEdge(block, target);
-                        instrumentedBlock->SetFlags(BBF_IMPORTED);
-                        edgesSplit++;
+                        if (found)
+                        {
+                            instrumentedBlock = m_comp->fgSplitEdge(block, target);
+                            instrumentedBlock->SetFlags(BBF_IMPORTED);
+                            edgesSplit++;
 
-                        // Add in the relocated probe
+                            // Add in the relocated probe
+                            //
+                            NewRelocatedProbe(instrumentedBlock, source, target);
+                        }
+                        else
+                        {
+                            JITDUMP("Could not find " FMT_BB " -> " FMT_BB " edge to instrument\n", block->bbNum,
+                                    target->bbNum);
+
+                            JITDUMP(" -- assuming this edge was folded away by the importer\n");
+
+                            // Placate the asserts below
+                            //
+                            instrumentedBlock = source;
+                            edgesIgnored++;
+                        }
+
+                        // Delete the critical edge probe
                         //
-                        NewRelocatedProbe(instrumentedBlock, source, target);
+                        probe->kind = EdgeKind::Deleted;
                     }
-                    else
-                    {
-                        JITDUMP("Could not find " FMT_BB " -> " FMT_BB " edge to instrument\n", block->bbNum,
-                                target->bbNum);
-
-                        JITDUMP(" -- assuming this edge was folded away by the importer\n");
-
-                        // Placate the asserts below
-                        //
-                        instrumentedBlock = source;
-                        edgesIgnored++;
-                    }
-
-                    // Delete the critical edge probe
-                    //
-                    probe->kind = EdgeKind::Deleted;
-                }
-                break;
+                    break;
 
                 default:
                     assert(!"unexpected edge kind");
@@ -1877,30 +1904,32 @@ void EfficientEdgeCountInstrumentor::Instrument(BasicBlock* block, Schema& schem
 template <class TFunctor>
 class HandleHistogramProbeVisitor final : public GenTreeVisitor<HandleHistogramProbeVisitor<TFunctor>>
 {
-public:
-    enum
-    {
-        DoPreOrder = true
-    };
+    public:
+        enum {
+            DoPreOrder = true
+        };
 
-    TFunctor& m_functor;
-    Compiler* m_compiler;
+        TFunctor& m_functor;
+        Compiler* m_compiler;
 
-    HandleHistogramProbeVisitor(Compiler* compiler, TFunctor& functor)
-        : GenTreeVisitor<HandleHistogramProbeVisitor>(compiler), m_functor(functor), m_compiler(compiler)
-    {
-    }
-    Compiler::fgWalkResult PreOrderVisit(GenTree** use, GenTree* user)
-    {
-        GenTree* const node = *use;
-        if (node->IsCall() && (m_compiler->compClassifyGDVProbeType(node->AsCall()) != Compiler::GDVProbeType::None))
+        HandleHistogramProbeVisitor(Compiler* compiler, TFunctor& functor)
+            : GenTreeVisitor<HandleHistogramProbeVisitor>(compiler)
+            , m_functor(functor)
+            , m_compiler(compiler)
         {
-            assert(node->AsCall()->gtHandleHistogramProfileCandidateInfo != nullptr);
-            m_functor(m_compiler, node->AsCall());
         }
+        Compiler::fgWalkResult PreOrderVisit(GenTree** use, GenTree* user)
+        {
+            GenTree* const node = *use;
+            if (node->IsCall() &&
+                (m_compiler->compClassifyGDVProbeType(node->AsCall()) != Compiler::GDVProbeType::None))
+            {
+                assert(node->AsCall()->gtHandleHistogramProfileCandidateInfo != nullptr);
+                m_functor(m_compiler, node->AsCall());
+            }
 
-        return Compiler::WALK_CONTINUE;
-    }
+            return Compiler::WALK_CONTINUE;
+        }
 };
 
 //------------------------------------------------------------------------
@@ -1909,33 +1938,34 @@ public:
 template <class TFunctor>
 class ValueHistogramProbeVisitor final : public GenTreeVisitor<ValueHistogramProbeVisitor<TFunctor>>
 {
-public:
-    enum
-    {
-        DoPreOrder = true
-    };
+    public:
+        enum {
+            DoPreOrder = true
+        };
 
-    TFunctor& m_functor;
-    Compiler* m_compiler;
+        TFunctor& m_functor;
+        Compiler* m_compiler;
 
-    ValueHistogramProbeVisitor(Compiler* compiler, TFunctor& functor)
-        : GenTreeVisitor<ValueHistogramProbeVisitor>(compiler), m_functor(functor), m_compiler(compiler)
-    {
-    }
-
-    Compiler::fgWalkResult PreOrderVisit(GenTree** use, GenTree* user)
-    {
-        GenTree* const node = *use;
-        if (node->IsCall() && node->AsCall()->IsSpecialIntrinsic())
+        ValueHistogramProbeVisitor(Compiler* compiler, TFunctor& functor)
+            : GenTreeVisitor<ValueHistogramProbeVisitor>(compiler)
+            , m_functor(functor)
+            , m_compiler(compiler)
         {
-            const NamedIntrinsic ni = m_compiler->lookupNamedIntrinsic(node->AsCall()->gtCallMethHnd);
-            if ((ni == NI_System_SpanHelpers_Memmove) || (ni == NI_System_SpanHelpers_SequenceEqual))
-            {
-                m_functor(m_compiler, node);
-            }
         }
-        return Compiler::WALK_CONTINUE;
-    }
+
+        Compiler::fgWalkResult PreOrderVisit(GenTree** use, GenTree* user)
+        {
+            GenTree* const node = *use;
+            if (node->IsCall() && node->AsCall()->IsSpecialIntrinsic())
+            {
+                const NamedIntrinsic ni = m_compiler->lookupNamedIntrinsic(node->AsCall()->gtCallMethHnd);
+                if ((ni == NI_System_SpanHelpers_Memmove) || (ni == NI_System_SpanHelpers_SequenceEqual))
+                {
+                    m_functor(m_compiler, node);
+                }
+            }
+            return Compiler::WALK_CONTINUE;
+        }
 };
 
 //------------------------------------------------------------------------
@@ -1943,94 +1973,97 @@ public:
 //
 class BuildHandleHistogramProbeSchemaGen
 {
-private:
-    Schema&   m_schema;
-    unsigned& m_schemaCount;
+    private:
+        Schema&   m_schema;
+        unsigned& m_schemaCount;
 
-public:
-    BuildHandleHistogramProbeSchemaGen(Schema& schema, unsigned& schemaCount)
-        : m_schema(schema), m_schemaCount(schemaCount)
-    {
-    }
-
-    void operator()(Compiler* compiler, GenTreeCall* call)
-    {
-        Compiler::GDVProbeType probeType = compiler->compClassifyGDVProbeType(call);
-
-        if ((probeType == Compiler::GDVProbeType::ClassProfile) ||
-            (probeType == Compiler::GDVProbeType::MethodAndClassProfile))
+    public:
+        BuildHandleHistogramProbeSchemaGen(Schema& schema, unsigned& schemaCount)
+            : m_schema(schema)
+            , m_schemaCount(schemaCount)
         {
-            CreateHistogramSchemaEntries(compiler, call, true /* isTypeHistogram */);
         }
 
-        if ((probeType == Compiler::GDVProbeType::MethodProfile) ||
-            (probeType == Compiler::GDVProbeType::MethodAndClassProfile))
+        void operator()(Compiler* compiler, GenTreeCall* call)
         {
-            CreateHistogramSchemaEntries(compiler, call, false /* isTypeHistogram */);
-        }
-    }
+            Compiler::GDVProbeType probeType = compiler->compClassifyGDVProbeType(call);
 
-    void CreateHistogramSchemaEntries(Compiler* compiler, GenTreeCall* call, bool isTypeHistogram)
-    {
-        ICorJitInfo::PgoInstrumentationSchema schemaElem = {};
-        schemaElem.Count                                 = 1;
-        schemaElem.Other = isTypeHistogram ? ICorJitInfo::HandleHistogram32::CLASS_FLAG : 0;
-        if (call->IsVirtualStub())
-        {
-            schemaElem.Other |= ICorJitInfo::HandleHistogram32::INTERFACE_FLAG;
-        }
-        else if (call->IsDelegateInvoke())
-        {
-            schemaElem.Other |= ICorJitInfo::HandleHistogram32::DELEGATE_FLAG;
+            if ((probeType == Compiler::GDVProbeType::ClassProfile) ||
+                (probeType == Compiler::GDVProbeType::MethodAndClassProfile))
+            {
+                CreateHistogramSchemaEntries(compiler, call, true /* isTypeHistogram */);
+            }
+
+            if ((probeType == Compiler::GDVProbeType::MethodProfile) ||
+                (probeType == Compiler::GDVProbeType::MethodAndClassProfile))
+            {
+                CreateHistogramSchemaEntries(compiler, call, false /* isTypeHistogram */);
+            }
         }
 
-        schemaElem.InstrumentationKind = compiler->opts.compCollect64BitCounts
-                                             ? ICorJitInfo::PgoInstrumentationKind::HandleHistogramLongCount
-                                             : ICorJitInfo::PgoInstrumentationKind::HandleHistogramIntCount;
-        schemaElem.ILOffset            = (int32_t)call->gtHandleHistogramProfileCandidateInfo->ilOffset;
-        schemaElem.Offset              = 0;
+        void CreateHistogramSchemaEntries(Compiler* compiler, GenTreeCall* call, bool isTypeHistogram)
+        {
+            ICorJitInfo::PgoInstrumentationSchema schemaElem = {};
+            schemaElem.Count                                 = 1;
+            schemaElem.Other = isTypeHistogram ? ICorJitInfo::HandleHistogram32::CLASS_FLAG : 0;
+            if (call->IsVirtualStub())
+            {
+                schemaElem.Other |= ICorJitInfo::HandleHistogram32::INTERFACE_FLAG;
+            }
+            else if (call->IsDelegateInvoke())
+            {
+                schemaElem.Other |= ICorJitInfo::HandleHistogram32::DELEGATE_FLAG;
+            }
 
-        m_schema.push_back(schemaElem);
+            schemaElem.InstrumentationKind = compiler->opts.compCollect64BitCounts
+                                                 ? ICorJitInfo::PgoInstrumentationKind::HandleHistogramLongCount
+                                                 : ICorJitInfo::PgoInstrumentationKind::HandleHistogramIntCount;
+            schemaElem.ILOffset            = (int32_t)call->gtHandleHistogramProfileCandidateInfo->ilOffset;
+            schemaElem.Offset              = 0;
 
-        m_schemaCount++;
+            m_schema.push_back(schemaElem);
 
-        // Re-using ILOffset and Other fields from schema item for TypeHandleHistogramCount
-        schemaElem.InstrumentationKind = isTypeHistogram ? ICorJitInfo::PgoInstrumentationKind::HandleHistogramTypes
-                                                         : ICorJitInfo::PgoInstrumentationKind::HandleHistogramMethods;
-        schemaElem.Count               = ICorJitInfo::HandleHistogram32::SIZE;
-        m_schema.push_back(schemaElem);
+            m_schemaCount++;
 
-        m_schemaCount++;
-    }
+            // Re-using ILOffset and Other fields from schema item for TypeHandleHistogramCount
+            schemaElem.InstrumentationKind = isTypeHistogram
+                                                 ? ICorJitInfo::PgoInstrumentationKind::HandleHistogramTypes
+                                                 : ICorJitInfo::PgoInstrumentationKind::HandleHistogramMethods;
+            schemaElem.Count               = ICorJitInfo::HandleHistogram32::SIZE;
+            m_schema.push_back(schemaElem);
+
+            m_schemaCount++;
+        }
 };
 
 class BuildValueHistogramProbeSchemaGen
 {
-    Schema&   m_schema;
-    unsigned& m_schemaCount;
+        Schema&   m_schema;
+        unsigned& m_schemaCount;
 
-public:
-    BuildValueHistogramProbeSchemaGen(Schema& schema, unsigned& schemaCount)
-        : m_schema(schema), m_schemaCount(schemaCount)
-    {
-    }
+    public:
+        BuildValueHistogramProbeSchemaGen(Schema& schema, unsigned& schemaCount)
+            : m_schema(schema)
+            , m_schemaCount(schemaCount)
+        {
+        }
 
-    void operator()(Compiler* compiler, GenTree* call)
-    {
-        ICorJitInfo::PgoInstrumentationSchema schemaElem = {};
-        schemaElem.Count                                 = 1;
-        schemaElem.InstrumentationKind                   = compiler->opts.compCollect64BitCounts
-                                                               ? ICorJitInfo::PgoInstrumentationKind::ValueHistogramLongCount
-                                                               : ICorJitInfo::PgoInstrumentationKind::ValueHistogramIntCount;
-        schemaElem.ILOffset = (int32_t)call->AsCall()->gtHandleHistogramProfileCandidateInfo->ilOffset;
-        m_schema.push_back(schemaElem);
-        m_schemaCount++;
+        void operator()(Compiler* compiler, GenTree* call)
+        {
+            ICorJitInfo::PgoInstrumentationSchema schemaElem = {};
+            schemaElem.Count                                 = 1;
+            schemaElem.InstrumentationKind                   = compiler->opts.compCollect64BitCounts
+                                                                   ? ICorJitInfo::PgoInstrumentationKind::ValueHistogramLongCount
+                                                                   : ICorJitInfo::PgoInstrumentationKind::ValueHistogramIntCount;
+            schemaElem.ILOffset = (int32_t)call->AsCall()->gtHandleHistogramProfileCandidateInfo->ilOffset;
+            m_schema.push_back(schemaElem);
+            m_schemaCount++;
 
-        schemaElem.InstrumentationKind = ICorJitInfo::PgoInstrumentationKind::ValueHistogram;
-        schemaElem.Count               = ICorJitInfo::HandleHistogram32::SIZE;
-        m_schema.push_back(schemaElem);
-        m_schemaCount++;
-    }
+            schemaElem.InstrumentationKind = ICorJitInfo::PgoInstrumentationKind::ValueHistogram;
+            schemaElem.Count               = ICorJitInfo::HandleHistogram32::SIZE;
+            m_schema.push_back(schemaElem);
+            m_schemaCount++;
+        }
 };
 
 //------------------------------------------------------------------------
@@ -2038,196 +2071,203 @@ public:
 //
 class HandleHistogramProbeInserter
 {
-    Schema&   m_schema;
-    uint8_t*  m_profileMemory;
-    int*      m_currentSchemaIndex;
-    unsigned& m_instrCount;
+        Schema&   m_schema;
+        uint8_t*  m_profileMemory;
+        int*      m_currentSchemaIndex;
+        unsigned& m_instrCount;
 
-public:
-    HandleHistogramProbeInserter(Schema& schema, uint8_t* profileMemory, int* pCurrentSchemaIndex, unsigned& instrCount)
-        : m_schema(schema)
-        , m_profileMemory(profileMemory)
-        , m_currentSchemaIndex(pCurrentSchemaIndex)
-        , m_instrCount(instrCount)
-    {
-    }
-
-    void operator()(Compiler* compiler, GenTreeCall* call)
-    {
-        JITDUMP("Found call [%06u] with probe index %d and ilOffset 0x%X\n", compiler->dspTreeID(call),
-                call->gtHandleHistogramProfileCandidateInfo->probeIndex,
-                call->gtHandleHistogramProfileCandidateInfo->ilOffset);
-
-        // We transform the call from (CALLVIRT obj, ... args ...) to
-        //
-        //      (CALLVIRT
-        //        (COMMA
-        //          (tmp = obj)
-        //          (COMMA
-        //            (CALL probe_fn tmp, &probeEntry)
-        //            tmp)))
-        //         ... args ...)
-        //
-
-        // Read histograms
-        void* typeHistogram   = nullptr;
-        void* methodHistogram = nullptr;
-
-        bool is32;
-        ReadHistogramAndAdvance(call->gtHandleHistogramProfileCandidateInfo->ilOffset, &typeHistogram, &methodHistogram,
-                                &is32);
-        bool secondIs32;
-        ReadHistogramAndAdvance(call->gtHandleHistogramProfileCandidateInfo->ilOffset, &typeHistogram, &methodHistogram,
-                                &secondIs32);
-
-        assert(((typeHistogram != nullptr) || (methodHistogram != nullptr)) &&
-               "Expected at least one handle histogram when inserting probes");
-
-        if ((typeHistogram != nullptr) && (methodHistogram != nullptr))
+    public:
+        HandleHistogramProbeInserter(Schema&   schema,
+                                     uint8_t*  profileMemory,
+                                     int*      pCurrentSchemaIndex,
+                                     unsigned& instrCount)
+            : m_schema(schema)
+            , m_profileMemory(profileMemory)
+            , m_currentSchemaIndex(pCurrentSchemaIndex)
+            , m_instrCount(instrCount)
         {
-            // We expect both histograms to be 32-bit or 64-bit, not a mix.
-            assert(is32 == secondIs32);
         }
 
-        assert(!call->gtArgs.AreArgsComplete());
-        CallArg* objUse = nullptr;
-        if (compiler->impIsCastHelperEligibleForClassProbe(call))
+        void operator()(Compiler* compiler, GenTreeCall* call)
         {
-            // Second arg of cast/isinst helper call is the object instance
-            objUse = call->gtArgs.GetArgByIndex(1);
-        }
-        else
-        {
-            objUse = call->gtArgs.GetThisArg();
-        }
+            JITDUMP("Found call [%06u] with probe index %d and ilOffset 0x%X\n", compiler->dspTreeID(call),
+                    call->gtHandleHistogramProfileCandidateInfo->probeIndex,
+                    call->gtHandleHistogramProfileCandidateInfo->ilOffset);
 
-        assert(objUse->GetEarlyNode()->TypeIs(TYP_REF));
+            // We transform the call from (CALLVIRT obj, ... args ...) to
+            //
+            //      (CALLVIRT
+            //        (COMMA
+            //          (tmp = obj)
+            //          (COMMA
+            //            (CALL probe_fn tmp, &probeEntry)
+            //            tmp)))
+            //         ... args ...)
+            //
 
-        // Grab a temp to hold the 'this' object as it will be used three times
-        //
-        unsigned const tmpNum             = compiler->lvaGrabTemp(true DEBUGARG("handle histogram profile tmp"));
-        compiler->lvaTable[tmpNum].lvType = TYP_REF;
+            // Read histograms
+            void* typeHistogram   = nullptr;
+            void* methodHistogram = nullptr;
 
-        GenTree* helperCallNode = nullptr;
+            bool is32;
+            ReadHistogramAndAdvance(call->gtHandleHistogramProfileCandidateInfo->ilOffset, &typeHistogram,
+                                    &methodHistogram, &is32);
+            bool secondIs32;
+            ReadHistogramAndAdvance(call->gtHandleHistogramProfileCandidateInfo->ilOffset, &typeHistogram,
+                                    &methodHistogram, &secondIs32);
 
-        if (typeHistogram != nullptr)
-        {
-            GenTree* const tmpNode          = compiler->gtNewLclvNode(tmpNum, TYP_REF);
-            GenTree* const classProfileNode = compiler->gtNewIconNode((ssize_t)typeHistogram, TYP_I_IMPL);
-            helperCallNode =
-                compiler->gtNewHelperCallNode(is32 ? CORINFO_HELP_CLASSPROFILE32 : CORINFO_HELP_CLASSPROFILE64,
-                                              TYP_VOID, tmpNode, classProfileNode);
-        }
+            assert(((typeHistogram != nullptr) || (methodHistogram != nullptr)) &&
+                   "Expected at least one handle histogram when inserting probes");
 
-        if (methodHistogram != nullptr)
-        {
-            GenTree* const tmpNode           = compiler->gtNewLclvNode(tmpNum, TYP_REF);
-            GenTree* const methodProfileNode = compiler->gtNewIconNode((ssize_t)methodHistogram, TYP_I_IMPL);
-
-            GenTree* methodProfileCallNode;
-            if (call->IsDelegateInvoke())
+            if ((typeHistogram != nullptr) && (methodHistogram != nullptr))
             {
-                methodProfileCallNode = compiler->gtNewHelperCallNode(is32 ? CORINFO_HELP_DELEGATEPROFILE32
-                                                                           : CORINFO_HELP_DELEGATEPROFILE64,
-                                                                      TYP_VOID, tmpNode, methodProfileNode);
+                // We expect both histograms to be 32-bit or 64-bit, not a mix.
+                assert(is32 == secondIs32);
+            }
+
+            assert(!call->gtArgs.AreArgsComplete());
+            CallArg* objUse = nullptr;
+            if (compiler->impIsCastHelperEligibleForClassProbe(call))
+            {
+                // Second arg of cast/isinst helper call is the object instance
+                objUse = call->gtArgs.GetArgByIndex(1);
             }
             else
             {
-                assert(call->IsVirtualVtable());
-                GenTree* const baseMethodNode = compiler->gtNewIconEmbMethHndNode(call->gtCallMethHnd);
-                methodProfileCallNode =
-                    compiler->gtNewHelperCallNode(is32 ? CORINFO_HELP_VTABLEPROFILE32 : CORINFO_HELP_VTABLEPROFILE64,
-                                                  TYP_VOID, tmpNode, baseMethodNode, methodProfileNode);
+                objUse = call->gtArgs.GetThisArg();
             }
 
-            if (helperCallNode == nullptr)
+            assert(objUse->GetEarlyNode()->TypeIs(TYP_REF));
+
+            // Grab a temp to hold the 'this' object as it will be used three times
+            //
+            unsigned const tmpNum             = compiler->lvaGrabTemp(true DEBUGARG("handle histogram profile tmp"));
+            compiler->lvaTable[tmpNum].lvType = TYP_REF;
+
+            GenTree* helperCallNode = nullptr;
+
+            if (typeHistogram != nullptr)
             {
-                helperCallNode = methodProfileCallNode;
+                GenTree* const tmpNode          = compiler->gtNewLclvNode(tmpNum, TYP_REF);
+                GenTree* const classProfileNode = compiler->gtNewIconNode((ssize_t)typeHistogram, TYP_I_IMPL);
+                helperCallNode =
+                    compiler->gtNewHelperCallNode(is32 ? CORINFO_HELP_CLASSPROFILE32 : CORINFO_HELP_CLASSPROFILE64,
+                                                  TYP_VOID, tmpNode, classProfileNode);
+            }
+
+            if (methodHistogram != nullptr)
+            {
+                GenTree* const tmpNode           = compiler->gtNewLclvNode(tmpNum, TYP_REF);
+                GenTree* const methodProfileNode = compiler->gtNewIconNode((ssize_t)methodHistogram, TYP_I_IMPL);
+
+                GenTree* methodProfileCallNode;
+                if (call->IsDelegateInvoke())
+                {
+                    methodProfileCallNode = compiler->gtNewHelperCallNode(is32 ? CORINFO_HELP_DELEGATEPROFILE32
+                                                                               : CORINFO_HELP_DELEGATEPROFILE64,
+                                                                          TYP_VOID, tmpNode, methodProfileNode);
+                }
+                else
+                {
+                    assert(call->IsVirtualVtable());
+                    GenTree* const baseMethodNode = compiler->gtNewIconEmbMethHndNode(call->gtCallMethHnd);
+                    methodProfileCallNode =
+                        compiler->gtNewHelperCallNode(is32 ? CORINFO_HELP_VTABLEPROFILE32
+                                                           : CORINFO_HELP_VTABLEPROFILE64,
+                                                      TYP_VOID, tmpNode, baseMethodNode, methodProfileNode);
+                }
+
+                if (helperCallNode == nullptr)
+                {
+                    helperCallNode = methodProfileCallNode;
+                }
+                else
+                {
+                    helperCallNode = compiler->gtNewOperNode(GT_COMMA, TYP_REF, helperCallNode, methodProfileCallNode);
+                }
+            }
+
+            // Generate the IR...
+            //
+            GenTree* const tmpNode2       = compiler->gtNewLclvNode(tmpNum, TYP_REF);
+            GenTree* const callCommaNode  = compiler->gtNewOperNode(GT_COMMA, TYP_REF, helperCallNode, tmpNode2);
+            GenTree* const storeNode      = compiler->gtNewStoreLclVarNode(tmpNum, objUse->GetNode());
+            GenTree* const storeCommaNode = compiler->gtNewOperNode(GT_COMMA, TYP_REF, storeNode, callCommaNode);
+
+            // Update the call
+            //
+            objUse->SetEarlyNode(storeCommaNode);
+
+            JITDUMP("Modified call is now\n");
+            DISPTREE(call);
+
+            m_instrCount++;
+        }
+
+    private:
+        void ReadHistogramAndAdvance(IL_OFFSET ilOffset,
+                                     void**    typeHistogram,
+                                     void**    methodHistogram,
+                                     bool*     histogramIs32)
+        {
+            if (*m_currentSchemaIndex >= (int)m_schema.size())
+            {
+                return;
+            }
+
+            ICorJitInfo::PgoInstrumentationSchema& countEntry = m_schema[*m_currentSchemaIndex];
+
+            bool is32 = countEntry.InstrumentationKind == ICorJitInfo::PgoInstrumentationKind::HandleHistogramIntCount;
+            bool is64 = countEntry.InstrumentationKind == ICorJitInfo::PgoInstrumentationKind::HandleHistogramLongCount;
+            if (!is32 && !is64)
+            {
+                return;
+            }
+
+            if (countEntry.ILOffset != static_cast<int32_t>(ilOffset))
+            {
+                return;
+            }
+
+            assert(*m_currentSchemaIndex + 2 <= (int)m_schema.size());
+            ICorJitInfo::PgoInstrumentationSchema& tableEntry = m_schema[*m_currentSchemaIndex + 1];
+            assert((tableEntry.InstrumentationKind == ICorJitInfo::PgoInstrumentationKind::HandleHistogramTypes) ||
+                   (tableEntry.InstrumentationKind == ICorJitInfo::PgoInstrumentationKind::HandleHistogramMethods));
+
+            void** outHistogram;
+            if (tableEntry.InstrumentationKind == ICorJitInfo::PgoInstrumentationKind::HandleHistogramTypes)
+            {
+                assert(*typeHistogram == nullptr);
+                outHistogram = typeHistogram;
             }
             else
             {
-                helperCallNode = compiler->gtNewOperNode(GT_COMMA, TYP_REF, helperCallNode, methodProfileCallNode);
+                assert(*methodHistogram == nullptr);
+                outHistogram = methodHistogram;
             }
-        }
 
-        // Generate the IR...
-        //
-        GenTree* const tmpNode2       = compiler->gtNewLclvNode(tmpNum, TYP_REF);
-        GenTree* const callCommaNode  = compiler->gtNewOperNode(GT_COMMA, TYP_REF, helperCallNode, tmpNode2);
-        GenTree* const storeNode      = compiler->gtNewStoreLclVarNode(tmpNum, objUse->GetNode());
-        GenTree* const storeCommaNode = compiler->gtNewOperNode(GT_COMMA, TYP_REF, storeNode, callCommaNode);
-
-        // Update the call
-        //
-        objUse->SetEarlyNode(storeCommaNode);
-
-        JITDUMP("Modified call is now\n");
-        DISPTREE(call);
-
-        m_instrCount++;
-    }
-
-private:
-    void ReadHistogramAndAdvance(IL_OFFSET ilOffset, void** typeHistogram, void** methodHistogram, bool* histogramIs32)
-    {
-        if (*m_currentSchemaIndex >= (int)m_schema.size())
-        {
-            return;
-        }
-
-        ICorJitInfo::PgoInstrumentationSchema& countEntry = m_schema[*m_currentSchemaIndex];
-
-        bool is32 = countEntry.InstrumentationKind == ICorJitInfo::PgoInstrumentationKind::HandleHistogramIntCount;
-        bool is64 = countEntry.InstrumentationKind == ICorJitInfo::PgoInstrumentationKind::HandleHistogramLongCount;
-        if (!is32 && !is64)
-        {
-            return;
-        }
-
-        if (countEntry.ILOffset != static_cast<int32_t>(ilOffset))
-        {
-            return;
-        }
-
-        assert(*m_currentSchemaIndex + 2 <= (int)m_schema.size());
-        ICorJitInfo::PgoInstrumentationSchema& tableEntry = m_schema[*m_currentSchemaIndex + 1];
-        assert((tableEntry.InstrumentationKind == ICorJitInfo::PgoInstrumentationKind::HandleHistogramTypes) ||
-               (tableEntry.InstrumentationKind == ICorJitInfo::PgoInstrumentationKind::HandleHistogramMethods));
-
-        void** outHistogram;
-        if (tableEntry.InstrumentationKind == ICorJitInfo::PgoInstrumentationKind::HandleHistogramTypes)
-        {
-            assert(*typeHistogram == nullptr);
-            outHistogram = typeHistogram;
-        }
-        else
-        {
-            assert(*methodHistogram == nullptr);
-            outHistogram = methodHistogram;
-        }
-
-        *outHistogram  = &m_profileMemory[countEntry.Offset];
-        *histogramIs32 = is32;
+            *outHistogram  = &m_profileMemory[countEntry.Offset];
+            *histogramIs32 = is32;
 
 #ifdef DEBUG
-        if (is32)
-        {
-            ICorJitInfo::HandleHistogram32* h32 =
-                reinterpret_cast<ICorJitInfo::HandleHistogram32*>(&m_profileMemory[countEntry.Offset]);
-            assert(reinterpret_cast<uint8_t*>(&h32->Count) == &m_profileMemory[countEntry.Offset]);
-            assert(reinterpret_cast<uint8_t*>(h32->HandleTable) == &m_profileMemory[tableEntry.Offset]);
-        }
-        else
-        {
-            ICorJitInfo::HandleHistogram64* h64 =
-                reinterpret_cast<ICorJitInfo::HandleHistogram64*>(&m_profileMemory[countEntry.Offset]);
-            assert(reinterpret_cast<uint8_t*>(&h64->Count) == &m_profileMemory[countEntry.Offset]);
-            assert(reinterpret_cast<uint8_t*>(h64->HandleTable) == &m_profileMemory[tableEntry.Offset]);
-        }
+            if (is32)
+            {
+                ICorJitInfo::HandleHistogram32* h32 =
+                    reinterpret_cast<ICorJitInfo::HandleHistogram32*>(&m_profileMemory[countEntry.Offset]);
+                assert(reinterpret_cast<uint8_t*>(&h32->Count) == &m_profileMemory[countEntry.Offset]);
+                assert(reinterpret_cast<uint8_t*>(h32->HandleTable) == &m_profileMemory[tableEntry.Offset]);
+            }
+            else
+            {
+                ICorJitInfo::HandleHistogram64* h64 =
+                    reinterpret_cast<ICorJitInfo::HandleHistogram64*>(&m_profileMemory[countEntry.Offset]);
+                assert(reinterpret_cast<uint8_t*>(&h64->Count) == &m_profileMemory[countEntry.Offset]);
+                assert(reinterpret_cast<uint8_t*>(h64->HandleTable) == &m_profileMemory[tableEntry.Offset]);
+            }
 #endif
 
-        *m_currentSchemaIndex += 2;
-    }
+            *m_currentSchemaIndex += 2;
+        }
 };
 
 //------------------------------------------------------------------------
@@ -2235,78 +2275,82 @@ private:
 //
 class ValueHistogramProbeInserter
 {
-    Schema&   m_schema;
-    uint8_t*  m_profileMemory;
-    int*      m_currentSchemaIndex;
-    unsigned& m_instrCount;
+        Schema&   m_schema;
+        uint8_t*  m_profileMemory;
+        int*      m_currentSchemaIndex;
+        unsigned& m_instrCount;
 
-public:
-    ValueHistogramProbeInserter(Schema& schema, uint8_t* profileMemory, int* pCurrentSchemaIndex, unsigned& instrCount)
-        : m_schema(schema)
-        , m_profileMemory(profileMemory)
-        , m_currentSchemaIndex(pCurrentSchemaIndex)
-        , m_instrCount(instrCount)
-    {
-    }
-
-    void operator()(Compiler* compiler, GenTree* node)
-    {
-        if (*m_currentSchemaIndex >= (int)m_schema.size())
+    public:
+        ValueHistogramProbeInserter(Schema&   schema,
+                                    uint8_t*  profileMemory,
+                                    int*      pCurrentSchemaIndex,
+                                    unsigned& instrCount)
+            : m_schema(schema)
+            , m_profileMemory(profileMemory)
+            , m_currentSchemaIndex(pCurrentSchemaIndex)
+            , m_instrCount(instrCount)
         {
-            return;
         }
 
-        assert(node->AsCall()->IsSpecialIntrinsic(compiler, NI_System_SpanHelpers_Memmove) ||
-               node->AsCall()->IsSpecialIntrinsic(compiler, NI_System_SpanHelpers_SequenceEqual));
-
-        const ICorJitInfo::PgoInstrumentationSchema& countEntry = m_schema[*m_currentSchemaIndex];
-        if (countEntry.ILOffset !=
-            static_cast<int32_t>(node->AsCall()->gtHandleHistogramProfileCandidateInfo->ilOffset))
+        void operator()(Compiler* compiler, GenTree* node)
         {
-            return;
+            if (*m_currentSchemaIndex >= (int)m_schema.size())
+            {
+                return;
+            }
+
+            assert(node->AsCall()->IsSpecialIntrinsic(compiler, NI_System_SpanHelpers_Memmove) ||
+                   node->AsCall()->IsSpecialIntrinsic(compiler, NI_System_SpanHelpers_SequenceEqual));
+
+            const ICorJitInfo::PgoInstrumentationSchema& countEntry = m_schema[*m_currentSchemaIndex];
+            if (countEntry.ILOffset !=
+                static_cast<int32_t>(node->AsCall()->gtHandleHistogramProfileCandidateInfo->ilOffset))
+            {
+                return;
+            }
+
+            bool is32 = countEntry.InstrumentationKind == ICorJitInfo::PgoInstrumentationKind::ValueHistogramIntCount;
+            bool is64 = countEntry.InstrumentationKind == ICorJitInfo::PgoInstrumentationKind::ValueHistogramLongCount;
+            if (!is32 && !is64)
+            {
+                return;
+            }
+
+            assert(*m_currentSchemaIndex + 2 <= (int)m_schema.size());
+            const ICorJitInfo::PgoInstrumentationSchema& tableEntry = m_schema[*m_currentSchemaIndex + 1];
+            assert((tableEntry.InstrumentationKind == ICorJitInfo::PgoInstrumentationKind::ValueHistogram));
+            uint8_t* hist = &m_profileMemory[countEntry.Offset];
+            assert(hist != nullptr);
+
+            *m_currentSchemaIndex += 2;
+
+            GenTree** lenArgRef = &node->AsCall()->gtArgs.GetUserArgByIndex(2)->EarlyNodeRef();
+
+            // We have Memmove(dst, src, len) and we want to insert a call to CORINFO_HELP_VALUEPROFILE for the len:
+            //
+            //  \--*  COMMA     long
+            //     +--*  CALL help void   CORINFO_HELP_VALUEPROFILE
+            //     |  +--*  COMMA     long
+            //     |  |  +--*  STORE_LCL_VAR long  tmp
+            //     |  |  |  \--*  (node to poll)
+            //     |  |  \--*  LCL_VAR   long   tmp
+            //     |  \--*  CNS_INT   long   <hist>
+            //     \--*  LCL_VAR   long   tmp
+            //
+
+            const unsigned lenTmpNum      = compiler->lvaGrabTemp(true DEBUGARG("length histogram profile tmp"));
+            GenTree*       storeLenToTemp = compiler->gtNewTempStore(lenTmpNum, *lenArgRef);
+            GenTree*       lengthLocal    = compiler->gtNewLclvNode(lenTmpNum, genActualType(*lenArgRef));
+            GenTreeOp*     lengthNode =
+                compiler->gtNewOperNode(GT_COMMA, lengthLocal->TypeGet(), storeLenToTemp, lengthLocal);
+            GenTree*     histNode       = compiler->gtNewIconNode(reinterpret_cast<ssize_t>(hist), TYP_I_IMPL);
+            unsigned     helper         = is32 ? CORINFO_HELP_VALUEPROFILE32 : CORINFO_HELP_VALUEPROFILE64;
+            GenTreeCall* helperCallNode = compiler->gtNewHelperCallNode(helper, TYP_VOID, lengthNode, histNode);
+
+            *lenArgRef = compiler->gtNewOperNode(GT_COMMA, lengthLocal->TypeGet(), helperCallNode,
+                                                 compiler->gtCloneExpr(lengthLocal));
+            m_instrCount++;
         }
-
-        bool is32 = countEntry.InstrumentationKind == ICorJitInfo::PgoInstrumentationKind::ValueHistogramIntCount;
-        bool is64 = countEntry.InstrumentationKind == ICorJitInfo::PgoInstrumentationKind::ValueHistogramLongCount;
-        if (!is32 && !is64)
-        {
-            return;
-        }
-
-        assert(*m_currentSchemaIndex + 2 <= (int)m_schema.size());
-        const ICorJitInfo::PgoInstrumentationSchema& tableEntry = m_schema[*m_currentSchemaIndex + 1];
-        assert((tableEntry.InstrumentationKind == ICorJitInfo::PgoInstrumentationKind::ValueHistogram));
-        uint8_t* hist = &m_profileMemory[countEntry.Offset];
-        assert(hist != nullptr);
-
-        *m_currentSchemaIndex += 2;
-
-        GenTree** lenArgRef = &node->AsCall()->gtArgs.GetUserArgByIndex(2)->EarlyNodeRef();
-
-        // We have Memmove(dst, src, len) and we want to insert a call to CORINFO_HELP_VALUEPROFILE for the len:
-        //
-        //  \--*  COMMA     long
-        //     +--*  CALL help void   CORINFO_HELP_VALUEPROFILE
-        //     |  +--*  COMMA     long
-        //     |  |  +--*  STORE_LCL_VAR long  tmp
-        //     |  |  |  \--*  (node to poll)
-        //     |  |  \--*  LCL_VAR   long   tmp
-        //     |  \--*  CNS_INT   long   <hist>
-        //     \--*  LCL_VAR   long   tmp
-        //
-
-        const unsigned lenTmpNum      = compiler->lvaGrabTemp(true DEBUGARG("length histogram profile tmp"));
-        GenTree*       storeLenToTemp = compiler->gtNewTempStore(lenTmpNum, *lenArgRef);
-        GenTree*       lengthLocal    = compiler->gtNewLclvNode(lenTmpNum, genActualType(*lenArgRef));
-        GenTreeOp* lengthNode = compiler->gtNewOperNode(GT_COMMA, lengthLocal->TypeGet(), storeLenToTemp, lengthLocal);
-        GenTree*   histNode   = compiler->gtNewIconNode(reinterpret_cast<ssize_t>(hist), TYP_I_IMPL);
-        unsigned   helper     = is32 ? CORINFO_HELP_VALUEPROFILE32 : CORINFO_HELP_VALUEPROFILE64;
-        GenTreeCall* helperCallNode = compiler->gtNewHelperCallNode(helper, TYP_VOID, lengthNode, histNode);
-
-        *lenArgRef = compiler->gtNewOperNode(GT_COMMA, lengthLocal->TypeGet(), helperCallNode,
-                                             compiler->gtCloneExpr(lengthLocal));
-        m_instrCount++;
-    }
 };
 
 //------------------------------------------------------------------------
@@ -2315,15 +2359,18 @@ public:
 //
 class HandleHistogramProbeInstrumentor : public Instrumentor
 {
-public:
-    HandleHistogramProbeInstrumentor(Compiler* comp) : Instrumentor(comp) {}
-    bool ShouldProcess(BasicBlock* block) override
-    {
-        return block->HasFlag(BBF_IMPORTED) && !block->HasFlag(BBF_INTERNAL);
-    }
-    void Prepare(bool isPreImport) override;
-    void BuildSchemaElements(BasicBlock* block, Schema& schema) override;
-    void Instrument(BasicBlock* block, Schema& schema, uint8_t* profileMemory) override;
+    public:
+        HandleHistogramProbeInstrumentor(Compiler* comp)
+            : Instrumentor(comp)
+        {
+        }
+        bool ShouldProcess(BasicBlock* block) override
+        {
+            return block->HasFlag(BBF_IMPORTED) && !block->HasFlag(BBF_INTERNAL);
+        }
+        void Prepare(bool isPreImport) override;
+        void BuildSchemaElements(BasicBlock* block, Schema& schema) override;
+        void Instrument(BasicBlock* block, Schema& schema, uint8_t* profileMemory) override;
 };
 
 //------------------------------------------------------------------------
@@ -2331,15 +2378,18 @@ public:
 //
 class ValueInstrumentor : public Instrumentor
 {
-public:
-    ValueInstrumentor(Compiler* comp) : Instrumentor(comp) {}
-    bool ShouldProcess(BasicBlock* block) override
-    {
-        return block->HasFlag(BBF_IMPORTED) && !block->HasFlag(BBF_INTERNAL);
-    }
-    void Prepare(bool isPreImport) override;
-    void BuildSchemaElements(BasicBlock* block, Schema& schema) override;
-    void Instrument(BasicBlock* block, Schema& schema, uint8_t* profileMemory) override;
+    public:
+        ValueInstrumentor(Compiler* comp)
+            : Instrumentor(comp)
+        {
+        }
+        bool ShouldProcess(BasicBlock* block) override
+        {
+            return block->HasFlag(BBF_IMPORTED) && !block->HasFlag(BBF_INTERNAL);
+        }
+        void Prepare(bool isPreImport) override;
+        void BuildSchemaElements(BasicBlock* block, Schema& schema) override;
+        void Instrument(BasicBlock* block, Schema& schema, uint8_t* profileMemory) override;
 };
 
 //------------------------------------------------------------------------
@@ -3070,256 +3120,263 @@ bool Compiler::fgIncorporateBlockCounts()
 //
 class EfficientEdgeCountReconstructor : public SpanningTreeVisitor
 {
-private:
-    Compiler*     m_comp;
-    CompAllocator m_allocator;
-    unsigned      m_blocks;
-    unsigned      m_edges;
-    unsigned      m_unknownBlocks;
-    unsigned      m_unknownEdges;
-    unsigned      m_zeroEdges;
+    private:
+        Compiler*     m_comp;
+        CompAllocator m_allocator;
+        unsigned      m_blocks;
+        unsigned      m_edges;
+        unsigned      m_unknownBlocks;
+        unsigned      m_unknownEdges;
+        unsigned      m_zeroEdges;
 
-    // Map correlating block keys to blocks.
-    //
-    typedef JitHashTable<int32_t, JitSmallPrimitiveKeyFuncs<int32_t>, BasicBlock*> KeyToBlockMap;
-    KeyToBlockMap                                                                  m_keyToBlockMap;
-
-    // Key for finding an edge based on schema info.
-    //
-    struct EdgeKey
-    {
-        int32_t const m_sourceKey;
-        int32_t const m_targetKey;
-
-        EdgeKey(int32_t sourceKey, int32_t targetKey) : m_sourceKey(sourceKey), m_targetKey(targetKey) {}
-
-        EdgeKey(BasicBlock* sourceBlock, BasicBlock* targetBlock)
-            : m_sourceKey(EfficientEdgeCountBlockToKey(sourceBlock))
-            , m_targetKey(EfficientEdgeCountBlockToKey(targetBlock))
-        {
-        }
-
-        static bool Equals(const EdgeKey& e1, const EdgeKey& e2)
-        {
-            return (e1.m_sourceKey == e2.m_sourceKey) && (e1.m_targetKey == e2.m_targetKey);
-        }
-
-        static unsigned GetHashCode(const EdgeKey& e)
-        {
-            return (unsigned)(e.m_sourceKey ^ (e.m_targetKey << 16));
-        }
-    };
-
-    // Per edge info
-    //
-    struct Edge
-    {
-        weight_t    m_weight;
-        BasicBlock* m_sourceBlock;
-        BasicBlock* m_targetBlock;
-        Edge*       m_nextOutgoingEdge;
-        Edge*       m_nextIncomingEdge;
-        bool        m_weightKnown;
-        bool        m_isPseudoEdge;
-
-        Edge(BasicBlock* source, BasicBlock* target)
-            : m_weight(BB_ZERO_WEIGHT)
-            , m_sourceBlock(source)
-            , m_targetBlock(target)
-            , m_nextOutgoingEdge(nullptr)
-            , m_nextIncomingEdge(nullptr)
-            , m_weightKnown(false)
-            , m_isPseudoEdge(false)
-        {
-        }
-    };
-
-    // Map for correlating EdgeIntCount schema entries with edges
-    //
-    typedef JitHashTable<EdgeKey, EdgeKey, Edge*> EdgeKeyToEdgeMap;
-    EdgeKeyToEdgeMap                              m_edgeKeyToEdgeMap;
-
-    // Per block data
-    //
-    struct BlockInfo
-    {
-        weight_t m_weight;
-        Edge*    m_incomingEdges;
-        Edge*    m_outgoingEdges;
-        int      m_incomingUnknown;
-        int      m_outgoingUnknown;
-        bool     m_weightKnown;
-
-        BlockInfo()
-            : m_weight(BB_ZERO_WEIGHT)
-            , m_incomingEdges(nullptr)
-            , m_outgoingEdges(nullptr)
-            , m_incomingUnknown(0)
-            , m_outgoingUnknown(0)
-            , m_weightKnown(false)
-        {
-        }
-    };
-
-    // Map a block to its info
-    //
-    BlockInfo* BlockToInfo(BasicBlock* block)
-    {
-        assert(block->bbSparseCountInfo != nullptr);
-        return (BlockInfo*)block->bbSparseCountInfo;
-    }
-
-    // Set up block info for a block.
-    //
-    void SetBlockInfo(BasicBlock* block, BlockInfo* info)
-    {
-        assert(block->bbSparseCountInfo == nullptr);
-        block->bbSparseCountInfo = info;
-    }
-
-    void MarkInterestingBlocks(BasicBlock* block, BlockInfo* info);
-    void MarkInterestingSwitches(BasicBlock* block, BlockInfo* info);
-
-    void PropagateEdges(BasicBlock* block, BlockInfo* info, unsigned nSucc);
-    void PropagateOSREntryEdges(BasicBlock* block, BlockInfo* info, unsigned nSucc);
-
-    // Flags for noting and handling various error cases.
-    //
-    bool m_badcode;
-    bool m_mismatch;
-    bool m_negativeCount;
-    bool m_failedToConverge;
-    bool m_allWeightsZero;
-    bool m_entryWeightZero;
-
-public:
-    EfficientEdgeCountReconstructor(Compiler* comp)
-        : SpanningTreeVisitor()
-        , m_comp(comp)
-        , m_allocator(comp->getAllocator(CMK_Pgo))
-        , m_blocks(0)
-        , m_edges(0)
-        , m_unknownBlocks(0)
-        , m_unknownEdges(0)
-        , m_zeroEdges(0)
-        , m_keyToBlockMap(m_allocator)
-        , m_edgeKeyToEdgeMap(m_allocator)
-        , m_badcode(false)
-        , m_mismatch(false)
-        , m_negativeCount(false)
-        , m_failedToConverge(false)
-        , m_allWeightsZero(true)
-        , m_entryWeightZero(false)
-    {
-    }
-
-    void Prepare();
-    void Solve();
-    void Propagate();
-
-    void Badcode() override
-    {
-        m_badcode = true;
-    }
-
-    void NegativeCount()
-    {
-        m_negativeCount = true;
-    }
-
-    void Mismatch()
-    {
-        m_mismatch = true;
-    }
-
-    void FailedToConverge()
-    {
-        m_failedToConverge = true;
-    }
-
-    void EntryWeightZero()
-    {
-        m_entryWeightZero = true;
-    }
-
-    // Are there are reparable issues with the reconstruction?
-    //
-    bool IsGood() const
-    {
-        return !(m_entryWeightZero || m_negativeCount);
-    }
-
-    void VisitBlock(BasicBlock*) override {}
-
-    void VisitTreeEdge(BasicBlock* source, BasicBlock* target) override
-    {
-        // Tree edges should not be in the schema.
+        // Map correlating block keys to blocks.
         //
-        // If they are, we have somekind of mismatch between instrumentation and
-        // reconstruction. Flag this.
+        typedef JitHashTable<int32_t, JitSmallPrimitiveKeyFuncs<int32_t>, BasicBlock*> KeyToBlockMap;
+        KeyToBlockMap                                                                  m_keyToBlockMap;
+
+        // Key for finding an edge based on schema info.
         //
-        EdgeKey key(source, target);
-
-        if (m_edgeKeyToEdgeMap.Lookup(key))
+        struct EdgeKey
         {
-            JITDUMP("Did not expect tree edge " FMT_BB " -> " FMT_BB " to be present in the schema (key %08x, %08x)\n",
-                    source->bbNum, target->bbNum, key.m_sourceKey, key.m_targetKey);
+                int32_t const m_sourceKey;
+                int32_t const m_targetKey;
 
-            Mismatch();
-            return;
+                EdgeKey(int32_t sourceKey, int32_t targetKey)
+                    : m_sourceKey(sourceKey)
+                    , m_targetKey(targetKey)
+                {
+                }
+
+                EdgeKey(BasicBlock* sourceBlock, BasicBlock* targetBlock)
+                    : m_sourceKey(EfficientEdgeCountBlockToKey(sourceBlock))
+                    , m_targetKey(EfficientEdgeCountBlockToKey(targetBlock))
+                {
+                }
+
+                static bool Equals(const EdgeKey& e1, const EdgeKey& e2)
+                {
+                    return (e1.m_sourceKey == e2.m_sourceKey) && (e1.m_targetKey == e2.m_targetKey);
+                }
+
+                static unsigned GetHashCode(const EdgeKey& e)
+                {
+                    return (unsigned)(e.m_sourceKey ^ (e.m_targetKey << 16));
+                }
+        };
+
+        // Per edge info
+        //
+        struct Edge
+        {
+                weight_t    m_weight;
+                BasicBlock* m_sourceBlock;
+                BasicBlock* m_targetBlock;
+                Edge*       m_nextOutgoingEdge;
+                Edge*       m_nextIncomingEdge;
+                bool        m_weightKnown;
+                bool        m_isPseudoEdge;
+
+                Edge(BasicBlock* source, BasicBlock* target)
+                    : m_weight(BB_ZERO_WEIGHT)
+                    , m_sourceBlock(source)
+                    , m_targetBlock(target)
+                    , m_nextOutgoingEdge(nullptr)
+                    , m_nextIncomingEdge(nullptr)
+                    , m_weightKnown(false)
+                    , m_isPseudoEdge(false)
+                {
+                }
+        };
+
+        // Map for correlating EdgeIntCount schema entries with edges
+        //
+        typedef JitHashTable<EdgeKey, EdgeKey, Edge*> EdgeKeyToEdgeMap;
+        EdgeKeyToEdgeMap                              m_edgeKeyToEdgeMap;
+
+        // Per block data
+        //
+        struct BlockInfo
+        {
+                weight_t m_weight;
+                Edge*    m_incomingEdges;
+                Edge*    m_outgoingEdges;
+                int      m_incomingUnknown;
+                int      m_outgoingUnknown;
+                bool     m_weightKnown;
+
+                BlockInfo()
+                    : m_weight(BB_ZERO_WEIGHT)
+                    , m_incomingEdges(nullptr)
+                    , m_outgoingEdges(nullptr)
+                    , m_incomingUnknown(0)
+                    , m_outgoingUnknown(0)
+                    , m_weightKnown(false)
+                {
+                }
+        };
+
+        // Map a block to its info
+        //
+        BlockInfo* BlockToInfo(BasicBlock* block)
+        {
+            assert(block->bbSparseCountInfo != nullptr);
+            return (BlockInfo*)block->bbSparseCountInfo;
         }
 
-        Edge* const edge = new (m_allocator) Edge(source, target);
-        m_edges++;
-        m_unknownEdges++;
-
-        BlockInfo* const sourceInfo = BlockToInfo(source);
-        edge->m_nextOutgoingEdge    = sourceInfo->m_outgoingEdges;
-        sourceInfo->m_outgoingEdges = edge;
-        sourceInfo->m_outgoingUnknown++;
-
-        BlockInfo* const targetInfo = BlockToInfo(target);
-        edge->m_nextIncomingEdge    = targetInfo->m_incomingEdges;
-        targetInfo->m_incomingEdges = edge;
-        targetInfo->m_incomingUnknown++;
-
-        JITDUMP(" ... unknown edge " FMT_BB " -> " FMT_BB "\n", source->bbNum, target->bbNum);
-    }
-
-    void VisitNonTreeEdge(BasicBlock* source, BasicBlock* target, SpanningTreeVisitor::EdgeKind kind) override
-    {
-        // We may have this edge in the schema, and so already added this edge to the map.
+        // Set up block info for a block.
         //
-        EdgeKey key(source, target);
-        Edge*   edge = nullptr;
-
-        BlockInfo* const sourceInfo = BlockToInfo(source);
-
-        if (!m_edgeKeyToEdgeMap.Lookup(key, &edge))
+        void SetBlockInfo(BasicBlock* block, BlockInfo* info)
         {
-            // If the edge is missing, assume it is zero.
+            assert(block->bbSparseCountInfo == nullptr);
+            block->bbSparseCountInfo = info;
+        }
+
+        void MarkInterestingBlocks(BasicBlock* block, BlockInfo* info);
+        void MarkInterestingSwitches(BasicBlock* block, BlockInfo* info);
+
+        void PropagateEdges(BasicBlock* block, BlockInfo* info, unsigned nSucc);
+        void PropagateOSREntryEdges(BasicBlock* block, BlockInfo* info, unsigned nSucc);
+
+        // Flags for noting and handling various error cases.
+        //
+        bool m_badcode;
+        bool m_mismatch;
+        bool m_negativeCount;
+        bool m_failedToConverge;
+        bool m_allWeightsZero;
+        bool m_entryWeightZero;
+
+    public:
+        EfficientEdgeCountReconstructor(Compiler* comp)
+            : SpanningTreeVisitor()
+            , m_comp(comp)
+            , m_allocator(comp->getAllocator(CMK_Pgo))
+            , m_blocks(0)
+            , m_edges(0)
+            , m_unknownBlocks(0)
+            , m_unknownEdges(0)
+            , m_zeroEdges(0)
+            , m_keyToBlockMap(m_allocator)
+            , m_edgeKeyToEdgeMap(m_allocator)
+            , m_badcode(false)
+            , m_mismatch(false)
+            , m_negativeCount(false)
+            , m_failedToConverge(false)
+            , m_allWeightsZero(true)
+            , m_entryWeightZero(false)
+        {
+        }
+
+        void Prepare();
+        void Solve();
+        void Propagate();
+
+        void Badcode() override
+        {
+            m_badcode = true;
+        }
+
+        void NegativeCount()
+        {
+            m_negativeCount = true;
+        }
+
+        void Mismatch()
+        {
+            m_mismatch = true;
+        }
+
+        void FailedToConverge()
+        {
+            m_failedToConverge = true;
+        }
+
+        void EntryWeightZero()
+        {
+            m_entryWeightZero = true;
+        }
+
+        // Are there are reparable issues with the reconstruction?
+        //
+        bool IsGood() const
+        {
+            return !(m_entryWeightZero || m_negativeCount);
+        }
+
+        void VisitBlock(BasicBlock*) override
+        {
+        }
+
+        void VisitTreeEdge(BasicBlock* source, BasicBlock* target) override
+        {
+            // Tree edges should not be in the schema.
             //
-            JITDUMP("Schema is missing non-tree edge " FMT_BB " -> " FMT_BB ", will presume zero\n", source->bbNum,
-                    target->bbNum);
-            edge = new (m_allocator) Edge(source, target);
-            m_edges++;
-            m_zeroEdges++;
+            // If they are, we have somekind of mismatch between instrumentation and
+            // reconstruction. Flag this.
+            //
+            EdgeKey key(source, target);
 
-            edge->m_weightKnown = true;
-            edge->m_weight      = 0;
+            if (m_edgeKeyToEdgeMap.Lookup(key))
+            {
+                JITDUMP("Did not expect tree edge " FMT_BB " -> " FMT_BB
+                        " to be present in the schema (key %08x, %08x)\n",
+                        source->bbNum, target->bbNum, key.m_sourceKey, key.m_targetKey);
+
+                Mismatch();
+                return;
+            }
+
+            Edge* const edge = new (m_allocator) Edge(source, target);
+            m_edges++;
+            m_unknownEdges++;
+
+            BlockInfo* const sourceInfo = BlockToInfo(source);
+            edge->m_nextOutgoingEdge    = sourceInfo->m_outgoingEdges;
+            sourceInfo->m_outgoingEdges = edge;
+            sourceInfo->m_outgoingUnknown++;
+
+            BlockInfo* const targetInfo = BlockToInfo(target);
+            edge->m_nextIncomingEdge    = targetInfo->m_incomingEdges;
+            targetInfo->m_incomingEdges = edge;
+            targetInfo->m_incomingUnknown++;
+
+            JITDUMP(" ... unknown edge " FMT_BB " -> " FMT_BB "\n", source->bbNum, target->bbNum);
         }
 
-        edge->m_nextOutgoingEdge    = sourceInfo->m_outgoingEdges;
-        sourceInfo->m_outgoingEdges = edge;
+        void VisitNonTreeEdge(BasicBlock* source, BasicBlock* target, SpanningTreeVisitor::EdgeKind kind) override
+        {
+            // We may have this edge in the schema, and so already added this edge to the map.
+            //
+            EdgeKey key(source, target);
+            Edge*   edge = nullptr;
 
-        BlockInfo* const targetInfo = BlockToInfo(target);
-        edge->m_nextIncomingEdge    = targetInfo->m_incomingEdges;
-        targetInfo->m_incomingEdges = edge;
+            BlockInfo* const sourceInfo = BlockToInfo(source);
 
-        edge->m_isPseudoEdge = (kind == EdgeKind::Pseudo);
-        JITDUMP(" ... %s edge " FMT_BB " -> " FMT_BB "\n", edge->m_isPseudoEdge ? "pseudo " : "known  ", source->bbNum,
-                target->bbNum);
-    }
+            if (!m_edgeKeyToEdgeMap.Lookup(key, &edge))
+            {
+                // If the edge is missing, assume it is zero.
+                //
+                JITDUMP("Schema is missing non-tree edge " FMT_BB " -> " FMT_BB ", will presume zero\n", source->bbNum,
+                        target->bbNum);
+                edge = new (m_allocator) Edge(source, target);
+                m_edges++;
+                m_zeroEdges++;
+
+                edge->m_weightKnown = true;
+                edge->m_weight      = 0;
+            }
+
+            edge->m_nextOutgoingEdge    = sourceInfo->m_outgoingEdges;
+            sourceInfo->m_outgoingEdges = edge;
+
+            BlockInfo* const targetInfo = BlockToInfo(target);
+            edge->m_nextIncomingEdge    = targetInfo->m_incomingEdges;
+            targetInfo->m_incomingEdges = edge;
+
+            edge->m_isPseudoEdge = (kind == EdgeKind::Pseudo);
+            JITDUMP(" ... %s edge " FMT_BB " -> " FMT_BB "\n", edge->m_isPseudoEdge ? "pseudo " : "known  ",
+                    source->bbNum, target->bbNum);
+        }
 };
 
 //------------------------------------------------------------------------
@@ -3367,109 +3424,109 @@ void EfficientEdgeCountReconstructor::Prepare()
         {
             case ICorJitInfo::PgoInstrumentationKind::EdgeIntCount:
             case ICorJitInfo::PgoInstrumentationKind::EdgeLongCount:
-            {
-                // Find the blocks.
-                //
-                BasicBlock* sourceBlock = nullptr;
-
-                if (!m_keyToBlockMap.Lookup(schemaEntry.ILOffset, &sourceBlock))
                 {
-                    JITDUMP("Could not find source block for schema entry %d (IL offset/key %08x)\n", iSchema,
-                            schemaEntry.ILOffset);
-                }
-
-                BasicBlock* targetBlock = nullptr;
-
-                if (!m_keyToBlockMap.Lookup(schemaEntry.Other, &targetBlock))
-                {
-                    JITDUMP("Could not find target block for schema entry %d (IL offset/key %08x)\n", iSchema,
-                            schemaEntry.ILOffset);
-                }
-
-                if ((sourceBlock == nullptr) || (targetBlock == nullptr))
-                {
-                    // Looks like there is skew between schema and graph.
+                    // Find the blocks.
                     //
-                    Mismatch();
-                    continue;
-                }
+                    BasicBlock* sourceBlock = nullptr;
 
-                // Optimization TODO: if profileCount is zero, we can just ignore this edge
-                // and the right things will happen.
-                //
-                uint64_t profileCount =
-                    schemaEntry.InstrumentationKind == ICorJitInfo::PgoInstrumentationKind::EdgeIntCount
-                        ? *(uint32_t*)(m_comp->fgPgoData + schemaEntry.Offset)
-                        : *(uint64_t*)(m_comp->fgPgoData + schemaEntry.Offset);
+                    if (!m_keyToBlockMap.Lookup(schemaEntry.ILOffset, &sourceBlock))
+                    {
+                        JITDUMP("Could not find source block for schema entry %d (IL offset/key %08x)\n", iSchema,
+                                schemaEntry.ILOffset);
+                    }
+
+                    BasicBlock* targetBlock = nullptr;
+
+                    if (!m_keyToBlockMap.Lookup(schemaEntry.Other, &targetBlock))
+                    {
+                        JITDUMP("Could not find target block for schema entry %d (IL offset/key %08x)\n", iSchema,
+                                schemaEntry.ILOffset);
+                    }
+
+                    if ((sourceBlock == nullptr) || (targetBlock == nullptr))
+                    {
+                        // Looks like there is skew between schema and graph.
+                        //
+                        Mismatch();
+                        continue;
+                    }
+
+                    // Optimization TODO: if profileCount is zero, we can just ignore this edge
+                    // and the right things will happen.
+                    //
+                    uint64_t profileCount =
+                        schemaEntry.InstrumentationKind == ICorJitInfo::PgoInstrumentationKind::EdgeIntCount
+                            ? *(uint32_t*)(m_comp->fgPgoData + schemaEntry.Offset)
+                            : *(uint64_t*)(m_comp->fgPgoData + schemaEntry.Offset);
 
 #ifdef DEBUG
-                // Optional stress mode to use a random count. Because edge profile counters have
-                // little redundancy, random count assignments should generally lead to a consistent
-                // set of block counts.
-                //
-                const bool useRandom = (JitConfig.JitRandomEdgeCounts() != 0) && (nReturns > 0);
-
-                if (useRandom)
-                {
-                    // Reuse the random inliner's random state.
-                    // Config setting will serve as the random seed, if no other seed has been supplied already.
+                    // Optional stress mode to use a random count. Because edge profile counters have
+                    // little redundancy, random count assignments should generally lead to a consistent
+                    // set of block counts.
                     //
-                    CLRRandom* const random =
-                        m_comp->impInlineRoot()->m_inlineStrategy->GetRandom(JitConfig.JitRandomEdgeCounts());
+                    const bool useRandom = (JitConfig.JitRandomEdgeCounts() != 0) && (nReturns > 0);
 
-                    const bool isReturn = sourceBlock->KindIs(BBJ_RETURN);
-
-                    // We simulate the distribution of counts seen in StdOptimizationData.Mibc.
-                    //
-                    const double rval = random->NextDouble();
-
-                    // Ensure at least one return has nonzero counts.
-                    //
-                    if ((rval <= 0.5) && (!isReturn || (nZeroReturns < (nReturns - 1))))
+                    if (useRandom)
                     {
-                        profileCount = 0;
-                        if (isReturn)
+                        // Reuse the random inliner's random state.
+                        // Config setting will serve as the random seed, if no other seed has been supplied already.
+                        //
+                        CLRRandom* const random =
+                            m_comp->impInlineRoot()->m_inlineStrategy->GetRandom(JitConfig.JitRandomEdgeCounts());
+
+                        const bool isReturn = sourceBlock->KindIs(BBJ_RETURN);
+
+                        // We simulate the distribution of counts seen in StdOptimizationData.Mibc.
+                        //
+                        const double rval = random->NextDouble();
+
+                        // Ensure at least one return has nonzero counts.
+                        //
+                        if ((rval <= 0.5) && (!isReturn || (nZeroReturns < (nReturns - 1))))
                         {
-                            nZeroReturns++;
+                            profileCount = 0;
+                            if (isReturn)
+                            {
+                                nZeroReturns++;
+                            }
+                        }
+                        else if (rval <= 0.85)
+                        {
+                            profileCount = random->Next(1, 101);
+                        }
+                        else if (rval <= 0.96)
+                        {
+                            profileCount = random->Next(101, 10001);
+                        }
+                        else if (rval <= 0.995)
+                        {
+                            profileCount = random->Next(10001, 100001);
+                        }
+                        else
+                        {
+                            profileCount = random->Next(100001, 1000001);
                         }
                     }
-                    else if (rval <= 0.85)
-                    {
-                        profileCount = random->Next(1, 101);
-                    }
-                    else if (rval <= 0.96)
-                    {
-                        profileCount = random->Next(101, 10001);
-                    }
-                    else if (rval <= 0.995)
-                    {
-                        profileCount = random->Next(10001, 100001);
-                    }
-                    else
-                    {
-                        profileCount = random->Next(100001, 1000001);
-                    }
-                }
 #endif
 
-                weight_t const weight = (weight_t)profileCount;
+                    weight_t const weight = (weight_t)profileCount;
 
-                m_allWeightsZero &= (profileCount == 0);
+                    m_allWeightsZero &= (profileCount == 0);
 
-                Edge* const edge = new (m_allocator) Edge(sourceBlock, targetBlock);
+                    Edge* const edge = new (m_allocator) Edge(sourceBlock, targetBlock);
 
-                JITDUMP("... adding known edge " FMT_BB " -> " FMT_BB ": weight " FMT_WT "\n",
-                        edge->m_sourceBlock->bbNum, edge->m_targetBlock->bbNum, weight);
+                    JITDUMP("... adding known edge " FMT_BB " -> " FMT_BB ": weight " FMT_WT "\n",
+                            edge->m_sourceBlock->bbNum, edge->m_targetBlock->bbNum, weight);
 
-                edge->m_weightKnown = true;
-                edge->m_weight      = weight;
+                    edge->m_weightKnown = true;
+                    edge->m_weight      = weight;
 
-                EdgeKey edgeKey(schemaEntry.ILOffset, schemaEntry.Other);
-                m_edgeKeyToEdgeMap.Set(edgeKey, edge);
+                    EdgeKey edgeKey(schemaEntry.ILOffset, schemaEntry.Other);
+                    m_edgeKeyToEdgeMap.Set(edgeKey, edge);
 
-                m_edges++;
-            }
-            break;
+                    m_edges++;
+                }
+                break;
 
             default:
                 break;
@@ -4327,7 +4384,7 @@ bool FlowEdge::setEdgeWeightMinChecked(weight_t newWeight, BasicBlock* bDst, wei
                 getSourceBlock()->bbNum, bDst->bbNum, newWeight, m_edgeWeightMin, m_edgeWeightMax, slop);
         result = false; // break here
     }
-#endif // DEBUG
+#endif                  // DEBUG
 
     return result;
 }
@@ -4437,7 +4494,7 @@ bool FlowEdge::setEdgeWeightMaxChecked(weight_t newWeight, BasicBlock* bDst, wei
                 getSourceBlock()->bbNum, bDst->bbNum, newWeight, m_edgeWeightMin, m_edgeWeightMax, slop);
         result = false; // break here
     }
-#endif // DEBUG
+#endif                  // DEBUG
 
     return result;
 }

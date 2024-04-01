@@ -6,8 +6,7 @@
 #define _GENTREEOPSDEF_H_
 /*****************************************************************************/
 
-enum genTreeOps : BYTE
-{
+enum genTreeOps : BYTE {
 #define GTNODE(en, st, cm, ivn, ok) GT_##en,
 #include "gtlist.h"
 

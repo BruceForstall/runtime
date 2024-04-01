@@ -14,8 +14,7 @@
 //
 // See scev.cpp for further documentation.
 //
-enum class ScevOper
-{
+enum class ScevOper {
     Constant,
     Local,
     ZeroExtend,
@@ -31,77 +30,91 @@ static bool ScevOperIs(ScevOper oper, ScevOper otherOper)
     return oper == otherOper;
 }
 
-template <typename... Args>
-static bool ScevOperIs(ScevOper oper, ScevOper operFirst, Args... operTail)
+template <typename... Args> static bool ScevOperIs(ScevOper oper, ScevOper operFirst, Args... operTail)
 {
     return oper == operFirst || ScevOperIs(oper, operTail...);
 }
 
-enum class ScevVisit
-{
+enum class ScevVisit {
     Abort,
     Continue,
 };
 
 struct Scev
 {
-    const ScevOper  Oper;
-    const var_types Type;
+        const ScevOper  Oper;
+        const var_types Type;
 
-    Scev(ScevOper oper, var_types type) : Oper(oper), Type(type) {}
+        Scev(ScevOper oper, var_types type)
+            : Oper(oper)
+            , Type(type)
+        {
+        }
 
-    template <typename... Args>
-    bool OperIs(Args... opers)
-    {
-        return ScevOperIs(Oper, opers...);
-    }
+        template <typename... Args> bool OperIs(Args... opers)
+        {
+            return ScevOperIs(Oper, opers...);
+        }
 
-    bool TypeIs(var_types type)
-    {
-        return Type == type;
-    }
+        bool TypeIs(var_types type)
+        {
+            return Type == type;
+        }
 
-    bool GetConstantValue(Compiler* comp, int64_t* cns);
+        bool GetConstantValue(Compiler* comp, int64_t* cns);
 
 #ifdef DEBUG
-    void Dump(Compiler* comp);
+        void Dump(Compiler* comp);
 #endif
-    template <typename TVisitor>
-    ScevVisit Visit(TVisitor visitor);
+        template <typename TVisitor> ScevVisit Visit(TVisitor visitor);
 };
 
 struct ScevConstant : Scev
 {
-    ScevConstant(var_types type, int64_t value) : Scev(ScevOper::Constant, type), Value(value) {}
+        ScevConstant(var_types type, int64_t value)
+            : Scev(ScevOper::Constant, type)
+            , Value(value)
+        {
+        }
 
-    int64_t Value;
+        int64_t Value;
 };
 
 struct ScevLocal : Scev
 {
-    ScevLocal(var_types type, unsigned lclNum, unsigned ssaNum)
-        : Scev(ScevOper::Local, type), LclNum(lclNum), SsaNum(ssaNum)
-    {
-    }
+        ScevLocal(var_types type, unsigned lclNum, unsigned ssaNum)
+            : Scev(ScevOper::Local, type)
+            , LclNum(lclNum)
+            , SsaNum(ssaNum)
+        {
+        }
 
-    const unsigned LclNum;
-    const unsigned SsaNum;
+        const unsigned LclNum;
+        const unsigned SsaNum;
 
-    bool GetConstantValue(Compiler* comp, int64_t* cns);
+        bool GetConstantValue(Compiler* comp, int64_t* cns);
 };
 
 struct ScevUnop : Scev
 {
-    ScevUnop(ScevOper oper, var_types type, Scev* op1) : Scev(oper, type), Op1(op1) {}
+        ScevUnop(ScevOper oper, var_types type, Scev* op1)
+            : Scev(oper, type)
+            , Op1(op1)
+        {
+        }
 
-    Scev* const Op1;
+        Scev* const Op1;
 };
 
 struct ScevBinop : ScevUnop
 {
-    ScevBinop(ScevOper oper, var_types type, Scev* op1, Scev* op2) : ScevUnop(oper, type, op1), Op2(op2) {}
+        ScevBinop(ScevOper oper, var_types type, Scev* op1, Scev* op2)
+            : ScevUnop(oper, type, op1)
+            , Op2(op2)
+        {
+        }
 
-    Scev* const Op2;
+        Scev* const Op2;
 };
 
 // Represents a value that evolves by an add recurrence.
@@ -109,14 +122,16 @@ struct ScevBinop : ScevUnop
 // "Start" and "Step" are guaranteed to be invariant in "Loop".
 struct ScevAddRec : Scev
 {
-    ScevAddRec(var_types type, Scev* start, Scev* step DEBUGARG(FlowGraphNaturalLoop* loop))
-        : Scev(ScevOper::AddRec, type), Start(start), Step(step) DEBUGARG(Loop(loop))
-    {
-    }
+        ScevAddRec(var_types type, Scev* start, Scev* step DEBUGARG(FlowGraphNaturalLoop* loop))
+            : Scev(ScevOper::AddRec, type)
+            , Start(start)
+            , Step(step) DEBUGARG(Loop(loop))
+        {
+        }
 
-    Scev* const Start;
-    Scev* const Step;
-    INDEBUG(FlowGraphNaturalLoop* const Loop);
+        Scev* const Start;
+        Scev* const Step;
+        INDEBUG(FlowGraphNaturalLoop* const Loop);
 };
 
 //------------------------------------------------------------------------
@@ -131,8 +146,7 @@ struct ScevAddRec : Scev
 // Remarks:
 //   The visit is done in preorder.
 //
-template <typename TVisitor>
-ScevVisit Scev::Visit(TVisitor visitor)
+template <typename TVisitor> ScevVisit Scev::Visit(TVisitor visitor)
 {
     if (visitor(this) == ScevVisit::Abort)
         return ScevVisit::Abort;
@@ -148,21 +162,21 @@ ScevVisit Scev::Visit(TVisitor visitor)
         case ScevOper::Add:
         case ScevOper::Mul:
         case ScevOper::Lsh:
-        {
-            ScevBinop* binop = static_cast<ScevBinop*>(this);
-            if (binop->Op1->Visit(visitor) == ScevVisit::Abort)
-                return ScevVisit::Abort;
+            {
+                ScevBinop* binop = static_cast<ScevBinop*>(this);
+                if (binop->Op1->Visit(visitor) == ScevVisit::Abort)
+                    return ScevVisit::Abort;
 
-            return binop->Op2->Visit(visitor);
-        }
+                return binop->Op2->Visit(visitor);
+            }
         case ScevOper::AddRec:
-        {
-            ScevAddRec* addrec = static_cast<ScevAddRec*>(this);
-            if (addrec->Start->Visit(visitor) == ScevVisit::Abort)
-                return ScevVisit::Abort;
+            {
+                ScevAddRec* addrec = static_cast<ScevAddRec*>(this);
+                if (addrec->Start->Visit(visitor) == ScevVisit::Abort)
+                    return ScevVisit::Abort;
 
-            return addrec->Step->Visit(visitor);
-        }
+                return addrec->Step->Visit(visitor);
+            }
         default:
             unreached();
     }
@@ -177,38 +191,38 @@ typedef JitHashTable<GenTree*, JitPtrKeyFuncs<GenTree>, Scev*> ScalarEvolutionMa
 // also maintains a cache.
 class ScalarEvolutionContext
 {
-    Compiler*             m_comp;
-    FlowGraphNaturalLoop* m_loop = nullptr;
-    ScalarEvolutionMap    m_cache;
+        Compiler*             m_comp;
+        FlowGraphNaturalLoop* m_loop = nullptr;
+        ScalarEvolutionMap    m_cache;
 
-    // During analysis of PHIs we insert a symbolic node representing the
-    // "recurrence"; we use this cache to be able to invalidate things that end
-    // up depending on the symbolic node quickly.
-    ScalarEvolutionMap m_ephemeralCache;
-    bool               m_usingEphemeralCache = false;
+        // During analysis of PHIs we insert a symbolic node representing the
+        // "recurrence"; we use this cache to be able to invalidate things that end
+        // up depending on the symbolic node quickly.
+        ScalarEvolutionMap m_ephemeralCache;
+        bool               m_usingEphemeralCache = false;
 
-    Scev* Analyze(BasicBlock* block, GenTree* tree, int depth);
-    Scev* AnalyzeNew(BasicBlock* block, GenTree* tree, int depth);
-    Scev* CreateSimpleAddRec(GenTreeLclVarCommon* headerStore,
-                             ScevLocal*           start,
-                             BasicBlock*          stepDefBlock,
-                             GenTree*             stepDefData);
-    Scev* MakeAddRecFromRecursiveScev(Scev* start, Scev* scev, Scev* recursiveScev);
-    Scev* CreateSimpleInvariantScev(GenTree* tree);
-    Scev* CreateScevForConstant(GenTreeIntConCommon* tree);
-    void  ExtractAddOperands(ScevBinop* add, ArrayStack<Scev*>& operands);
+        Scev* Analyze(BasicBlock* block, GenTree* tree, int depth);
+        Scev* AnalyzeNew(BasicBlock* block, GenTree* tree, int depth);
+        Scev* CreateSimpleAddRec(GenTreeLclVarCommon* headerStore,
+                                 ScevLocal*           start,
+                                 BasicBlock*          stepDefBlock,
+                                 GenTree*             stepDefData);
+        Scev* MakeAddRecFromRecursiveScev(Scev* start, Scev* scev, Scev* recursiveScev);
+        Scev* CreateSimpleInvariantScev(GenTree* tree);
+        Scev* CreateScevForConstant(GenTreeIntConCommon* tree);
+        void  ExtractAddOperands(ScevBinop* add, ArrayStack<Scev*>& operands);
 
-public:
-    ScalarEvolutionContext(Compiler* comp);
+    public:
+        ScalarEvolutionContext(Compiler* comp);
 
-    void ResetForLoop(FlowGraphNaturalLoop* loop);
+        void ResetForLoop(FlowGraphNaturalLoop* loop);
 
-    ScevConstant* NewConstant(var_types type, int64_t value);
-    ScevLocal*    NewLocal(unsigned lclNum, unsigned ssaNum);
-    ScevUnop*     NewExtension(ScevOper oper, var_types targetType, Scev* op);
-    ScevBinop*    NewBinop(ScevOper oper, Scev* op1, Scev* op2);
-    ScevAddRec*   NewAddRec(Scev* start, Scev* step);
+        ScevConstant* NewConstant(var_types type, int64_t value);
+        ScevLocal*    NewLocal(unsigned lclNum, unsigned ssaNum);
+        ScevUnop*     NewExtension(ScevOper oper, var_types targetType, Scev* op);
+        ScevBinop*    NewBinop(ScevOper oper, Scev* op1, Scev* op2);
+        ScevAddRec*   NewAddRec(Scev* start, Scev* step);
 
-    Scev* Analyze(BasicBlock* block, GenTree* tree);
-    Scev* Simplify(Scev* scev);
+        Scev* Analyze(BasicBlock* block, GenTree* tree);
+        Scev* Simplify(Scev* scev);
 };

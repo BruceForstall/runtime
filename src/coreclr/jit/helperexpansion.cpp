@@ -1866,8 +1866,7 @@ PhaseStatus Compiler::fgLateCastExpansion()
     return fgExpandHelper<&Compiler::fgLateCastExpansionForCall>(skipForRarelyRunBlocks);
 }
 
-enum class TypeCheckFailedAction
-{
+enum class TypeCheckFailedAction {
     Unknown,
     ReturnNull,
     CallHelper,
@@ -1875,8 +1874,7 @@ enum class TypeCheckFailedAction
     CallHelper_AlwaysThrows
 };
 
-enum class TypeCheckPassedAction
-{
+enum class TypeCheckPassedAction {
     Unknown,
     ReturnObj,
     ReturnNull,

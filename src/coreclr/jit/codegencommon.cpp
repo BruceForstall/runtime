@@ -65,7 +65,10 @@ CodeGenInterface* getCodeGenerator(Compiler* comp)
 
 // CodeGen constructor
 CodeGenInterface::CodeGenInterface(Compiler* theCompiler)
-    : gcInfo(theCompiler), regSet(theCompiler, gcInfo), compiler(theCompiler), treeLifeUpdater(nullptr)
+    : gcInfo(theCompiler)
+    , regSet(theCompiler, gcInfo)
+    , compiler(theCompiler)
+    , treeLifeUpdater(nullptr)
 {
 }
 
@@ -84,7 +87,8 @@ void CodeGenInterface::CopyRegisterInfo()
 
 /*****************************************************************************/
 
-CodeGen::CodeGen(Compiler* theCompiler) : CodeGenInterface(theCompiler)
+CodeGen::CodeGen(Compiler* theCompiler)
+    : CodeGenInterface(theCompiler)
 {
 #if defined(TARGET_XARCH)
     negBitmaskFlt  = nullptr;
@@ -673,8 +677,7 @@ regMaskTP Compiler::compHelperCallKillSet(CorInfoHelpFunc helper)
 // Notes:
 //    If "ForCodeGen" is false, only "compCurLife" set (and no mask) will be updated.
 //
-template <bool ForCodeGen>
-void Compiler::compChangeLife(VARSET_VALARG_TP newLife)
+template <bool ForCodeGen> void Compiler::compChangeLife(VARSET_VALARG_TP newLife)
 {
 #ifdef DEBUG
     if (verbose)
@@ -1161,20 +1164,20 @@ AGAIN:
                     FALLTHROUGH;
 
                 case GT_LSH:
-                {
-                    unsigned mulCandidate = op1->GetScaledIndex();
-                    if (jitIsScaleIndexMul(mulCandidate, naturalMul))
                     {
-                        mul = mulCandidate;
-                        /* We can use "[mul*rv2 + icon]" */
+                        unsigned mulCandidate = op1->GetScaledIndex();
+                        if (jitIsScaleIndexMul(mulCandidate, naturalMul))
+                        {
+                            mul = mulCandidate;
+                            /* We can use "[mul*rv2 + icon]" */
 
-                        rv1 = nullptr;
-                        rv2 = op1->AsOp()->gtOp1;
+                            rv1 = nullptr;
+                            rv2 = op1->AsOp()->gtOp1;
 
-                        goto FOUND_AM;
+                            goto FOUND_AM;
+                        }
+                        break;
                     }
-                    break;
-                }
 
                 default:
                     break;
@@ -1229,37 +1232,37 @@ AGAIN:
             FALLTHROUGH;
 
         case GT_LSH:
-        {
-            unsigned mulCandidate = op1->GetScaledIndex();
-            if (jitIsScaleIndexMul(mulCandidate, naturalMul))
             {
-                /* 'op1' is a scaled value */
-                mul = mulCandidate;
-
-                rv1 = op2;
-                rv2 = op1->AsOp()->gtOp1;
-
-                int argScale;
-                while ((rv2->gtOper == GT_MUL || rv2->gtOper == GT_LSH) && (argScale = rv2->GetScaledIndex()) != 0)
+                unsigned mulCandidate = op1->GetScaledIndex();
+                if (jitIsScaleIndexMul(mulCandidate, naturalMul))
                 {
-                    if (jitIsScaleIndexMul(argScale * mul, naturalMul))
+                    /* 'op1' is a scaled value */
+                    mul = mulCandidate;
+
+                    rv1 = op2;
+                    rv2 = op1->AsOp()->gtOp1;
+
+                    int argScale;
+                    while ((rv2->gtOper == GT_MUL || rv2->gtOper == GT_LSH) && (argScale = rv2->GetScaledIndex()) != 0)
                     {
-                        mul = mul * argScale;
-                        rv2 = rv2->AsOp()->gtOp1;
+                        if (jitIsScaleIndexMul(argScale * mul, naturalMul))
+                        {
+                            mul = mul * argScale;
+                            rv2 = rv2->AsOp()->gtOp1;
+                        }
+                        else
+                        {
+                            break;
+                        }
                     }
-                    else
-                    {
-                        break;
-                    }
+
+                    noway_assert(rev == false);
+                    rev = true;
+
+                    goto FOUND_AM;
                 }
-
-                noway_assert(rev == false);
-                rev = true;
-
-                goto FOUND_AM;
+                break;
             }
-            break;
-        }
 
         case GT_COMMA:
 
@@ -1309,33 +1312,33 @@ AGAIN:
             FALLTHROUGH;
 
         case GT_LSH:
-        {
-            unsigned mulCandidate = op2->GetScaledIndex();
-            if (jitIsScaleIndexMul(mulCandidate, naturalMul))
             {
-                mul = mulCandidate;
-                // 'op2' is a scaled value...is it's argument also scaled?
-                int argScale;
-                rv2 = op2->AsOp()->gtOp1;
-                while ((rv2->gtOper == GT_MUL || rv2->gtOper == GT_LSH) && (argScale = rv2->GetScaledIndex()) != 0)
+                unsigned mulCandidate = op2->GetScaledIndex();
+                if (jitIsScaleIndexMul(mulCandidate, naturalMul))
                 {
-                    if (jitIsScaleIndexMul(argScale * mul, naturalMul))
+                    mul = mulCandidate;
+                    // 'op2' is a scaled value...is it's argument also scaled?
+                    int argScale;
+                    rv2 = op2->AsOp()->gtOp1;
+                    while ((rv2->gtOper == GT_MUL || rv2->gtOper == GT_LSH) && (argScale = rv2->GetScaledIndex()) != 0)
                     {
-                        mul = mul * argScale;
-                        rv2 = rv2->AsOp()->gtOp1;
+                        if (jitIsScaleIndexMul(argScale * mul, naturalMul))
+                        {
+                            mul = mul * argScale;
+                            rv2 = rv2->AsOp()->gtOp1;
+                        }
+                        else
+                        {
+                            break;
+                        }
                     }
-                    else
-                    {
-                        break;
-                    }
+
+                    rv1 = op1;
+
+                    goto FOUND_AM;
                 }
-
-                rv1 = op1;
-
-                goto FOUND_AM;
+                break;
             }
-            break;
-        }
 
         case GT_COMMA:
 
@@ -2577,10 +2580,10 @@ void CodeGen::genReportEH()
                 {
                     break; // we've reported all of them; no need to continue looking
                 }
-#endif // !DEBUG
+#endif                     // !DEBUG
 
-            } // for each 'true' enclosing 'try'
-        }     // for each EH table entry
+            }              // for each 'true' enclosing 'try'
+        }                  // for each EH table entry
 
         assert(duplicateClauseCount == reportedDuplicateClauseCount);
     } // if (duplicateClauseCount > 0)
@@ -2634,9 +2637,9 @@ void CodeGen::genReportEH()
                 {
                     break; // we're done; no need to keep looking
                 }
-#endif        // !DEBUG
-            } // block is BBJ_CALLFINALLY
-        }     // for each block
+#endif                     // !DEBUG
+            }              // block is BBJ_CALLFINALLY
+        }                  // for each block
 
         assert(clonedFinallyCount == reportedClonedFinallyCount);
     }  // if (clonedFinallyCount > 0)
@@ -2917,20 +2920,20 @@ void CodeGen::genFnPrologCalleeRegArgs(regNumber xtraReg, bool* pXtraRegClobbere
     //
     struct regArgElem
     {
-        unsigned  varNum;  // index into compiler->lvaTable[] for this register argument
-        var_types type;    // the Jit type of this regArgTab entry
-        unsigned  trashBy; // index into this regArgTab[] table of the register that will be copied to this register.
-                           // That is, for regArgTab[x].trashBy = y, argument register number 'y' will be copied to
-                           // argument register number 'x'. Only used when circular = true.
-        char slot;         // 0 means the register is not used for a register argument
-                           // 1 means the first part of a register argument
-                           // 2, 3 or 4  means the second,third or fourth part of a multireg argument
-        bool stackArg;     // true if the argument gets homed to the stack
-        bool writeThru;    // true if the argument gets homed to both stack and register
-        bool processed;    // true after we've processed the argument (and it is in its final location)
-        bool circular;     // true if this register participates in a circular dependency loop.
-        bool hfaConflict;  // arg is part of an HFA that will end up in the same register
-                           // but in a different slot (eg arg in s3 = v3.s[0], needs to end up in v3.s[3])
+            unsigned  varNum; // index into compiler->lvaTable[] for this register argument
+            var_types type;   // the Jit type of this regArgTab entry
+            unsigned trashBy; // index into this regArgTab[] table of the register that will be copied to this register.
+                              // That is, for regArgTab[x].trashBy = y, argument register number 'y' will be copied to
+                              // argument register number 'x'. Only used when circular = true.
+            char slot;        // 0 means the register is not used for a register argument
+                              // 1 means the first part of a register argument
+                              // 2, 3 or 4  means the second,third or fourth part of a multireg argument
+            bool stackArg;    // true if the argument gets homed to the stack
+            bool writeThru;   // true if the argument gets homed to both stack and register
+            bool processed;   // true after we've processed the argument (and it is in its final location)
+            bool circular;    // true if this register participates in a circular dependency loop.
+            bool hfaConflict; // arg is part of an HFA that will end up in the same register
+                              // but in a different slot (eg arg in s3 = v3.s[0], needs to end up in v3.s[3])
     } regArgTab[max(MAX_REG_ARG + 1, MAX_FLOAT_REG_ARG)] = {};
 
     unsigned   varNum;
@@ -3295,7 +3298,7 @@ void CodeGen::genFnPrologCalleeRegArgs(regNumber xtraReg, bool* pXtraRegClobbere
             }
             else
             {
-            NON_DEP:
+NON_DEP:
                 regArgTab[regArgNum + i].circular = false;
 
                 /* mark the argument register as free */
@@ -5754,7 +5757,7 @@ void CodeGen::genFnProlog()
         }
         if (isInMemory)
         {
-        INIT_STK:
+INIT_STK:
 
             hasUntrLcl = true;
 
@@ -6020,7 +6023,7 @@ void CodeGen::genFnProlog()
         }
 #ifndef TARGET_AMD64 // On AMD64, establish the frame pointer after the "sub rsp"
         genEstablishFramePointer(0, /*reportUnwindData*/ true);
-#endif // !TARGET_AMD64
+#endif               // !TARGET_AMD64
 
 #if DOUBLE_ALIGN
         if (compiler->genDoubleAlign())
@@ -6136,7 +6139,7 @@ void CodeGen::genFnProlog()
         genEstablishFramePointer(afterLclFrameSPtoFPdelta, /*reportUnwindData*/ false);
         needToEstablishFP = false; // nobody uses this later, but set it anyway, just to be explicit
     }
-#endif // TARGET_ARM
+#endif                             // TARGET_ARM
 
     if (compiler->info.compPublishStubParam)
     {
@@ -6166,7 +6169,7 @@ void CodeGen::genFnProlog()
 
     genSetPSPSym(initReg, &initRegZeroed);
 
-#else // !FEATURE_EH_FUNCLETS
+#else  // !FEATURE_EH_FUNCLETS
 
     // when compInitMem is true the genZeroInitFrame will zero out the shadow SP slots
     if (compiler->ehNeedsShadowSPslots() && !compiler->info.compInitMem)
@@ -6278,8 +6281,7 @@ void CodeGen::genFnProlog()
             genFnPrologCalleeRegArgs();
         }
 #else
-        auto assignIncomingRegisterArgs = [this, initReg, &initRegZeroed](RegState* regState)
-        {
+        auto assignIncomingRegisterArgs = [this, initReg, &initRegZeroed](RegState* regState) {
             if (regState->rsCalleeRegArgMaskLiveIn)
             {
                 // If we need an extra register to shuffle around the incoming registers
@@ -6869,7 +6871,7 @@ regMaskTP CodeGen::genPushRegs(regMaskTP regs, regMaskTP* byrefRegs, regMaskTP* 
     NYI("Don't call genPushRegs with real regs!");
     return RBM_NONE;
 
-#else // FEATURE_FIXED_OUT_ARGS
+#else  // FEATURE_FIXED_OUT_ARGS
 
     noway_assert(genTypeStSz(TYP_REF) == genTypeStSz(TYP_I_IMPL));
     noway_assert(genTypeStSz(TYP_BYREF) == genTypeStSz(TYP_I_IMPL));
@@ -6938,7 +6940,7 @@ void CodeGen::genPopRegs(regMaskTP regs, regMaskTP byrefRegs, regMaskTP noRefReg
 
     NYI("Don't call genPopRegs with real regs!");
 
-#else // FEATURE_FIXED_OUT_ARGS
+#else  // FEATURE_FIXED_OUT_ARGS
 
     noway_assert((regs & byrefRegs) == byrefRegs);
     noway_assert((regs & noRefRegs) == noRefRegs);
@@ -7353,8 +7355,7 @@ void CodeGen::genReportRichDebugInfoInlineTreeToFile(FILE* file, InlineContext* 
         fprintf(file, "\"ILOffset\":%u,", context->GetLocation().GetOffset());
         fprintf(file, "\"LocationFlags\":%u,", (uint32_t)context->GetLocation().EncodeSourceTypes());
         fprintf(file, "\"ExactILOffset\":%u,", context->GetActualCallOffset());
-        auto append = [&]()
-        {
+        auto append = [&]() {
             char        buffer[256];
             const char* methodName = compiler->eeGetMethodName(context->GetCallee(), buffer, sizeof(buffer));
             fprintf(file, "\"MethodName\":\"%s\",", methodName);
@@ -7590,7 +7591,7 @@ const char* CodeGen::siStackVarName(size_t offs, size_t size, unsigned reg, unsi
 #endif // !defined(DEBUG)
 #endif // defined(LATE_DISASM)
 
-//------------------------------------------------------------------------
+       //------------------------------------------------------------------------
 // indirForm: Make a temporary indir we can feed to pattern matching routines
 //    in cases where we don't want to instantiate all the indirs that happen.
 //

@@ -15,13 +15,13 @@
 
 // #define TESTING 1
 
-#define LOG2_BITS_PER_ELEMENT 5
+#define LOG2_BITS_PER_ELEMENT  5
 #define LOG2_ELEMENTS_PER_NODE 2
-#define LOG2_BITS_PER_NODE (LOG2_BITS_PER_ELEMENT + LOG2_ELEMENTS_PER_NODE)
+#define LOG2_BITS_PER_NODE     (LOG2_BITS_PER_ELEMENT + LOG2_ELEMENTS_PER_NODE)
 
-#define BITS_PER_ELEMENT (1 << LOG2_BITS_PER_ELEMENT)
+#define BITS_PER_ELEMENT  (1 << LOG2_BITS_PER_ELEMENT)
 #define ELEMENTS_PER_NODE (1 << LOG2_ELEMENTS_PER_NODE)
-#define BITS_PER_NODE (1 << LOG2_BITS_PER_NODE)
+#define BITS_PER_NODE     (1 << LOG2_BITS_PER_NODE)
 
 #ifdef TARGET_AMD64
 typedef unsigned __int64 elemType;
@@ -117,158 +117,156 @@ inline int nearest_pow2(unsigned number)
 
 class hashBvNode
 {
-public:
-    hashBvNode* next;
-    indexType   baseIndex;
-    elemType    elements[ELEMENTS_PER_NODE];
+    public:
+        hashBvNode* next;
+        indexType   baseIndex;
+        elemType    elements[ELEMENTS_PER_NODE];
 
-public:
-    hashBvNode(indexType base);
-    hashBvNode() {}
-    static hashBvNode* Create(indexType base, Compiler* comp);
-    void               Reconstruct(indexType base);
-    int                numElements()
-    {
-        return ELEMENTS_PER_NODE;
-    }
-    void setBit(indexType base);
-    void setLowest(indexType numToSet);
-    bool getBit(indexType base);
-    void clrBit(indexType base);
-    bool anySet();
-    bool belongsIn(indexType index);
-    int  countBits();
-    bool anyBits();
-    void foreachBit(bitAction x);
-    void freeNode(hashBvGlobalData* glob);
-    bool sameAs(hashBvNode* other);
-    void copyFrom(hashBvNode* other);
+    public:
+        hashBvNode(indexType base);
+        hashBvNode()
+        {
+        }
+        static hashBvNode* Create(indexType base, Compiler* comp);
+        void               Reconstruct(indexType base);
+        int                numElements()
+        {
+            return ELEMENTS_PER_NODE;
+        }
+        void setBit(indexType base);
+        void setLowest(indexType numToSet);
+        bool getBit(indexType base);
+        void clrBit(indexType base);
+        bool anySet();
+        bool belongsIn(indexType index);
+        int  countBits();
+        bool anyBits();
+        void foreachBit(bitAction x);
+        void freeNode(hashBvGlobalData* glob);
+        bool sameAs(hashBvNode* other);
+        void copyFrom(hashBvNode* other);
 
-    void AndWith(hashBvNode* other);
-    void OrWith(hashBvNode* other);
-    void XorWith(hashBvNode* other);
-    void Subtract(hashBvNode* other);
+        void AndWith(hashBvNode* other);
+        void OrWith(hashBvNode* other);
+        void XorWith(hashBvNode* other);
+        void Subtract(hashBvNode* other);
 
-    elemType AndWithChange(hashBvNode* other);
-    elemType OrWithChange(hashBvNode* other);
-    elemType XorWithChange(hashBvNode* other);
-    elemType SubtractWithChange(hashBvNode* other);
+        elemType AndWithChange(hashBvNode* other);
+        elemType OrWithChange(hashBvNode* other);
+        elemType XorWithChange(hashBvNode* other);
+        elemType SubtractWithChange(hashBvNode* other);
 
-    bool Intersects(hashBvNode* other);
+        bool Intersects(hashBvNode* other);
 
 #ifdef DEBUG
-    void dump();
+        void dump();
 #endif // DEBUG
 };
 
 class hashBv
 {
-public:
-    // --------------------------------------
-    // data
-    // --------------------------------------
-    hashBvNode** nodeArr;
-    hashBvNode*  initialVector[1];
+    public:
+        // --------------------------------------
+        // data
+        // --------------------------------------
+        hashBvNode** nodeArr;
+        hashBvNode*  initialVector[1];
 
-    union
-    {
-        Compiler* compiler;
-        // for freelist
-        hashBv* next;
-    };
+        union
+        {
+                Compiler* compiler;
+                // for freelist
+                hashBv* next;
+        };
 
-    unsigned short log2_hashSize;
-    // used for heuristic resizing... could be overflowed in rare circumstances
-    // but should not affect correctness
-    unsigned short numNodes;
+        unsigned short log2_hashSize;
+        // used for heuristic resizing... could be overflowed in rare circumstances
+        // but should not affect correctness
+        unsigned short numNodes;
 
-public:
-    hashBv(Compiler* comp);
-    static hashBv* Create(Compiler* comp);
-    static void    Init(Compiler* comp);
-    static hashBv* CreateFrom(hashBv* other, Compiler* comp);
-    void           hbvFree();
+    public:
+        hashBv(Compiler* comp);
+        static hashBv* Create(Compiler* comp);
+        static void    Init(Compiler* comp);
+        static hashBv* CreateFrom(hashBv* other, Compiler* comp);
+        void           hbvFree();
 #ifdef DEBUG
-    void dump();
-    void dumpFancy();
+        void dump();
+        void dumpFancy();
 #endif // DEBUG
-    __forceinline int hashtable_size() const
-    {
-        return 1 << this->log2_hashSize;
-    }
+        __forceinline int hashtable_size() const
+        {
+            return 1 << this->log2_hashSize;
+        }
 
-    hashBvGlobalData* globalData();
+        hashBvGlobalData* globalData();
 
-    static hashBvNode*& nodeFreeList(hashBvGlobalData* globalData);
-    static hashBv*&     hbvFreeList(hashBvGlobalData* data);
+        static hashBvNode*& nodeFreeList(hashBvGlobalData* globalData);
+        static hashBv*&     hbvFreeList(hashBvGlobalData* data);
 
-    hashBvNode** getInsertionPointForIndex(indexType index);
+        hashBvNode** getInsertionPointForIndex(indexType index);
 
-private:
-    hashBvNode* getNodeForIndexHelper(indexType index, bool canAdd);
-    int         getHashForIndex(indexType index, int table_size);
-    int         getRehashForIndex(indexType thisIndex, int thisTableSize, int newTableSize);
+    private:
+        hashBvNode* getNodeForIndexHelper(indexType index, bool canAdd);
+        int         getHashForIndex(indexType index, int table_size);
+        int         getRehashForIndex(indexType thisIndex, int thisTableSize, int newTableSize);
 
-    // maintain free lists for vectors
-    hashBvNode** getNewVector(int vectorLength);
-    int          getNodeCount();
+        // maintain free lists for vectors
+        hashBvNode** getNewVector(int vectorLength);
+        int          getNodeCount();
 
-public:
-    inline hashBvNode* getOrAddNodeForIndex(indexType index)
-    {
-        hashBvNode* temp = getNodeForIndexHelper(index, true);
-        return temp;
-    }
-    hashBvNode* getNodeForIndex(indexType index);
-    void        removeNodeAtBase(indexType index);
+    public:
+        inline hashBvNode* getOrAddNodeForIndex(indexType index)
+        {
+            hashBvNode* temp = getNodeForIndexHelper(index, true);
+            return temp;
+        }
+        hashBvNode* getNodeForIndex(indexType index);
+        void        removeNodeAtBase(indexType index);
 
-public:
-    void setBit(indexType index);
-    void setAll(indexType numToSet);
-    bool testBit(indexType index);
-    void clearBit(indexType index);
-    int  countBits();
-    bool anySet();
-    void copyFrom(hashBv* other, Compiler* comp);
-    void ZeroAll();
-    bool CompareWith(hashBv* other);
+    public:
+        void setBit(indexType index);
+        void setAll(indexType numToSet);
+        bool testBit(indexType index);
+        void clearBit(indexType index);
+        int  countBits();
+        bool anySet();
+        void copyFrom(hashBv* other, Compiler* comp);
+        void ZeroAll();
+        bool CompareWith(hashBv* other);
 
-    void AndWith(hashBv* other);
-    void OrWith(hashBv* other);
-    void XorWith(hashBv* other);
-    void Subtract(hashBv* other);
-    void Subtract3(hashBv* other, hashBv* other2);
+        void AndWith(hashBv* other);
+        void OrWith(hashBv* other);
+        void XorWith(hashBv* other);
+        void Subtract(hashBv* other);
+        void Subtract3(hashBv* other, hashBv* other2);
 
-    void UnionMinus(hashBv* a, hashBv* b, hashBv* c);
+        void UnionMinus(hashBv* a, hashBv* b, hashBv* c);
 
-    bool AndWithChange(hashBv* other);
-    bool OrWithChange(hashBv* other);
-    bool OrWithChangeRight(hashBv* other);
-    bool OrWithChangeLeft(hashBv* other);
-    bool XorWithChange(hashBv* other);
-    bool SubtractWithChange(hashBv* other);
+        bool AndWithChange(hashBv* other);
+        bool OrWithChange(hashBv* other);
+        bool OrWithChangeRight(hashBv* other);
+        bool OrWithChangeLeft(hashBv* other);
+        bool XorWithChange(hashBv* other);
+        bool SubtractWithChange(hashBv* other);
 
-    bool Intersects(hashBv* other);
+        bool Intersects(hashBv* other);
 
-    template <class Action>
-    bool MultiTraverseLHSBigger(hashBv* other);
-    template <class Action>
-    bool MultiTraverseRHSBigger(hashBv* other);
-    template <class Action>
-    bool MultiTraverseEqual(hashBv* other);
-    template <class Action>
-    bool MultiTraverse(hashBv* other);
+        template <class Action> bool MultiTraverseLHSBigger(hashBv* other);
+        template <class Action> bool MultiTraverseRHSBigger(hashBv* other);
+        template <class Action> bool MultiTraverseEqual(hashBv* other);
+        template <class Action> bool MultiTraverse(hashBv* other);
 
-    void InorderTraverse(nodeAction a);
-    void InorderTraverseTwo(hashBv* other, dualNodeAction a);
+        void InorderTraverse(nodeAction a);
+        void InorderTraverseTwo(hashBv* other, dualNodeAction a);
 
-    void Resize(int newSize);
-    void Resize();
-    void MergeLists(hashBvNode** a, hashBvNode** b);
+        void Resize(int newSize);
+        void Resize();
+        void MergeLists(hashBvNode** a, hashBvNode** b);
 
-    bool TooSmall();
-    bool TooBig();
-    bool IsValid();
+        bool TooSmall();
+        bool TooBig();
+        bool IsValid();
 };
 
 // --------------------------------------------------------------------
@@ -276,43 +274,41 @@ public:
 
 class hashBvIterator
 {
-public:
-    unsigned    hashtable_size;
-    unsigned    hashtable_index;
-    hashBv*     bv;
-    hashBvNode* currNode;
-    indexType   current_element;
-    // base index of current node
-    indexType current_base;
-    // working data of current element
-    elemType current_data;
+    public:
+        unsigned    hashtable_size;
+        unsigned    hashtable_index;
+        hashBv*     bv;
+        hashBvNode* currNode;
+        indexType   current_element;
+        // base index of current node
+        indexType current_base;
+        // working data of current element
+        elemType current_data;
 
-    hashBvIterator(hashBv* bv);
-    void initFrom(hashBv* bv);
-    hashBvIterator();
-    indexType nextBit();
+        hashBvIterator(hashBv* bv);
+        void initFrom(hashBv* bv);
+        hashBvIterator();
+        indexType nextBit();
 
-private:
-    void nextNode();
+    private:
+        void nextNode();
 };
 
 class hashBvGlobalData
 {
-    friend class hashBv;
-    friend class hashBvNode;
+        friend class hashBv;
+        friend class hashBvNode;
 
-    hashBvNode* hbvNodeFreeList;
-    hashBv*     hbvFreeList;
+        hashBvNode* hbvNodeFreeList;
+        hashBv*     hbvFreeList;
 };
 
-enum class HbvWalk
-{
+enum class HbvWalk {
     Continue,
     Abort,
 };
 
-template <typename TFunctor>
-HbvWalk ForEachHbvBitSet(const hashBv& bv, TFunctor func)
+template <typename TFunctor> HbvWalk ForEachHbvBitSet(const hashBv& bv, TFunctor func)
 {
     for (int hashNum = 0; hashNum < bv.hashtable_size(); hashNum++)
     {

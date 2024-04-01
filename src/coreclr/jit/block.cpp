@@ -140,33 +140,30 @@ void FlowEdge::addLikelihood(weight_t addedLikelihood)
 //     comp  - Compiler instance
 //     block - The block whose successors are to be iterated
 //
-AllSuccessorEnumerator::AllSuccessorEnumerator(Compiler* comp, BasicBlock* block) : m_block(block)
+AllSuccessorEnumerator::AllSuccessorEnumerator(Compiler* comp, BasicBlock* block)
+    : m_block(block)
 {
     m_numSuccs = 0;
-    block->VisitAllSuccs(comp,
-                         [this](BasicBlock* succ)
-                         {
-                             if (m_numSuccs < ArrLen(m_successors))
-                             {
-                                 m_successors[m_numSuccs] = succ;
-                             }
+    block->VisitAllSuccs(comp, [this](BasicBlock* succ) {
+        if (m_numSuccs < ArrLen(m_successors))
+        {
+            m_successors[m_numSuccs] = succ;
+        }
 
-                             m_numSuccs++;
-                             return BasicBlockVisit::Continue;
-                         });
+        m_numSuccs++;
+        return BasicBlockVisit::Continue;
+    });
 
     if (m_numSuccs > ArrLen(m_successors))
     {
         m_pSuccessors = new (comp, CMK_BasicBlock) BasicBlock*[m_numSuccs];
 
         unsigned numSuccs = 0;
-        block->VisitAllSuccs(comp,
-                             [this, &numSuccs](BasicBlock* succ)
-                             {
-                                 assert(numSuccs < m_numSuccs);
-                                 m_pSuccessors[numSuccs++] = succ;
-                                 return BasicBlockVisit::Continue;
-                             });
+        block->VisitAllSuccs(comp, [this, &numSuccs](BasicBlock* succ) {
+            assert(numSuccs < m_numSuccs);
+            m_pSuccessors[numSuccs++] = succ;
+            return BasicBlockVisit::Continue;
+        });
 
         assert(numSuccs == m_numSuccs);
     }
@@ -235,12 +232,9 @@ FlowEdge* Compiler::BlockPredsWithEH(BasicBlock* blk)
                 {
                     res = new (this, CMK_FlowEdge) FlowEdge(filterBlk, blk, res);
 
-                    assert(filterBlk->VisitEHEnclosedHandlerSecondPassSuccs(this,
-                                                                            [blk](BasicBlock* succ) {
-                                                                                return succ == blk
-                                                                                           ? BasicBlockVisit::Abort
-                                                                                           : BasicBlockVisit::Continue;
-                                                                            }) == BasicBlockVisit::Abort);
+                    assert(filterBlk->VisitEHEnclosedHandlerSecondPassSuccs(this, [blk](BasicBlock* succ) {
+                        return succ == blk ? BasicBlockVisit::Abort : BasicBlockVisit::Continue;
+                    }) == BasicBlockVisit::Abort);
                 }
             }
 
@@ -313,12 +307,9 @@ FlowEdge* Compiler::BlockDominancePreds(BasicBlock* blk)
                 {
                     res = new (this, CMK_FlowEdge) FlowEdge(filterBlk, blk, res);
 
-                    assert(filterBlk->VisitEHEnclosedHandlerSecondPassSuccs(this,
-                                                                            [blk](BasicBlock* succ) {
-                                                                                return succ == blk
-                                                                                           ? BasicBlockVisit::Abort
-                                                                                           : BasicBlockVisit::Continue;
-                                                                            }) == BasicBlockVisit::Abort);
+                    assert(filterBlk->VisitEHEnclosedHandlerSecondPassSuccs(this, [blk](BasicBlock* succ) {
+                        return succ == blk ? BasicBlockVisit::Abort : BasicBlockVisit::Continue;
+                    }) == BasicBlockVisit::Abort);
                 }
             }
 
@@ -479,10 +470,10 @@ void BasicBlock::reorderPredList(Compiler* compiler)
     //
     struct FlowEdgeBBNumCmp
     {
-        bool operator()(const FlowEdge* f1, const FlowEdge* f2)
-        {
-            return f1->getSourceBlock()->bbNum < f2->getSourceBlock()->bbNum;
-        }
+            bool operator()(const FlowEdge* f1, const FlowEdge* f2)
+            {
+                return f1->getSourceBlock()->bbNum < f2->getSourceBlock()->bbNum;
+            }
     };
 
     jitstd::sort(sortVector->begin(), sortVector->end(), FlowEdgeBBNumCmp());
@@ -553,8 +544,8 @@ void BasicBlock::dspFlags() const
 {
     static const struct
     {
-        const BasicBlockFlags flag;
-        const char* const     displayString;
+            const BasicBlockFlags flag;
+            const char* const     displayString;
     } bbFlagDisplay[] = {
         {BBF_IMPORTED, "i"},
         {BBF_IS_LIR, "LIR"},
@@ -700,8 +691,7 @@ void BasicBlock::dspSuccs(Compiler* compiler)
 // things strictly.
 void BasicBlock::dspKind() const
 {
-    auto dspBlockNum = [](const FlowEdge* e) -> const char*
-    {
+    auto dspBlockNum = [](const FlowEdge* e) -> const char* {
         static char buffers[3][64]; // static array of 3 to allow 3 concurrent calls in one printf()
         static int  nextBufferIndex = 0;
 
@@ -736,28 +726,28 @@ void BasicBlock::dspKind() const
     switch (bbKind)
     {
         case BBJ_EHFINALLYRET:
-        {
-            printf(" ->");
-
-            // Early in compilation, we display the jump kind before the BBJ_EHFINALLYRET successors have been set.
-            if (bbEhfTargets == nullptr)
             {
-                printf(" ????");
-            }
-            else
-            {
-                const unsigned   jumpCnt = bbEhfTargets->bbeCount;
-                FlowEdge** const jumpTab = bbEhfTargets->bbeSuccs;
+                printf(" ->");
 
-                for (unsigned i = 0; i < jumpCnt; i++)
+                // Early in compilation, we display the jump kind before the BBJ_EHFINALLYRET successors have been set.
+                if (bbEhfTargets == nullptr)
                 {
-                    printf("%c%s", (i == 0) ? ' ' : ',', dspBlockNum(jumpTab[i]));
+                    printf(" ????");
                 }
-            }
+                else
+                {
+                    const unsigned   jumpCnt = bbEhfTargets->bbeCount;
+                    FlowEdge** const jumpTab = bbEhfTargets->bbeSuccs;
 
-            printf(" (finret)");
-            break;
-        }
+                    for (unsigned i = 0; i < jumpCnt; i++)
+                    {
+                        printf("%c%s", (i == 0) ? ' ' : ',', dspBlockNum(jumpTab[i]));
+                    }
+                }
+
+                printf(" (finret)");
+                break;
+            }
 
         case BBJ_EHFAULTRET:
             printf(" (falret)");
@@ -807,32 +797,32 @@ void BasicBlock::dspKind() const
             break;
 
         case BBJ_SWITCH:
-        {
-            printf(" ->");
-
-            const unsigned   jumpCnt = bbSwtTargets->bbsCount;
-            FlowEdge** const jumpTab = bbSwtTargets->bbsDstTab;
-
-            for (unsigned i = 0; i < jumpCnt; i++)
             {
-                printf("%c%s", (i == 0) ? ' ' : ',', dspBlockNum(jumpTab[i]));
+                printf(" ->");
 
-                const bool isDefault = bbSwtTargets->bbsHasDefault && (i == jumpCnt - 1);
-                if (isDefault)
+                const unsigned   jumpCnt = bbSwtTargets->bbsCount;
+                FlowEdge** const jumpTab = bbSwtTargets->bbsDstTab;
+
+                for (unsigned i = 0; i < jumpCnt; i++)
                 {
-                    printf("[def]");
+                    printf("%c%s", (i == 0) ? ' ' : ',', dspBlockNum(jumpTab[i]));
+
+                    const bool isDefault = bbSwtTargets->bbsHasDefault && (i == jumpCnt - 1);
+                    if (isDefault)
+                    {
+                        printf("[def]");
+                    }
+
+                    const bool isDominant = bbSwtTargets->bbsHasDominantCase && (i == bbSwtTargets->bbsDominantCase);
+                    if (isDominant)
+                    {
+                        printf("[dom(" FMT_WT ")]", bbSwtTargets->bbsDominantFraction);
+                    }
                 }
 
-                const bool isDominant = bbSwtTargets->bbsHasDominantCase && (i == bbSwtTargets->bbsDominantCase);
-                if (isDominant)
-                {
-                    printf("[dom(" FMT_WT ")]", bbSwtTargets->bbsDominantFraction);
-                }
+                printf(" (switch)");
             }
-
-            printf(" (switch)");
-        }
-        break;
+            break;
 
         default:
             unreached();
@@ -1384,10 +1374,10 @@ unsigned BasicBlock::NumSucc(Compiler* comp)
             }
 
         case BBJ_SWITCH:
-        {
-            Compiler::SwitchUniqueSuccSet sd = comp->GetDescriptorForSwitch(this);
-            return sd.numDistinctSuccs;
-        }
+            {
+                Compiler::SwitchUniqueSuccSet sd = comp->GetDescriptorForSwitch(this);
+                return sd.numDistinctSuccs;
+            }
 
         default:
             unreached();
@@ -1441,11 +1431,11 @@ FlowEdge* BasicBlock::GetSuccEdge(unsigned i, Compiler* comp)
             }
 
         case BBJ_SWITCH:
-        {
-            Compiler::SwitchUniqueSuccSet sd = comp->GetDescriptorForSwitch(this);
-            assert(i < sd.numDistinctSuccs); // Range check.
-            return sd.nonDuplicates[i];
-        }
+            {
+                Compiler::SwitchUniqueSuccSet sd = comp->GetDescriptorForSwitch(this);
+                assert(i < sd.numDistinctSuccs); // Range check.
+                return sd.nonDuplicates[i];
+            }
 
         default:
             unreached();
@@ -1902,7 +1892,8 @@ BBswtDesc::BBswtDesc(Compiler* comp, const BBswtDesc* other)
 //    comp - compiler instance
 //    other - existing descriptor to copy
 //
-BBehfDesc::BBehfDesc(Compiler* comp, const BBehfDesc* other) : bbeCount(other->bbeCount)
+BBehfDesc::BBehfDesc(Compiler* comp, const BBehfDesc* other)
+    : bbeCount(other->bbeCount)
 {
     // Allocate and fill in a new dst tab
     //

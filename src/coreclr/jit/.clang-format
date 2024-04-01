@@ -18,7 +18,6 @@ AlignConsecutiveDeclarations:
   Enabled: true
   AcrossEmptyLines: false
   AcrossComments: false
-  AlignFunctionPointers: false
 
 AlignConsecutiveMacros:
   Enabled: true
@@ -28,7 +27,7 @@ AlignConsecutiveMacros:
 AlignEscapedNewlines: Right
 AlignOperands:   true
 
-AlignTrailingComments: true
+AlignTrailingComments:
   Kind: Always
   OverEmptyLines: 1
 
@@ -65,13 +64,11 @@ BraceWrapping:
   SplitEmptyRecord:    true
   SplitEmptyNamespace: true
 
-BreakAdjacentStringLiterals: false
 BreakBeforeBinaryOperators: None
 BreakBeforeTernaryOperators: true
 BreakConstructorInitializers: BeforeComma
 BreakInheritanceList: BeforeComma
 BreakStringLiterals: false
-BreakTemplateDeclarations: Yes
 
 ColumnLimit:   120
 CommentPragmas:  '^ IWYU pragma:'

@@ -401,41 +401,41 @@ void ProfileSynthesis::RepairLikelihoods()
 
             case BBJ_COND:
             case BBJ_SWITCH:
-            {
-                // Repair if either likelihoods are inconsistent or block weight is zero.
-                //
-                weight_t const sum        = SumOutgoingLikelihoods(block);
-                bool const     consistent = Compiler::fgProfileWeightsEqual(sum, 1.0, epsilon);
-                bool const     zero       = Compiler::fgProfileWeightsEqual(block->bbWeight, 0.0, epsilon);
-
-                if (consistent && !zero)
                 {
-                    // Leave as is.
+                    // Repair if either likelihoods are inconsistent or block weight is zero.
+                    //
+                    weight_t const sum        = SumOutgoingLikelihoods(block);
+                    bool const     consistent = Compiler::fgProfileWeightsEqual(sum, 1.0, epsilon);
+                    bool const     zero       = Compiler::fgProfileWeightsEqual(block->bbWeight, 0.0, epsilon);
+
+                    if (consistent && !zero)
+                    {
+                        // Leave as is.
+                        break;
+                    }
+
+                    JITDUMP("Repairing likelihoods in " FMT_BB, block->bbNum);
+                    if (!consistent)
+                    {
+                        JITDUMP("; existing likelihood sum: " FMT_WT, sum);
+                    }
+                    if (zero)
+                    {
+                        JITDUMP("; zero weight block");
+                    }
+                    JITDUMP("\n");
+
+                    if (block->KindIs(BBJ_COND))
+                    {
+                        AssignLikelihoodCond(block);
+                    }
+                    else
+                    {
+                        AssignLikelihoodSwitch(block);
+                    }
+
                     break;
                 }
-
-                JITDUMP("Repairing likelihoods in " FMT_BB, block->bbNum);
-                if (!consistent)
-                {
-                    JITDUMP("; existing likelihood sum: " FMT_WT, sum);
-                }
-                if (zero)
-                {
-                    JITDUMP("; zero weight block");
-                }
-                JITDUMP("\n");
-
-                if (block->KindIs(BBJ_COND))
-                {
-                    AssignLikelihoodCond(block);
-                }
-                else
-                {
-                    AssignLikelihoodSwitch(block);
-                }
-
-                break;
-            }
 
             default:
                 unreached();
@@ -488,65 +488,65 @@ void ProfileSynthesis::BlendLikelihoods()
 
             case BBJ_COND:
             case BBJ_SWITCH:
-            {
-                // Capture the existing weights and assign new likelihoods based on synthesis.
-                //
-                weight_t const sum        = SumOutgoingLikelihoods(block, &likelihoods);
-                bool const     unlikely   = Compiler::fgProfileWeightsEqual(sum, 0.0, epsilon);
-                bool const     consistent = Compiler::fgProfileWeightsEqual(sum, 1.0, epsilon);
-                bool const     zero       = Compiler::fgProfileWeightsEqual(block->bbWeight, 0.0, epsilon);
-
-                if (block->KindIs(BBJ_COND))
                 {
-                    AssignLikelihoodCond(block);
-                }
-                else
-                {
-                    AssignLikelihoodSwitch(block);
-                }
-
-                if (unlikely || zero)
-                {
-                    // Existing likelihood was zero, or profile weight was zero. Just use synthesis likelihoods.
+                    // Capture the existing weights and assign new likelihoods based on synthesis.
                     //
-                    JITDUMP("%s in " FMT_BB " was zero, using synthesized likelihoods\n",
-                            unlikely ? "Existing likelihood" : "Block weight", block->bbNum);
+                    weight_t const sum        = SumOutgoingLikelihoods(block, &likelihoods);
+                    bool const     unlikely   = Compiler::fgProfileWeightsEqual(sum, 0.0, epsilon);
+                    bool const     consistent = Compiler::fgProfileWeightsEqual(sum, 1.0, epsilon);
+                    bool const     zero       = Compiler::fgProfileWeightsEqual(block->bbWeight, 0.0, epsilon);
+
+                    if (block->KindIs(BBJ_COND))
+                    {
+                        AssignLikelihoodCond(block);
+                    }
+                    else
+                    {
+                        AssignLikelihoodSwitch(block);
+                    }
+
+                    if (unlikely || zero)
+                    {
+                        // Existing likelihood was zero, or profile weight was zero. Just use synthesis likelihoods.
+                        //
+                        JITDUMP("%s in " FMT_BB " was zero, using synthesized likelihoods\n",
+                                unlikely ? "Existing likelihood" : "Block weight", block->bbNum);
+                        break;
+                    }
+
+                    WeightVector::iterator iter;
+
+                    if (!Compiler::fgProfileWeightsEqual(sum, 1.0, epsilon))
+                    {
+                        // Existing likelihood was too low or too high. Scale.
+                        //
+                        weight_t scale = 1.0 / sum;
+                        JITDUMP("Scaling old likelihoods in " FMT_BB " by " FMT_WT "\n", block->bbNum, scale);
+                        for (iter = likelihoods.begin(); iter != likelihoods.end(); iter++)
+                        {
+                            *iter *= scale;
+                        }
+                    }
+
+                    // Blend
+                    //
+                    JITDUMP("Blending likelihoods in " FMT_BB " with blend factor " FMT_WT " \n", block->bbNum,
+                            blendFactor);
+                    iter = likelihoods.begin();
+                    for (FlowEdge* const succEdge : block->SuccEdges(m_comp))
+                    {
+                        weight_t newLikelihood = succEdge->getLikelihood();
+                        weight_t oldLikelihood = *iter;
+
+                        succEdge->setLikelihood((blendFactor * oldLikelihood) + ((1.0 - blendFactor) * newLikelihood));
+                        BasicBlock* const succBlock = succEdge->getDestinationBlock();
+                        JITDUMP(FMT_BB " -> " FMT_BB " was " FMT_WT " now " FMT_WT "\n", block->bbNum, succBlock->bbNum,
+                                oldLikelihood, succEdge->getLikelihood());
+
+                        iter++;
+                    }
                     break;
                 }
-
-                WeightVector::iterator iter;
-
-                if (!Compiler::fgProfileWeightsEqual(sum, 1.0, epsilon))
-                {
-                    // Existing likelihood was too low or too high. Scale.
-                    //
-                    weight_t scale = 1.0 / sum;
-                    JITDUMP("Scaling old likelihoods in " FMT_BB " by " FMT_WT "\n", block->bbNum, scale);
-                    for (iter = likelihoods.begin(); iter != likelihoods.end(); iter++)
-                    {
-                        *iter *= scale;
-                    }
-                }
-
-                // Blend
-                //
-                JITDUMP("Blending likelihoods in " FMT_BB " with blend factor " FMT_WT " \n", block->bbNum,
-                        blendFactor);
-                iter = likelihoods.begin();
-                for (FlowEdge* const succEdge : block->SuccEdges(m_comp))
-                {
-                    weight_t newLikelihood = succEdge->getLikelihood();
-                    weight_t oldLikelihood = *iter;
-
-                    succEdge->setLikelihood((blendFactor * oldLikelihood) + ((1.0 - blendFactor) * newLikelihood));
-                    BasicBlock* const succBlock = succEdge->getDestinationBlock();
-                    JITDUMP(FMT_BB " -> " FMT_BB " was " FMT_WT " now " FMT_WT "\n", block->bbNum, succBlock->bbNum,
-                            oldLikelihood, succEdge->getLikelihood());
-
-                    iter++;
-                }
-                break;
-            }
 
             default:
                 unreached();
@@ -672,73 +672,69 @@ void ProfileSynthesis::ComputeCyclicProbabilities(FlowGraphNaturalLoop* loop)
 {
     // Initialize
     //
-    loop->VisitLoopBlocks(
-        [](BasicBlock* loopBlock)
-        {
-            loopBlock->bbWeight = 0.0;
-            return BasicBlockVisit::Continue;
-        });
+    loop->VisitLoopBlocks([](BasicBlock* loopBlock) {
+        loopBlock->bbWeight = 0.0;
+        return BasicBlockVisit::Continue;
+    });
 
     // Process loop blocks in RPO. Just takes one pass through the loop blocks
     // as any cyclic contributions are handled by cyclic probabilities.
     //
-    loop->VisitLoopBlocksReversePostOrder(
-        [=](BasicBlock* block)
+    loop->VisitLoopBlocksReversePostOrder([=](BasicBlock* block) {
+        // Loop head gets external count of 1
+        //
+        if (block == loop->GetHeader())
         {
-            // Loop head gets external count of 1
-            //
-            if (block == loop->GetHeader())
+            JITDUMP("ccp: " FMT_BB " :: 1.0\n", block->bbNum);
+            block->bbWeight = 1.0;
+        }
+        else
+        {
+            FlowGraphNaturalLoop* const nestedLoop = m_loops->GetLoopByHeader(block);
+
+            if (nestedLoop != nullptr)
             {
-                JITDUMP("ccp: " FMT_BB " :: 1.0\n", block->bbNum);
-                block->bbWeight = 1.0;
+                // We should have figured this out already.
+                //
+                assert(m_cyclicProbabilities[nestedLoop->GetIndex()] != 0);
+
+                // Sum entry edges, multply by Cp
+                //
+                weight_t newWeight = 0.0;
+
+                for (FlowEdge* const edge : nestedLoop->EntryEdges())
+                {
+                    if (BasicBlock::sameHndRegion(block, edge->getSourceBlock()))
+                    {
+                        newWeight += edge->getLikelyWeight();
+                    }
+                }
+
+                newWeight *= m_cyclicProbabilities[nestedLoop->GetIndex()];
+                block->bbWeight = newWeight;
+
+                JITDUMP("ccp (nested header): " FMT_BB " :: " FMT_WT "\n", block->bbNum, newWeight);
             }
             else
             {
-                FlowGraphNaturalLoop* const nestedLoop = m_loops->GetLoopByHeader(block);
+                weight_t newWeight = 0.0;
 
-                if (nestedLoop != nullptr)
+                for (FlowEdge* const edge : block->PredEdges())
                 {
-                    // We should have figured this out already.
-                    //
-                    assert(m_cyclicProbabilities[nestedLoop->GetIndex()] != 0);
-
-                    // Sum entry edges, multply by Cp
-                    //
-                    weight_t newWeight = 0.0;
-
-                    for (FlowEdge* const edge : nestedLoop->EntryEdges())
+                    if (BasicBlock::sameHndRegion(block, edge->getSourceBlock()))
                     {
-                        if (BasicBlock::sameHndRegion(block, edge->getSourceBlock()))
-                        {
-                            newWeight += edge->getLikelyWeight();
-                        }
+                        newWeight += edge->getLikelyWeight();
                     }
-
-                    newWeight *= m_cyclicProbabilities[nestedLoop->GetIndex()];
-                    block->bbWeight = newWeight;
-
-                    JITDUMP("ccp (nested header): " FMT_BB " :: " FMT_WT "\n", block->bbNum, newWeight);
                 }
-                else
-                {
-                    weight_t newWeight = 0.0;
 
-                    for (FlowEdge* const edge : block->PredEdges())
-                    {
-                        if (BasicBlock::sameHndRegion(block, edge->getSourceBlock()))
-                        {
-                            newWeight += edge->getLikelyWeight();
-                        }
-                    }
+                block->bbWeight = newWeight;
 
-                    block->bbWeight = newWeight;
-
-                    JITDUMP("ccp: " FMT_BB " :: " FMT_WT "\n", block->bbNum, newWeight);
-                }
+                JITDUMP("ccp: " FMT_BB " :: " FMT_WT "\n", block->bbNum, newWeight);
             }
+        }
 
-            return BasicBlockVisit::Continue;
-        });
+        return BasicBlockVisit::Continue;
+    });
 
     // Now look at cyclic flow back to the head block.
     //
@@ -902,37 +898,37 @@ void ProfileSynthesis::AssignInputWeights(ProfileSynthesisOption option)
     {
         case ProfileSynthesisOption::BlendLikelihoods:
         case ProfileSynthesisOption::RepairLikelihoods:
-        {
-            // Try and retain entryBlock's weight.
-            // Easiest to do when the block has no preds.
-            //
-            if (entryBlock->hasProfileWeight())
             {
-                weight_t currentEntryWeight = entryBlock->bbWeight;
-
-                if (!Compiler::fgProfileWeightsEqual(currentEntryWeight, 0.0, epsilon))
+                // Try and retain entryBlock's weight.
+                // Easiest to do when the block has no preds.
+                //
+                if (entryBlock->hasProfileWeight())
                 {
-                    if (entryBlock->bbPreds == nullptr)
+                    weight_t currentEntryWeight = entryBlock->bbWeight;
+
+                    if (!Compiler::fgProfileWeightsEqual(currentEntryWeight, 0.0, epsilon))
                     {
-                        entryWeight = currentEntryWeight;
+                        if (entryBlock->bbPreds == nullptr)
+                        {
+                            entryWeight = currentEntryWeight;
+                        }
+                        else
+                        {
+                            // TODO: something similar to how we compute fgCalledCount;
+                            // try and sum return weights?
+                        }
                     }
                     else
                     {
-                        // TODO: something similar to how we compute fgCalledCount;
-                        // try and sum return weights?
+                        // Entry weight was zero or nearly zero, just use default
                     }
                 }
                 else
                 {
-                    // Entry weight was zero or nearly zero, just use default
+                    // Entry was unprofiled, just use default
                 }
+                break;
             }
-            else
-            {
-                // Entry was unprofiled, just use default
-            }
-            break;
-        }
 
         default:
             break;

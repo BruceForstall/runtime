@@ -12,278 +12,284 @@
 // pointers and numbers (e.g. class handle equality implies ClassLayout pointer equality).
 class ClassLayoutTable
 {
-    // Each layout is assigned a number, starting with TYP_UNKNOWN + 1. This way one could use a single
-    // unsigned value to represent the notion of type - values below TYP_UNKNOWN are var_types and values
-    // above it are struct layouts.
-    static constexpr unsigned ZeroSizedBlockLayoutNum = TYP_UNKNOWN + 1;
-    static constexpr unsigned FirstLayoutNum          = TYP_UNKNOWN + 2;
+        // Each layout is assigned a number, starting with TYP_UNKNOWN + 1. This way one could use a single
+        // unsigned value to represent the notion of type - values below TYP_UNKNOWN are var_types and values
+        // above it are struct layouts.
+        static constexpr unsigned ZeroSizedBlockLayoutNum = TYP_UNKNOWN + 1;
+        static constexpr unsigned FirstLayoutNum          = TYP_UNKNOWN + 2;
 
-    typedef JitHashTable<unsigned, JitSmallPrimitiveKeyFuncs<unsigned>, unsigned>               BlkLayoutIndexMap;
-    typedef JitHashTable<CORINFO_CLASS_HANDLE, JitPtrKeyFuncs<CORINFO_CLASS_STRUCT_>, unsigned> ObjLayoutIndexMap;
+        typedef JitHashTable<unsigned, JitSmallPrimitiveKeyFuncs<unsigned>, unsigned>               BlkLayoutIndexMap;
+        typedef JitHashTable<CORINFO_CLASS_HANDLE, JitPtrKeyFuncs<CORINFO_CLASS_STRUCT_>, unsigned> ObjLayoutIndexMap;
 
-    union
-    {
-        // Up to 3 layouts can be stored "inline" and finding a layout by handle/size can be done using linear search.
-        // Most methods need no more than 2 layouts.
-        ClassLayout* m_layoutArray[3];
-        // Otherwise a dynamic array is allocated and hashtables are used to map from handle/size to layout array index.
-        struct
+        union
         {
-            ClassLayout**      m_layoutLargeArray;
-            BlkLayoutIndexMap* m_blkLayoutMap;
-            ObjLayoutIndexMap* m_objLayoutMap;
+                // Up to 3 layouts can be stored "inline" and finding a layout by handle/size can be done using linear
+                // search. Most methods need no more than 2 layouts.
+                ClassLayout* m_layoutArray[3];
+                // Otherwise a dynamic array is allocated and hashtables are used to map from handle/size to layout
+                // array index.
+                struct
+                {
+                        ClassLayout**      m_layoutLargeArray;
+                        BlkLayoutIndexMap* m_blkLayoutMap;
+                        ObjLayoutIndexMap* m_objLayoutMap;
+                };
         };
-    };
-    // The number of layout objects stored in this table.
-    unsigned m_layoutCount;
-    // The capacity of m_layoutLargeArray (when more than 3 layouts are stored).
-    unsigned m_layoutLargeCapacity;
-    // We furthermore fast-path the 0-sized block layout which is used for
-    // block locals that may grow (e.g. the outgoing arg area in every non-x86
-    // compilation).
-    ClassLayout m_zeroSizedBlockLayout;
+        // The number of layout objects stored in this table.
+        unsigned m_layoutCount;
+        // The capacity of m_layoutLargeArray (when more than 3 layouts are stored).
+        unsigned m_layoutLargeCapacity;
+        // We furthermore fast-path the 0-sized block layout which is used for
+        // block locals that may grow (e.g. the outgoing arg area in every non-x86
+        // compilation).
+        ClassLayout m_zeroSizedBlockLayout;
 
-public:
-    ClassLayoutTable() : m_layoutCount(0), m_layoutLargeCapacity(0), m_zeroSizedBlockLayout(0) {}
-
-    // Get a number that uniquely identifies the specified layout.
-    unsigned GetLayoutNum(ClassLayout* layout) const
-    {
-        if (layout == &m_zeroSizedBlockLayout)
+    public:
+        ClassLayoutTable()
+            : m_layoutCount(0)
+            , m_layoutLargeCapacity(0)
+            , m_zeroSizedBlockLayout(0)
         {
-            return ZeroSizedBlockLayoutNum;
         }
 
-        return GetLayoutIndex(layout) + FirstLayoutNum;
-    }
-
-    // Get the layout that corresponds to the specified identifier number.
-    ClassLayout* GetLayoutByNum(unsigned num) const
-    {
-        if (num == ZeroSizedBlockLayoutNum)
+        // Get a number that uniquely identifies the specified layout.
+        unsigned GetLayoutNum(ClassLayout* layout) const
         {
-            // Fine to cast away const as ClassLayout is immutable
-            return const_cast<ClassLayout*>(&m_zeroSizedBlockLayout);
-        }
-
-        assert(num >= FirstLayoutNum);
-        return GetLayoutByIndex(num - FirstLayoutNum);
-    }
-
-    // Get the layout having the specified size but no class handle.
-    ClassLayout* GetBlkLayout(Compiler* compiler, unsigned blockSize)
-    {
-        if (blockSize == 0)
-        {
-            return &m_zeroSizedBlockLayout;
-        }
-
-        return GetLayoutByIndex(GetBlkLayoutIndex(compiler, blockSize));
-    }
-
-    // Get a number that uniquely identifies a layout having the specified size but no class handle.
-    unsigned GetBlkLayoutNum(Compiler* compiler, unsigned blockSize)
-    {
-        if (blockSize == 0)
-        {
-            return ZeroSizedBlockLayoutNum;
-        }
-
-        return GetBlkLayoutIndex(compiler, blockSize) + FirstLayoutNum;
-    }
-
-    // Get the layout for the specified class handle.
-    ClassLayout* GetObjLayout(Compiler* compiler, CORINFO_CLASS_HANDLE classHandle)
-    {
-        return GetLayoutByIndex(GetObjLayoutIndex(compiler, classHandle));
-    }
-
-    // Get a number that uniquely identifies a layout for the specified class handle.
-    unsigned GetObjLayoutNum(Compiler* compiler, CORINFO_CLASS_HANDLE classHandle)
-    {
-        return GetObjLayoutIndex(compiler, classHandle) + FirstLayoutNum;
-    }
-
-private:
-    bool HasSmallCapacity() const
-    {
-        return m_layoutCount <= ArrLen(m_layoutArray);
-    }
-
-    ClassLayout* GetLayoutByIndex(unsigned index) const
-    {
-        assert(index < m_layoutCount);
-
-        if (HasSmallCapacity())
-        {
-            return m_layoutArray[index];
-        }
-        else
-        {
-            return m_layoutLargeArray[index];
-        }
-    }
-
-    unsigned GetLayoutIndex(ClassLayout* layout) const
-    {
-        assert(layout != nullptr);
-        assert(layout != &m_zeroSizedBlockLayout);
-
-        if (HasSmallCapacity())
-        {
-            for (unsigned i = 0; i < m_layoutCount; i++)
+            if (layout == &m_zeroSizedBlockLayout)
             {
-                if (m_layoutArray[i] == layout)
-                {
-                    return i;
-                }
+                return ZeroSizedBlockLayoutNum;
             }
+
+            return GetLayoutIndex(layout) + FirstLayoutNum;
         }
-        else
+
+        // Get the layout that corresponds to the specified identifier number.
+        ClassLayout* GetLayoutByNum(unsigned num) const
         {
-            unsigned index = 0;
-            if ((layout->IsBlockLayout() && m_blkLayoutMap->Lookup(layout->GetSize(), &index)) ||
-                m_objLayoutMap->Lookup(layout->GetClassHandle(), &index))
+            if (num == ZeroSizedBlockLayoutNum)
             {
-                return index;
+                // Fine to cast away const as ClassLayout is immutable
+                return const_cast<ClassLayout*>(&m_zeroSizedBlockLayout);
             }
+
+            assert(num >= FirstLayoutNum);
+            return GetLayoutByIndex(num - FirstLayoutNum);
         }
 
-        unreached();
-    }
-
-    unsigned GetBlkLayoutIndex(Compiler* compiler, unsigned blockSize)
-    {
-        // The 0-sized block layout has its own fast path.
-        assert(blockSize != 0);
-
-        if (HasSmallCapacity())
+        // Get the layout having the specified size but no class handle.
+        ClassLayout* GetBlkLayout(Compiler* compiler, unsigned blockSize)
         {
-            for (unsigned i = 0; i < m_layoutCount; i++)
+            if (blockSize == 0)
             {
-                if (m_layoutArray[i]->IsBlockLayout() && (m_layoutArray[i]->GetSize() == blockSize))
-                {
-                    return i;
-                }
+                return &m_zeroSizedBlockLayout;
             }
+
+            return GetLayoutByIndex(GetBlkLayoutIndex(compiler, blockSize));
         }
-        else
+
+        // Get a number that uniquely identifies a layout having the specified size but no class handle.
+        unsigned GetBlkLayoutNum(Compiler* compiler, unsigned blockSize)
         {
-            unsigned index;
-            if (m_blkLayoutMap->Lookup(blockSize, &index))
+            if (blockSize == 0)
             {
-                return index;
+                return ZeroSizedBlockLayoutNum;
             }
+
+            return GetBlkLayoutIndex(compiler, blockSize) + FirstLayoutNum;
         }
 
-        return AddBlkLayout(compiler, CreateBlkLayout(compiler, blockSize));
-    }
-
-    ClassLayout* CreateBlkLayout(Compiler* compiler, unsigned blockSize)
-    {
-        return new (compiler, CMK_ClassLayout) ClassLayout(blockSize);
-    }
-
-    unsigned AddBlkLayout(Compiler* compiler, ClassLayout* layout)
-    {
-        if (m_layoutCount < ArrLen(m_layoutArray))
+        // Get the layout for the specified class handle.
+        ClassLayout* GetObjLayout(Compiler* compiler, CORINFO_CLASS_HANDLE classHandle)
         {
-            m_layoutArray[m_layoutCount] = layout;
-            return m_layoutCount++;
+            return GetLayoutByIndex(GetObjLayoutIndex(compiler, classHandle));
         }
 
-        unsigned index = AddLayoutLarge(compiler, layout);
-        m_blkLayoutMap->Set(layout->GetSize(), index);
-        return index;
-    }
-
-    unsigned GetObjLayoutIndex(Compiler* compiler, CORINFO_CLASS_HANDLE classHandle)
-    {
-        assert(classHandle != NO_CLASS_HANDLE);
-
-        if (HasSmallCapacity())
+        // Get a number that uniquely identifies a layout for the specified class handle.
+        unsigned GetObjLayoutNum(Compiler* compiler, CORINFO_CLASS_HANDLE classHandle)
         {
-            for (unsigned i = 0; i < m_layoutCount; i++)
+            return GetObjLayoutIndex(compiler, classHandle) + FirstLayoutNum;
+        }
+
+    private:
+        bool HasSmallCapacity() const
+        {
+            return m_layoutCount <= ArrLen(m_layoutArray);
+        }
+
+        ClassLayout* GetLayoutByIndex(unsigned index) const
+        {
+            assert(index < m_layoutCount);
+
+            if (HasSmallCapacity())
             {
-                if (m_layoutArray[i]->GetClassHandle() == classHandle)
-                {
-                    return i;
-                }
-            }
-        }
-        else
-        {
-            unsigned index;
-            if (m_objLayoutMap->Lookup(classHandle, &index))
-            {
-                return index;
-            }
-        }
-
-        return AddObjLayout(compiler, CreateObjLayout(compiler, classHandle));
-    }
-
-    ClassLayout* CreateObjLayout(Compiler* compiler, CORINFO_CLASS_HANDLE classHandle)
-    {
-        return ClassLayout::Create(compiler, classHandle);
-    }
-
-    unsigned AddObjLayout(Compiler* compiler, ClassLayout* layout)
-    {
-        if (m_layoutCount < ArrLen(m_layoutArray))
-        {
-            m_layoutArray[m_layoutCount] = layout;
-            return m_layoutCount++;
-        }
-
-        unsigned index = AddLayoutLarge(compiler, layout);
-        m_objLayoutMap->Set(layout->GetClassHandle(), index);
-        return index;
-    }
-
-    unsigned AddLayoutLarge(Compiler* compiler, ClassLayout* layout)
-    {
-        if (m_layoutCount >= m_layoutLargeCapacity)
-        {
-            CompAllocator alloc       = compiler->getAllocator(CMK_ClassLayout);
-            unsigned      newCapacity = m_layoutCount * 2;
-            ClassLayout** newArray    = alloc.allocate<ClassLayout*>(newCapacity);
-
-            if (m_layoutCount <= ArrLen(m_layoutArray))
-            {
-                BlkLayoutIndexMap* blkLayoutMap = new (alloc) BlkLayoutIndexMap(alloc);
-                ObjLayoutIndexMap* objLayoutMap = new (alloc) ObjLayoutIndexMap(alloc);
-
-                for (unsigned i = 0; i < m_layoutCount; i++)
-                {
-                    ClassLayout* l = m_layoutArray[i];
-                    newArray[i]    = l;
-
-                    if (l->IsBlockLayout())
-                    {
-                        blkLayoutMap->Set(l->GetSize(), i);
-                    }
-                    else
-                    {
-                        objLayoutMap->Set(l->GetClassHandle(), i);
-                    }
-                }
-
-                m_blkLayoutMap = blkLayoutMap;
-                m_objLayoutMap = objLayoutMap;
+                return m_layoutArray[index];
             }
             else
             {
-                memcpy(newArray, m_layoutLargeArray, m_layoutCount * sizeof(newArray[0]));
+                return m_layoutLargeArray[index];
             }
-
-            m_layoutLargeArray    = newArray;
-            m_layoutLargeCapacity = newCapacity;
         }
 
-        m_layoutLargeArray[m_layoutCount] = layout;
-        return m_layoutCount++;
-    }
+        unsigned GetLayoutIndex(ClassLayout* layout) const
+        {
+            assert(layout != nullptr);
+            assert(layout != &m_zeroSizedBlockLayout);
+
+            if (HasSmallCapacity())
+            {
+                for (unsigned i = 0; i < m_layoutCount; i++)
+                {
+                    if (m_layoutArray[i] == layout)
+                    {
+                        return i;
+                    }
+                }
+            }
+            else
+            {
+                unsigned index = 0;
+                if ((layout->IsBlockLayout() && m_blkLayoutMap->Lookup(layout->GetSize(), &index)) ||
+                    m_objLayoutMap->Lookup(layout->GetClassHandle(), &index))
+                {
+                    return index;
+                }
+            }
+
+            unreached();
+        }
+
+        unsigned GetBlkLayoutIndex(Compiler* compiler, unsigned blockSize)
+        {
+            // The 0-sized block layout has its own fast path.
+            assert(blockSize != 0);
+
+            if (HasSmallCapacity())
+            {
+                for (unsigned i = 0; i < m_layoutCount; i++)
+                {
+                    if (m_layoutArray[i]->IsBlockLayout() && (m_layoutArray[i]->GetSize() == blockSize))
+                    {
+                        return i;
+                    }
+                }
+            }
+            else
+            {
+                unsigned index;
+                if (m_blkLayoutMap->Lookup(blockSize, &index))
+                {
+                    return index;
+                }
+            }
+
+            return AddBlkLayout(compiler, CreateBlkLayout(compiler, blockSize));
+        }
+
+        ClassLayout* CreateBlkLayout(Compiler* compiler, unsigned blockSize)
+        {
+            return new (compiler, CMK_ClassLayout) ClassLayout(blockSize);
+        }
+
+        unsigned AddBlkLayout(Compiler* compiler, ClassLayout* layout)
+        {
+            if (m_layoutCount < ArrLen(m_layoutArray))
+            {
+                m_layoutArray[m_layoutCount] = layout;
+                return m_layoutCount++;
+            }
+
+            unsigned index = AddLayoutLarge(compiler, layout);
+            m_blkLayoutMap->Set(layout->GetSize(), index);
+            return index;
+        }
+
+        unsigned GetObjLayoutIndex(Compiler* compiler, CORINFO_CLASS_HANDLE classHandle)
+        {
+            assert(classHandle != NO_CLASS_HANDLE);
+
+            if (HasSmallCapacity())
+            {
+                for (unsigned i = 0; i < m_layoutCount; i++)
+                {
+                    if (m_layoutArray[i]->GetClassHandle() == classHandle)
+                    {
+                        return i;
+                    }
+                }
+            }
+            else
+            {
+                unsigned index;
+                if (m_objLayoutMap->Lookup(classHandle, &index))
+                {
+                    return index;
+                }
+            }
+
+            return AddObjLayout(compiler, CreateObjLayout(compiler, classHandle));
+        }
+
+        ClassLayout* CreateObjLayout(Compiler* compiler, CORINFO_CLASS_HANDLE classHandle)
+        {
+            return ClassLayout::Create(compiler, classHandle);
+        }
+
+        unsigned AddObjLayout(Compiler* compiler, ClassLayout* layout)
+        {
+            if (m_layoutCount < ArrLen(m_layoutArray))
+            {
+                m_layoutArray[m_layoutCount] = layout;
+                return m_layoutCount++;
+            }
+
+            unsigned index = AddLayoutLarge(compiler, layout);
+            m_objLayoutMap->Set(layout->GetClassHandle(), index);
+            return index;
+        }
+
+        unsigned AddLayoutLarge(Compiler* compiler, ClassLayout* layout)
+        {
+            if (m_layoutCount >= m_layoutLargeCapacity)
+            {
+                CompAllocator alloc       = compiler->getAllocator(CMK_ClassLayout);
+                unsigned      newCapacity = m_layoutCount * 2;
+                ClassLayout** newArray    = alloc.allocate<ClassLayout*>(newCapacity);
+
+                if (m_layoutCount <= ArrLen(m_layoutArray))
+                {
+                    BlkLayoutIndexMap* blkLayoutMap = new (alloc) BlkLayoutIndexMap(alloc);
+                    ObjLayoutIndexMap* objLayoutMap = new (alloc) ObjLayoutIndexMap(alloc);
+
+                    for (unsigned i = 0; i < m_layoutCount; i++)
+                    {
+                        ClassLayout* l = m_layoutArray[i];
+                        newArray[i]    = l;
+
+                        if (l->IsBlockLayout())
+                        {
+                            blkLayoutMap->Set(l->GetSize(), i);
+                        }
+                        else
+                        {
+                            objLayoutMap->Set(l->GetClassHandle(), i);
+                        }
+                    }
+
+                    m_blkLayoutMap = blkLayoutMap;
+                    m_objLayoutMap = objLayoutMap;
+                }
+                else
+                {
+                    memcpy(newArray, m_layoutLargeArray, m_layoutCount * sizeof(newArray[0]));
+                }
+
+                m_layoutLargeArray    = newArray;
+                m_layoutLargeCapacity = newCapacity;
+            }
+
+            m_layoutLargeArray[m_layoutCount] = layout;
+            return m_layoutCount++;
+        }
 };
 
 ClassLayoutTable* Compiler::typCreateClassLayoutTable()

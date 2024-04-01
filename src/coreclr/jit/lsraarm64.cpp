@@ -250,55 +250,55 @@ regMaskTP LinearScan::filterConsecutiveCandidates(regMaskTP    candidates,
         switch (registersNeeded)
         {
             case 2:
-            {
-                if ((candidates & v0_v31_mask) != RBM_NONE)
                 {
-                    consecutiveResult |= RBM_V31;
-                    overallResult |= v0_v31_mask;
+                    if ((candidates & v0_v31_mask) != RBM_NONE)
+                    {
+                        consecutiveResult |= RBM_V31;
+                        overallResult |= v0_v31_mask;
+                    }
+                    break;
                 }
-                break;
-            }
             case 3:
-            {
-                regMaskTP v0_v30_v31_mask = RBM_V0 | RBM_V30 | RBM_V31;
-                if ((candidates & v0_v30_v31_mask) != RBM_NONE)
                 {
-                    consecutiveResult |= RBM_V30;
-                    overallResult |= v0_v30_v31_mask;
-                }
+                    regMaskTP v0_v30_v31_mask = RBM_V0 | RBM_V30 | RBM_V31;
+                    if ((candidates & v0_v30_v31_mask) != RBM_NONE)
+                    {
+                        consecutiveResult |= RBM_V30;
+                        overallResult |= v0_v30_v31_mask;
+                    }
 
-                regMaskTP v0_v1_v31_mask = RBM_V0 | RBM_V1 | RBM_V31;
-                if ((candidates & v0_v1_v31_mask) != RBM_NONE)
-                {
-                    consecutiveResult |= RBM_V31;
-                    overallResult |= v0_v1_v31_mask;
+                    regMaskTP v0_v1_v31_mask = RBM_V0 | RBM_V1 | RBM_V31;
+                    if ((candidates & v0_v1_v31_mask) != RBM_NONE)
+                    {
+                        consecutiveResult |= RBM_V31;
+                        overallResult |= v0_v1_v31_mask;
+                    }
+                    break;
                 }
-                break;
-            }
             case 4:
-            {
-                regMaskTP v0_v29_v30_v31_mask = RBM_V0 | RBM_V29 | RBM_V30 | RBM_V31;
-                if ((candidates & v0_v29_v30_v31_mask) != RBM_NONE)
                 {
-                    consecutiveResult |= RBM_V29;
-                    overallResult |= v0_v29_v30_v31_mask;
-                }
+                    regMaskTP v0_v29_v30_v31_mask = RBM_V0 | RBM_V29 | RBM_V30 | RBM_V31;
+                    if ((candidates & v0_v29_v30_v31_mask) != RBM_NONE)
+                    {
+                        consecutiveResult |= RBM_V29;
+                        overallResult |= v0_v29_v30_v31_mask;
+                    }
 
-                regMaskTP v0_v1_v30_v31_mask = RBM_V0 | RBM_V29 | RBM_V30 | RBM_V31;
-                if ((candidates & v0_v1_v30_v31_mask) != RBM_NONE)
-                {
-                    consecutiveResult |= RBM_V30;
-                    overallResult |= v0_v1_v30_v31_mask;
-                }
+                    regMaskTP v0_v1_v30_v31_mask = RBM_V0 | RBM_V29 | RBM_V30 | RBM_V31;
+                    if ((candidates & v0_v1_v30_v31_mask) != RBM_NONE)
+                    {
+                        consecutiveResult |= RBM_V30;
+                        overallResult |= v0_v1_v30_v31_mask;
+                    }
 
-                regMaskTP v0_v1_v2_v31_mask = RBM_V0 | RBM_V29 | RBM_V30 | RBM_V31;
-                if ((candidates & v0_v1_v2_v31_mask) != RBM_NONE)
-                {
-                    consecutiveResult |= RBM_V31;
-                    overallResult |= v0_v1_v2_v31_mask;
+                    regMaskTP v0_v1_v2_v31_mask = RBM_V0 | RBM_V29 | RBM_V30 | RBM_V31;
+                    if ((candidates & v0_v1_v2_v31_mask) != RBM_NONE)
+                    {
+                        consecutiveResult |= RBM_V31;
+                        overallResult |= v0_v1_v2_v31_mask;
+                    }
+                    break;
                 }
-                break;
-            }
             default:
                 assert(!"Unexpected registersNeeded\n");
         }
@@ -621,22 +621,22 @@ int LinearScan::BuildNode(GenTree* tree)
             FALLTHROUGH;
 
         case GT_LCL_FLD:
-        {
-            srcCount = 0;
-#ifdef FEATURE_SIMD
-            // Need an additional register to read upper 4 bytes of Vector3.
-            if (tree->TypeGet() == TYP_SIMD12)
             {
-                // We need an internal register different from targetReg in which 'tree' produces its result
-                // because both targetReg and internal reg will be in use at the same time.
-                buildInternalFloatRegisterDefForNode(tree, allSIMDRegs());
-                setInternalRegsDelayFree = true;
-                buildInternalRegisterUses();
-            }
+                srcCount = 0;
+#ifdef FEATURE_SIMD
+                // Need an additional register to read upper 4 bytes of Vector3.
+                if (tree->TypeGet() == TYP_SIMD12)
+                {
+                    // We need an internal register different from targetReg in which 'tree' produces its result
+                    // because both targetReg and internal reg will be in use at the same time.
+                    buildInternalFloatRegisterDefForNode(tree, allSIMDRegs());
+                    setInternalRegsDelayFree = true;
+                    buildInternalRegisterUses();
+                }
 #endif
-            BuildDef(tree);
-        }
-        break;
+                BuildDef(tree);
+            }
+            break;
 
         case GT_STORE_LCL_VAR:
             if (tree->IsMultiRegLclVar() && isCandidateMultiRegLclVar(tree->AsLclVar()))
@@ -677,54 +677,54 @@ int LinearScan::BuildNode(GenTree* tree)
             break;
 
         case GT_CNS_DBL:
-        {
-            GenTreeDblCon* dblConst   = tree->AsDblCon();
-            double         constValue = dblConst->AsDblCon()->DconValue();
+            {
+                GenTreeDblCon* dblConst   = tree->AsDblCon();
+                double         constValue = dblConst->AsDblCon()->DconValue();
 
-            if (emitter::emitIns_valid_imm_for_fmov(constValue))
-            {
-                // Directly encode constant to instructions.
+                if (emitter::emitIns_valid_imm_for_fmov(constValue))
+                {
+                    // Directly encode constant to instructions.
+                }
+                else
+                {
+                    // Reserve int to load constant from memory (IF_LARGELDC)
+                    buildInternalIntRegisterDefForNode(tree);
+                    buildInternalRegisterUses();
+                }
             }
-            else
-            {
-                // Reserve int to load constant from memory (IF_LARGELDC)
-                buildInternalIntRegisterDefForNode(tree);
-                buildInternalRegisterUses();
-            }
-        }
             FALLTHROUGH;
 
         case GT_CNS_INT:
-        {
-            srcCount = 0;
-            assert(dstCount == 1);
-            RefPosition* def               = BuildDef(tree);
-            def->getInterval()->isConstant = true;
-        }
-        break;
+            {
+                srcCount = 0;
+                assert(dstCount == 1);
+                RefPosition* def               = BuildDef(tree);
+                def->getInterval()->isConstant = true;
+            }
+            break;
 
         case GT_CNS_VEC:
-        {
-            GenTreeVecCon* vecCon = tree->AsVecCon();
-
-            if (vecCon->IsAllBitsSet() || vecCon->IsZero())
             {
-                // Directly encode constant to instructions.
-            }
-            else
-            {
-                // Reserve int to load constant from memory (IF_LARGELDC)
-                buildInternalIntRegisterDefForNode(tree);
-                buildInternalRegisterUses();
-            }
+                GenTreeVecCon* vecCon = tree->AsVecCon();
 
-            srcCount = 0;
-            assert(dstCount == 1);
+                if (vecCon->IsAllBitsSet() || vecCon->IsZero())
+                {
+                    // Directly encode constant to instructions.
+                }
+                else
+                {
+                    // Reserve int to load constant from memory (IF_LARGELDC)
+                    buildInternalIntRegisterDefForNode(tree);
+                    buildInternalRegisterUses();
+                }
 
-            RefPosition* def               = BuildDef(tree);
-            def->getInterval()->isConstant = true;
-            break;
-        }
+                srcCount = 0;
+                assert(dstCount == 1);
+
+                RefPosition* def               = BuildDef(tree);
+                def->getInterval()->isConstant = true;
+                break;
+            }
 
         case GT_BOX:
         case GT_COMMA:
@@ -852,55 +852,55 @@ int LinearScan::BuildNode(GenTree* tree)
         case GT_MULHI:
         case GT_MUL_LONG:
         case GT_UDIV:
-        {
-            srcCount = BuildBinaryUses(tree->AsOp());
-            buildInternalRegisterUses();
-            assert(dstCount == 1);
-            BuildDef(tree);
-        }
-        break;
+            {
+                srcCount = BuildBinaryUses(tree->AsOp());
+                buildInternalRegisterUses();
+                assert(dstCount == 1);
+                BuildDef(tree);
+            }
+            break;
 
         case GT_INTRINSIC:
-        {
-            switch (tree->AsIntrinsic()->gtIntrinsicName)
             {
-                case NI_System_Math_Max:
-                case NI_System_Math_Min:
-                case NI_System_Math_MaxNumber:
-                case NI_System_Math_MinNumber:
+                switch (tree->AsIntrinsic()->gtIntrinsicName)
                 {
-                    assert(varTypeIsFloating(tree->gtGetOp1()));
-                    assert(varTypeIsFloating(tree->gtGetOp2()));
-                    assert(tree->gtGetOp1()->TypeIs(tree->TypeGet()));
+                    case NI_System_Math_Max:
+                    case NI_System_Math_Min:
+                    case NI_System_Math_MaxNumber:
+                    case NI_System_Math_MinNumber:
+                        {
+                            assert(varTypeIsFloating(tree->gtGetOp1()));
+                            assert(varTypeIsFloating(tree->gtGetOp2()));
+                            assert(tree->gtGetOp1()->TypeIs(tree->TypeGet()));
 
-                    srcCount = BuildBinaryUses(tree->AsOp());
-                    assert(dstCount == 1);
-                    BuildDef(tree);
-                    break;
+                            srcCount = BuildBinaryUses(tree->AsOp());
+                            assert(dstCount == 1);
+                            BuildDef(tree);
+                            break;
+                        }
+
+                    case NI_System_Math_Abs:
+                    case NI_System_Math_Ceiling:
+                    case NI_System_Math_Floor:
+                    case NI_System_Math_Truncate:
+                    case NI_System_Math_Round:
+                    case NI_System_Math_Sqrt:
+                        {
+                            assert(varTypeIsFloating(tree->gtGetOp1()));
+                            assert(tree->gtGetOp1()->TypeIs(tree->TypeGet()));
+
+                            BuildUse(tree->gtGetOp1());
+                            srcCount = 1;
+                            assert(dstCount == 1);
+                            BuildDef(tree);
+                            break;
+                        }
+
+                    default:
+                        unreached();
                 }
-
-                case NI_System_Math_Abs:
-                case NI_System_Math_Ceiling:
-                case NI_System_Math_Floor:
-                case NI_System_Math_Truncate:
-                case NI_System_Math_Round:
-                case NI_System_Math_Sqrt:
-                {
-                    assert(varTypeIsFloating(tree->gtGetOp1()));
-                    assert(tree->gtGetOp1()->TypeIs(tree->TypeGet()));
-
-                    BuildUse(tree->gtGetOp1());
-                    srcCount = 1;
-                    assert(dstCount == 1);
-                    BuildDef(tree);
-                    break;
-                }
-
-                default:
-                    unreached();
             }
-        }
-        break;
+            break;
 
 #ifdef FEATURE_HW_INTRINSICS
         case GT_HWINTRINSIC:
@@ -951,100 +951,100 @@ int LinearScan::BuildNode(GenTree* tree)
             break;
 
         case GT_CMPXCHG:
-        {
-            GenTreeCmpXchg* cmpXchgNode = tree->AsCmpXchg();
-            srcCount                    = cmpXchgNode->Comparand()->isContained() ? 2 : 3;
-            assert(dstCount == 1);
-
-            if (!compiler->compOpportunisticallyDependsOn(InstructionSet_Atomics))
             {
-                // For ARMv8 exclusives requires a single internal register
-                buildInternalIntRegisterDefForNode(tree);
-            }
+                GenTreeCmpXchg* cmpXchgNode = tree->AsCmpXchg();
+                srcCount                    = cmpXchgNode->Comparand()->isContained() ? 2 : 3;
+                assert(dstCount == 1);
 
-            // For ARMv8 exclusives the lifetime of the addr and data must be extended because
-            // it may be used used multiple during retries
-
-            // For ARMv8.1 atomic cas the lifetime of the addr and data must be extended to prevent
-            // them being reused as the target register which must be destroyed early
-
-            RefPosition* locationUse = BuildUse(tree->AsCmpXchg()->Addr());
-            setDelayFree(locationUse);
-            RefPosition* valueUse = BuildUse(tree->AsCmpXchg()->Data());
-            setDelayFree(valueUse);
-            if (!cmpXchgNode->Comparand()->isContained())
-            {
-                RefPosition* comparandUse = BuildUse(tree->AsCmpXchg()->Comparand());
-
-                // For ARMv8 exclusives the lifetime of the comparand must be extended because
-                // it may be used used multiple during retries
                 if (!compiler->compOpportunisticallyDependsOn(InstructionSet_Atomics))
                 {
-                    setDelayFree(comparandUse);
+                    // For ARMv8 exclusives requires a single internal register
+                    buildInternalIntRegisterDefForNode(tree);
                 }
-            }
 
-            // Internals may not collide with target
-            setInternalRegsDelayFree = true;
-            buildInternalRegisterUses();
-            BuildDef(tree);
-        }
-        break;
+                // For ARMv8 exclusives the lifetime of the addr and data must be extended because
+                // it may be used used multiple during retries
+
+                // For ARMv8.1 atomic cas the lifetime of the addr and data must be extended to prevent
+                // them being reused as the target register which must be destroyed early
+
+                RefPosition* locationUse = BuildUse(tree->AsCmpXchg()->Addr());
+                setDelayFree(locationUse);
+                RefPosition* valueUse = BuildUse(tree->AsCmpXchg()->Data());
+                setDelayFree(valueUse);
+                if (!cmpXchgNode->Comparand()->isContained())
+                {
+                    RefPosition* comparandUse = BuildUse(tree->AsCmpXchg()->Comparand());
+
+                    // For ARMv8 exclusives the lifetime of the comparand must be extended because
+                    // it may be used used multiple during retries
+                    if (!compiler->compOpportunisticallyDependsOn(InstructionSet_Atomics))
+                    {
+                        setDelayFree(comparandUse);
+                    }
+                }
+
+                // Internals may not collide with target
+                setInternalRegsDelayFree = true;
+                buildInternalRegisterUses();
+                BuildDef(tree);
+            }
+            break;
 
         case GT_LOCKADD:
         case GT_XORR:
         case GT_XAND:
         case GT_XADD:
         case GT_XCHG:
-        {
-            assert(dstCount == (tree->TypeIs(TYP_VOID) ? 0 : 1));
-            srcCount = tree->gtGetOp2()->isContained() ? 1 : 2;
-
-            if (!compiler->compOpportunisticallyDependsOn(InstructionSet_Atomics))
             {
-                // GT_XCHG requires a single internal register; the others require two.
-                buildInternalIntRegisterDefForNode(tree);
-                if (tree->OperGet() != GT_XCHG)
+                assert(dstCount == (tree->TypeIs(TYP_VOID) ? 0 : 1));
+                srcCount = tree->gtGetOp2()->isContained() ? 1 : 2;
+
+                if (!compiler->compOpportunisticallyDependsOn(InstructionSet_Atomics))
                 {
+                    // GT_XCHG requires a single internal register; the others require two.
+                    buildInternalIntRegisterDefForNode(tree);
+                    if (tree->OperGet() != GT_XCHG)
+                    {
+                        buildInternalIntRegisterDefForNode(tree);
+                    }
+                }
+                else if (tree->OperIs(GT_XAND))
+                {
+                    // for ldclral we need an internal register.
                     buildInternalIntRegisterDefForNode(tree);
                 }
-            }
-            else if (tree->OperIs(GT_XAND))
-            {
-                // for ldclral we need an internal register.
-                buildInternalIntRegisterDefForNode(tree);
-            }
 
-            assert(!tree->gtGetOp1()->isContained());
-            RefPosition* op1Use = BuildUse(tree->gtGetOp1());
-            RefPosition* op2Use = nullptr;
-            if (!tree->gtGetOp2()->isContained())
-            {
-                op2Use = BuildUse(tree->gtGetOp2());
-            }
+                assert(!tree->gtGetOp1()->isContained());
+                RefPosition* op1Use = BuildUse(tree->gtGetOp1());
+                RefPosition* op2Use = nullptr;
+                if (!tree->gtGetOp2()->isContained())
+                {
+                    op2Use = BuildUse(tree->gtGetOp2());
+                }
 
-            // For ARMv8 exclusives the lifetime of the addr and data must be extended because
-            // it may be used used multiple during retries
-            if (!compiler->compOpportunisticallyDependsOn(InstructionSet_Atomics))
-            {
-                // Internals may not collide with target
+                // For ARMv8 exclusives the lifetime of the addr and data must be extended because
+                // it may be used used multiple during retries
+                if (!compiler->compOpportunisticallyDependsOn(InstructionSet_Atomics))
+                {
+                    // Internals may not collide with target
+                    if (dstCount == 1)
+                    {
+                        setDelayFree(op1Use);
+                        if (op2Use != nullptr)
+                        {
+                            setDelayFree(op2Use);
+                        }
+                        setInternalRegsDelayFree = true;
+                    }
+                }
+                buildInternalRegisterUses();
                 if (dstCount == 1)
                 {
-                    setDelayFree(op1Use);
-                    if (op2Use != nullptr)
-                    {
-                        setDelayFree(op2Use);
-                    }
-                    setInternalRegsDelayFree = true;
+                    BuildDef(tree);
                 }
             }
-            buildInternalRegisterUses();
-            if (dstCount == 1)
-            {
-                BuildDef(tree);
-            }
-        }
-        break;
+            break;
 
 #if FEATURE_ARG_SPLIT
         case GT_PUTARG_SPLIT:
@@ -1086,85 +1086,85 @@ int LinearScan::BuildNode(GenTree* tree)
             break;
 
         case GT_LCLHEAP:
-        {
-            assert(dstCount == 1);
-
-            // Need a variable number of temp regs (see genLclHeap() in codegenarm64.cpp):
-            // Here '-' means don't care.
-            //
-            //  Size?                   Init Memory?    # temp regs
-            //   0                          -               0
-            //   const and <=UnrollLimit    -               0
-            //   const and <PageSize        No              0
-            //   >UnrollLimit               Yes             0
-            //   Non-const                  Yes             0
-            //   Non-const                  No              2
-            //
-
-            GenTree* size = tree->gtGetOp1();
-            if (size->IsCnsIntOrI())
             {
-                assert(size->isContained());
-                srcCount = 0;
+                assert(dstCount == 1);
 
-                size_t sizeVal = size->AsIntCon()->gtIconVal;
+                // Need a variable number of temp regs (see genLclHeap() in codegenarm64.cpp):
+                // Here '-' means don't care.
+                //
+                //  Size?                   Init Memory?    # temp regs
+                //   0                          -               0
+                //   const and <=UnrollLimit    -               0
+                //   const and <PageSize        No              0
+                //   >UnrollLimit               Yes             0
+                //   Non-const                  Yes             0
+                //   Non-const                  No              2
+                //
 
-                if (sizeVal != 0)
+                GenTree* size = tree->gtGetOp1();
+                if (size->IsCnsIntOrI())
                 {
-                    // Compute the amount of memory to properly STACK_ALIGN.
-                    // Note: The GenTree node is not updated here as it is cheap to recompute stack aligned size.
-                    // This should also help in debugging as we can examine the original size specified with
-                    // localloc.
-                    sizeVal = AlignUp(sizeVal, STACK_ALIGN);
+                    assert(size->isContained());
+                    srcCount = 0;
 
-                    if (sizeVal <= compiler->getUnrollThreshold(Compiler::UnrollKind::Memset))
+                    size_t sizeVal = size->AsIntCon()->gtIconVal;
+
+                    if (sizeVal != 0)
                     {
-                        // Need no internal registers
-                    }
-                    else if (!compiler->info.compInitMem)
-                    {
-                        // No need to initialize allocated stack space.
-                        if (sizeVal < compiler->eeGetPageSize())
+                        // Compute the amount of memory to properly STACK_ALIGN.
+                        // Note: The GenTree node is not updated here as it is cheap to recompute stack aligned size.
+                        // This should also help in debugging as we can examine the original size specified with
+                        // localloc.
+                        sizeVal = AlignUp(sizeVal, STACK_ALIGN);
+
+                        if (sizeVal <= compiler->getUnrollThreshold(Compiler::UnrollKind::Memset))
                         {
                             // Need no internal registers
                         }
-                        else
+                        else if (!compiler->info.compInitMem)
                         {
-                            // We need two registers: regCnt and RegTmp
-                            buildInternalIntRegisterDefForNode(tree);
-                            buildInternalIntRegisterDefForNode(tree);
+                            // No need to initialize allocated stack space.
+                            if (sizeVal < compiler->eeGetPageSize())
+                            {
+                                // Need no internal registers
+                            }
+                            else
+                            {
+                                // We need two registers: regCnt and RegTmp
+                                buildInternalIntRegisterDefForNode(tree);
+                                buildInternalIntRegisterDefForNode(tree);
+                            }
                         }
                     }
                 }
-            }
-            else
-            {
-                srcCount = 1;
-                if (!compiler->info.compInitMem)
+                else
                 {
-                    buildInternalIntRegisterDefForNode(tree);
-                    buildInternalIntRegisterDefForNode(tree);
+                    srcCount = 1;
+                    if (!compiler->info.compInitMem)
+                    {
+                        buildInternalIntRegisterDefForNode(tree);
+                        buildInternalIntRegisterDefForNode(tree);
+                    }
                 }
-            }
 
-            if (!size->isContained())
-            {
-                BuildUse(size);
+                if (!size->isContained())
+                {
+                    BuildUse(size);
+                }
+                buildInternalRegisterUses();
+                BuildDef(tree);
             }
-            buildInternalRegisterUses();
-            BuildDef(tree);
-        }
-        break;
+            break;
 
         case GT_BOUNDS_CHECK:
-        {
-            GenTreeBoundsChk* node = tree->AsBoundsChk();
-            // Consumes arrLen & index - has no result
-            assert(dstCount == 0);
-            srcCount = BuildOperandUses(node->GetIndex());
-            srcCount += BuildOperandUses(node->GetArrayLength());
-        }
-        break;
+            {
+                GenTreeBoundsChk* node = tree->AsBoundsChk();
+                // Consumes arrLen & index - has no result
+                assert(dstCount == 0);
+                srcCount = BuildOperandUses(node->GetIndex());
+                srcCount += BuildOperandUses(node->GetArrayLength());
+            }
+            break;
 
         case GT_ARR_ELEM:
             // These must have been lowered
@@ -1174,77 +1174,77 @@ int LinearScan::BuildNode(GenTree* tree)
             break;
 
         case GT_LEA:
-        {
-            GenTreeAddrMode* lea = tree->AsAddrMode();
+            {
+                GenTreeAddrMode* lea = tree->AsAddrMode();
 
-            GenTree* base  = lea->Base();
-            GenTree* index = lea->Index();
-            int      cns   = lea->Offset();
+                GenTree* base  = lea->Base();
+                GenTree* index = lea->Index();
+                int      cns   = lea->Offset();
 
-            // This LEA is instantiating an address, so we set up the srcCount here.
-            srcCount = 0;
-            if (base != nullptr)
-            {
-                srcCount++;
-                BuildUse(base);
-            }
-            if (index != nullptr)
-            {
-                srcCount++;
-                if (index->OperIs(GT_BFIZ) && index->isContained())
+                // This LEA is instantiating an address, so we set up the srcCount here.
+                srcCount = 0;
+                if (base != nullptr)
                 {
-                    GenTreeCast* cast = index->gtGetOp1()->AsCast();
-                    assert(cast->isContained() && (cns == 0));
-                    BuildUse(cast->CastOp());
+                    srcCount++;
+                    BuildUse(base);
                 }
-                else if (index->OperIs(GT_CAST) && index->isContained())
+                if (index != nullptr)
                 {
-                    GenTreeCast* cast = index->AsCast();
-                    assert(cast->isContained() && (cns == 0));
-                    BuildUse(cast->CastOp());
+                    srcCount++;
+                    if (index->OperIs(GT_BFIZ) && index->isContained())
+                    {
+                        GenTreeCast* cast = index->gtGetOp1()->AsCast();
+                        assert(cast->isContained() && (cns == 0));
+                        BuildUse(cast->CastOp());
+                    }
+                    else if (index->OperIs(GT_CAST) && index->isContained())
+                    {
+                        GenTreeCast* cast = index->AsCast();
+                        assert(cast->isContained() && (cns == 0));
+                        BuildUse(cast->CastOp());
+                    }
+                    else
+                    {
+                        BuildUse(index);
+                    }
                 }
-                else
-                {
-                    BuildUse(index);
-                }
-            }
-            assert(dstCount == 1);
+                assert(dstCount == 1);
 
-            // On ARM64 we may need a single internal register
-            // (when both conditions are true then we still only need a single internal register)
-            if ((index != nullptr) && (cns != 0))
-            {
-                // ARM64 does not support both Index and offset so we need an internal register
-                buildInternalIntRegisterDefForNode(tree);
+                // On ARM64 we may need a single internal register
+                // (when both conditions are true then we still only need a single internal register)
+                if ((index != nullptr) && (cns != 0))
+                {
+                    // ARM64 does not support both Index and offset so we need an internal register
+                    buildInternalIntRegisterDefForNode(tree);
+                }
+                else if (!emitter::emitIns_valid_imm_for_add(cns, EA_8BYTE))
+                {
+                    // This offset can't be contained in the add instruction, so we need an internal register
+                    buildInternalIntRegisterDefForNode(tree);
+                }
+                buildInternalRegisterUses();
+                BuildDef(tree);
             }
-            else if (!emitter::emitIns_valid_imm_for_add(cns, EA_8BYTE))
-            {
-                // This offset can't be contained in the add instruction, so we need an internal register
-                buildInternalIntRegisterDefForNode(tree);
-            }
-            buildInternalRegisterUses();
-            BuildDef(tree);
-        }
-        break;
+            break;
 
         case GT_STOREIND:
-        {
-            assert(dstCount == 0);
-
-            if (compiler->codeGen->gcInfo.gcIsWriteBarrierStoreIndNode(tree->AsStoreInd()))
             {
-                srcCount = BuildGCWriteBarrier(tree);
-                break;
-            }
+                assert(dstCount == 0);
 
-            srcCount = BuildIndir(tree->AsIndir());
-            if (!tree->gtGetOp2()->isContained())
-            {
-                BuildUse(tree->gtGetOp2());
-                srcCount++;
+                if (compiler->codeGen->gcInfo.gcIsWriteBarrierStoreIndNode(tree->AsStoreInd()))
+                {
+                    srcCount = BuildGCWriteBarrier(tree);
+                    break;
+                }
+
+                srcCount = BuildIndir(tree->AsIndir());
+                if (!tree->gtGetOp2()->isContained())
+                {
+                    BuildUse(tree->gtGetOp2());
+                    srcCount++;
+                }
             }
-        }
-        break;
+            break;
 
         case GT_NULLCHECK:
         case GT_IND:
@@ -1295,7 +1295,7 @@ int LinearScan::BuildNode(GenTree* tree)
             break;
 #endif // SWIFT_SUPPORT
 
-    } // end switch (tree->OperGet())
+    }  // end switch (tree->OperGet())
 
     if (tree->IsUnusedValue() && (dstCount != 0))
     {
@@ -1483,46 +1483,46 @@ int LinearScan::BuildHWIntrinsic(GenTreeHWIntrinsic* intrinsicTree, int* pDstCou
         {
             case NI_Vector64_CreateScalarUnsafe:
             case NI_Vector128_CreateScalarUnsafe:
-            {
-                simdRegToSimdRegMove = varTypeIsFloating(intrin.op1);
-                break;
-            }
+                {
+                    simdRegToSimdRegMove = varTypeIsFloating(intrin.op1);
+                    break;
+                }
 
             case NI_AdvSimd_Arm64_DuplicateToVector64:
-            {
-                simdRegToSimdRegMove = (intrin.op1->TypeGet() == TYP_DOUBLE);
-                break;
-            }
+                {
+                    simdRegToSimdRegMove = (intrin.op1->TypeGet() == TYP_DOUBLE);
+                    break;
+                }
 
             case NI_Vector64_ToScalar:
             case NI_Vector128_ToScalar:
-            {
-                simdRegToSimdRegMove = varTypeIsFloating(intrinsicTree);
-                break;
-            }
+                {
+                    simdRegToSimdRegMove = varTypeIsFloating(intrinsicTree);
+                    break;
+                }
 
             case NI_Vector64_ToVector128Unsafe:
             case NI_Vector128_AsVector3:
             case NI_Vector128_GetLower:
-            {
-                simdRegToSimdRegMove = true;
-                break;
-            }
+                {
+                    simdRegToSimdRegMove = true;
+                    break;
+                }
             case NI_AdvSimd_LoadAndInsertScalarVector64x2:
             case NI_AdvSimd_LoadAndInsertScalarVector64x3:
             case NI_AdvSimd_LoadAndInsertScalarVector64x4:
             case NI_AdvSimd_Arm64_LoadAndInsertScalarVector128x2:
             case NI_AdvSimd_Arm64_LoadAndInsertScalarVector128x3:
             case NI_AdvSimd_Arm64_LoadAndInsertScalarVector128x4:
-            {
-                delayFreeMultiple = true;
-                break;
-            }
+                {
+                    delayFreeMultiple = true;
+                    break;
+                }
 
             default:
-            {
-                break;
-            }
+                {
+                    break;
+                }
         }
 
         // If we have an RMW intrinsic or an intrinsic with simple move semantic between two SIMD registers,
@@ -1619,30 +1619,30 @@ int LinearScan::BuildHWIntrinsic(GenTreeHWIntrinsic* intrinsicTree, int* pDstCou
         {
             case NI_AdvSimd_VectorTableLookup:
             case NI_AdvSimd_Arm64_VectorTableLookup:
-            {
-                assert(intrin.op2 != nullptr);
-                srcCount += BuildOperandUses(intrin.op2);
-                assert(dstCount == 1);
-                buildInternalRegisterUses();
-                BuildDef(intrinsicTree);
-                *pDstCount = 1;
-                break;
-            }
+                {
+                    assert(intrin.op2 != nullptr);
+                    srcCount += BuildOperandUses(intrin.op2);
+                    assert(dstCount == 1);
+                    buildInternalRegisterUses();
+                    BuildDef(intrinsicTree);
+                    *pDstCount = 1;
+                    break;
+                }
 
             case NI_AdvSimd_VectorTableLookupExtension:
             case NI_AdvSimd_Arm64_VectorTableLookupExtension:
-            {
-                assert(intrin.op2 != nullptr);
-                assert(intrin.op3 != nullptr);
-                assert(isRMW);
-                srcCount += BuildConsecutiveRegistersForUse(intrin.op2, intrin.op1);
-                srcCount += BuildDelayFreeUses(intrin.op3, intrin.op1);
-                assert(dstCount == 1);
-                buildInternalRegisterUses();
-                BuildDef(intrinsicTree);
-                *pDstCount = 1;
-                break;
-            }
+                {
+                    assert(intrin.op2 != nullptr);
+                    assert(intrin.op3 != nullptr);
+                    assert(isRMW);
+                    srcCount += BuildConsecutiveRegistersForUse(intrin.op2, intrin.op1);
+                    srcCount += BuildDelayFreeUses(intrin.op3, intrin.op1);
+                    assert(dstCount == 1);
+                    buildInternalRegisterUses();
+                    BuildDef(intrinsicTree);
+                    *pDstCount = 1;
+                    break;
+                }
 
             case NI_AdvSimd_StoreSelectedScalar:
             case NI_AdvSimd_Arm64_StoreSelectedScalar:
@@ -1664,19 +1664,19 @@ int LinearScan::BuildHWIntrinsic(GenTreeHWIntrinsic* intrinsicTree, int* pDstCou
             case NI_AdvSimd_Arm64_StoreSelectedScalarVector128x2:
             case NI_AdvSimd_Arm64_StoreSelectedScalarVector128x3:
             case NI_AdvSimd_Arm64_StoreSelectedScalarVector128x4:
-            {
-                assert(intrin.op1 != nullptr);
-                assert(intrin.op3 != nullptr);
-                srcCount += BuildConsecutiveRegistersForUse(intrin.op2);
-                if (!intrin.op3->isContainedIntOrIImmed())
                 {
-                    srcCount += BuildOperandUses(intrin.op3);
+                    assert(intrin.op1 != nullptr);
+                    assert(intrin.op3 != nullptr);
+                    srcCount += BuildConsecutiveRegistersForUse(intrin.op2);
+                    if (!intrin.op3->isContainedIntOrIImmed())
+                    {
+                        srcCount += BuildOperandUses(intrin.op3);
+                    }
+                    assert(dstCount == 0);
+                    buildInternalRegisterUses();
+                    *pDstCount = 0;
+                    break;
                 }
-                assert(dstCount == 0);
-                buildInternalRegisterUses();
-                *pDstCount = 0;
-                break;
-            }
 
             case NI_AdvSimd_StoreVector64x2AndZip:
             case NI_AdvSimd_StoreVector64x3AndZip:
@@ -1690,14 +1690,14 @@ int LinearScan::BuildHWIntrinsic(GenTreeHWIntrinsic* intrinsicTree, int* pDstCou
             case NI_AdvSimd_Arm64_StoreVector128x2:
             case NI_AdvSimd_Arm64_StoreVector128x3:
             case NI_AdvSimd_Arm64_StoreVector128x4:
-            {
-                assert(intrin.op1 != nullptr);
-                srcCount += BuildConsecutiveRegistersForUse(intrin.op2);
-                assert(dstCount == 0);
-                buildInternalRegisterUses();
-                *pDstCount = 0;
-                break;
-            }
+                {
+                    assert(intrin.op1 != nullptr);
+                    srcCount += BuildConsecutiveRegistersForUse(intrin.op2);
+                    assert(dstCount == 0);
+                    buildInternalRegisterUses();
+                    *pDstCount = 0;
+                    break;
+                }
 
             case NI_AdvSimd_LoadAndInsertScalarVector64x2:
             case NI_AdvSimd_LoadAndInsertScalarVector64x3:
@@ -1705,20 +1705,20 @@ int LinearScan::BuildHWIntrinsic(GenTreeHWIntrinsic* intrinsicTree, int* pDstCou
             case NI_AdvSimd_Arm64_LoadAndInsertScalarVector128x2:
             case NI_AdvSimd_Arm64_LoadAndInsertScalarVector128x3:
             case NI_AdvSimd_Arm64_LoadAndInsertScalarVector128x4:
-            {
-                assert(intrin.op2 != nullptr);
-                assert(intrin.op3 != nullptr);
-                assert(isRMW);
-                if (!intrin.op2->isContainedIntOrIImmed())
                 {
-                    srcCount += BuildOperandUses(intrin.op2);
-                }
+                    assert(intrin.op2 != nullptr);
+                    assert(intrin.op3 != nullptr);
+                    assert(isRMW);
+                    if (!intrin.op2->isContainedIntOrIImmed())
+                    {
+                        srcCount += BuildOperandUses(intrin.op2);
+                    }
 
-                assert(intrinsicTree->OperIsMemoryLoadOrStore());
-                srcCount += BuildAddrUses(intrin.op3);
-                buildInternalRegisterUses();
-                FALLTHROUGH;
-            }
+                    assert(intrinsicTree->OperIsMemoryLoadOrStore());
+                    srcCount += BuildAddrUses(intrin.op3);
+                    buildInternalRegisterUses();
+                    FALLTHROUGH;
+                }
 
             case NI_AdvSimd_LoadVector64x2AndUnzip:
             case NI_AdvSimd_LoadVector64x3AndUnzip:
@@ -1738,12 +1738,12 @@ int LinearScan::BuildHWIntrinsic(GenTreeHWIntrinsic* intrinsicTree, int* pDstCou
             case NI_AdvSimd_Arm64_LoadAndReplicateToVector128x2:
             case NI_AdvSimd_Arm64_LoadAndReplicateToVector128x3:
             case NI_AdvSimd_Arm64_LoadAndReplicateToVector128x4:
-            {
-                assert(intrin.op1 != nullptr);
-                BuildConsecutiveRegistersForDef(intrinsicTree, dstCount);
-                *pDstCount = dstCount;
-                break;
-            }
+                {
+                    assert(intrin.op1 != nullptr);
+                    BuildConsecutiveRegistersForDef(intrinsicTree, dstCount);
+                    *pDstCount = dstCount;
+                    break;
+                }
             default:
                 noway_assert(!"Not a supported as multiple consecutive register intrinsic");
         }

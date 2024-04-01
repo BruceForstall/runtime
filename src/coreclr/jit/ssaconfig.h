@@ -13,8 +13,7 @@
 
 // DBG_SSA_JITDUMP prints only if DEBUG, DEBUG_SSA, and tlsCompiler->verbose are all set.
 
-namespace SsaConfig
-{
+namespace SsaConfig {
 // FIRST ssa num is given to the first definition of a variable which can either be:
 // 1. A regular definition in the program.
 // 2. Or initialization by compInitMem.

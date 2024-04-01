@@ -6,16 +6,16 @@
 
 struct BasicBlockLiveness
 {
-    // Variables used before a full definition.
-    BitVec VarUse;
-    // Variables fully defined before a use.
-    // Note that this differs from our normal liveness: partial definitions are
-    // NOT marked but they are also not considered uses.
-    BitVec VarDef;
-    // Variables live-in to this basic block.
-    BitVec LiveIn;
-    // Variables live-out of this basic block.
-    BitVec LiveOut;
+        // Variables used before a full definition.
+        BitVec VarUse;
+        // Variables fully defined before a use.
+        // Note that this differs from our normal liveness: partial definitions are
+        // NOT marked but they are also not considered uses.
+        BitVec VarDef;
+        // Variables live-in to this basic block.
+        BitVec LiveIn;
+        // Variables live-out of this basic block.
+        BitVec LiveOut;
 };
 
 //------------------------------------------------------------------------
@@ -343,13 +343,11 @@ bool PromotionLiveness::PerBlockLiveness(BasicBlock* block)
 
     BasicBlockLiveness& bbInfo = m_bbInfo[block->bbNum];
     BitVecOps::ClearD(m_bvTraits, bbInfo.LiveOut);
-    block->VisitRegularSuccs(m_compiler,
-                             [=, &bbInfo](BasicBlock* succ)
-                             {
-                                 BitVecOps::UnionD(m_bvTraits, bbInfo.LiveOut, m_bbInfo[succ->bbNum].LiveIn);
-                                 m_hasPossibleBackEdge |= succ->bbNum <= block->bbNum;
-                                 return BasicBlockVisit::Continue;
-                             });
+    block->VisitRegularSuccs(m_compiler, [=, &bbInfo](BasicBlock* succ) {
+        BitVecOps::UnionD(m_bvTraits, bbInfo.LiveOut, m_bbInfo[succ->bbNum].LiveIn);
+        m_hasPossibleBackEdge |= succ->bbNum <= block->bbNum;
+        return BasicBlockVisit::Continue;
+    });
 
     BitVecOps::LivenessD(m_bvTraits, m_liveIn, bbInfo.VarDef, bbInfo.VarUse, bbInfo.LiveOut);
 
@@ -388,12 +386,10 @@ void PromotionLiveness::AddHandlerLiveVars(BasicBlock* block, BitVec& ehLiveVars
 {
     assert(block->HasPotentialEHSuccs(m_compiler));
 
-    block->VisitEHSuccs(m_compiler,
-                        [=, &ehLiveVars](BasicBlock* succ)
-                        {
-                            BitVecOps::UnionD(m_bvTraits, ehLiveVars, m_bbInfo[succ->bbNum].LiveIn);
-                            return BasicBlockVisit::Continue;
-                        });
+    block->VisitEHSuccs(m_compiler, [=, &ehLiveVars](BasicBlock* succ) {
+        BitVecOps::UnionD(m_bvTraits, ehLiveVars, m_bbInfo[succ->bbNum].LiveIn);
+        return BasicBlockVisit::Continue;
+    });
 }
 
 //------------------------------------------------------------------------

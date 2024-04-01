@@ -20,49 +20,49 @@ XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
 //
 class OptIfConversionDsc
 {
-public:
-    OptIfConversionDsc(Compiler* comp, BasicBlock* startBlock)
-    {
-        m_comp       = comp;
-        m_startBlock = startBlock;
-    }
+    public:
+        OptIfConversionDsc(Compiler* comp, BasicBlock* startBlock)
+        {
+            m_comp       = comp;
+            m_startBlock = startBlock;
+        }
 
-private:
-    Compiler* m_comp; // The Compiler instance.
+    private:
+        Compiler* m_comp;                   // The Compiler instance.
 
-    BasicBlock* m_startBlock;           // First block in the If Conversion.
-    BasicBlock* m_finalBlock = nullptr; // Block where the flows merge. In a return case, this can be nullptr.
+        BasicBlock* m_startBlock;           // First block in the If Conversion.
+        BasicBlock* m_finalBlock = nullptr; // Block where the flows merge. In a return case, this can be nullptr.
 
-    // The node, statement and block of an assignment.
-    struct IfConvertOperation
-    {
-        BasicBlock* block = nullptr;
-        Statement*  stmt  = nullptr;
-        GenTree*    node  = nullptr;
-    };
+        // The node, statement and block of an assignment.
+        struct IfConvertOperation
+        {
+                BasicBlock* block = nullptr;
+                Statement*  stmt  = nullptr;
+                GenTree*    node  = nullptr;
+        };
 
-    GenTree*           m_cond;          // The condition in the conversion
-    IfConvertOperation m_thenOperation; // The single operation in the Then case.
-    IfConvertOperation m_elseOperation; // The single operation in the Else case.
+        GenTree*           m_cond;          // The condition in the conversion
+        IfConvertOperation m_thenOperation; // The single operation in the Then case.
+        IfConvertOperation m_elseOperation; // The single operation in the Else case.
 
-    int m_checkLimit = 4; // Max number of chained blocks to allow in both the True and Else cases.
+        int m_checkLimit = 4;               // Max number of chained blocks to allow in both the True and Else cases.
 
-    genTreeOps m_mainOper         = GT_COUNT; // The main oper of the if conversion.
-    bool       m_doElseConversion = false;    // Does the If conversion have an else statement.
-    bool       m_flowFound        = false;    // Has a valid flow been found.
+        genTreeOps m_mainOper         = GT_COUNT; // The main oper of the if conversion.
+        bool       m_doElseConversion = false;    // Does the If conversion have an else statement.
+        bool       m_flowFound        = false;    // Has a valid flow been found.
 
-    bool IfConvertCheckInnerBlockFlow(BasicBlock* block);
-    bool IfConvertCheckThenFlow();
-    void IfConvertFindFlow();
-    bool IfConvertCheckStmts(BasicBlock* fromBlock, IfConvertOperation* foundOperation);
-    void IfConvertJoinStmts(BasicBlock* fromBlock);
+        bool IfConvertCheckInnerBlockFlow(BasicBlock* block);
+        bool IfConvertCheckThenFlow();
+        void IfConvertFindFlow();
+        bool IfConvertCheckStmts(BasicBlock* fromBlock, IfConvertOperation* foundOperation);
+        void IfConvertJoinStmts(BasicBlock* fromBlock);
 
 #ifdef DEBUG
-    void IfConvertDump();
+        void IfConvertDump();
 #endif
 
-public:
-    bool optIfConvert();
+    public:
+        bool optIfConvert();
 };
 
 //-----------------------------------------------------------------------------
@@ -234,109 +234,109 @@ bool OptIfConversionDsc::IfConvertCheckStmts(BasicBlock* fromBlock, IfConvertOpe
             switch (tree->gtOper)
             {
                 case GT_STORE_LCL_VAR:
-                {
-                    // Only one per operation per block can be conditionally executed.
-                    if (found)
                     {
-                        return false;
-                    }
+                        // Only one per operation per block can be conditionally executed.
+                        if (found)
+                        {
+                            return false;
+                        }
 
-                    // Ensure the local has integer type.
-                    if (!varTypeIsIntegralOrI(tree))
-                    {
-                        return false;
-                    }
+                        // Ensure the local has integer type.
+                        if (!varTypeIsIntegralOrI(tree))
+                        {
+                            return false;
+                        }
 
 #ifndef TARGET_64BIT
-                    // Disallow 64-bit operands on 32-bit targets as the backend currently cannot
-                    // handle contained relops efficiently after decomposition.
-                    if (varTypeIsLong(tree))
-                    {
-                        return false;
-                    }
+                        // Disallow 64-bit operands on 32-bit targets as the backend currently cannot
+                        // handle contained relops efficiently after decomposition.
+                        if (varTypeIsLong(tree))
+                        {
+                            return false;
+                        }
 #endif
-                    GenTree* op1 = tree->AsLclVar()->Data();
+                        GenTree* op1 = tree->AsLclVar()->Data();
 
-                    // Ensure it won't cause any additional side effects.
-                    if ((op1->gtFlags & (GTF_SIDE_EFFECT | GTF_ORDER_SIDEEFF)) != 0)
-                    {
-                        return false;
+                        // Ensure it won't cause any additional side effects.
+                        if ((op1->gtFlags & (GTF_SIDE_EFFECT | GTF_ORDER_SIDEEFF)) != 0)
+                        {
+                            return false;
+                        }
+
+                        // Ensure the source isn't a phi.
+                        if (op1->OperIs(GT_PHI))
+                        {
+                            return false;
+                        }
+
+                        // Evaluating unconditionally effectively has the same effect as reordering
+                        // with the condition (for example, the condition could be an explicit bounds
+                        // check and the operand could read an array element). Disallow this except
+                        // for some common cases that we know are always side effect free.
+                        if (((m_cond->gtFlags & GTF_ORDER_SIDEEFF) != 0) && !op1->IsInvariant() && !op1->OperIsLocal())
+                        {
+                            return false;
+                        }
+
+                        found                 = true;
+                        foundOperation->block = block;
+                        foundOperation->stmt  = stmt;
+                        foundOperation->node  = tree;
+                        break;
                     }
-
-                    // Ensure the source isn't a phi.
-                    if (op1->OperIs(GT_PHI))
-                    {
-                        return false;
-                    }
-
-                    // Evaluating unconditionally effectively has the same effect as reordering
-                    // with the condition (for example, the condition could be an explicit bounds
-                    // check and the operand could read an array element). Disallow this except
-                    // for some common cases that we know are always side effect free.
-                    if (((m_cond->gtFlags & GTF_ORDER_SIDEEFF) != 0) && !op1->IsInvariant() && !op1->OperIsLocal())
-                    {
-                        return false;
-                    }
-
-                    found                 = true;
-                    foundOperation->block = block;
-                    foundOperation->stmt  = stmt;
-                    foundOperation->node  = tree;
-                    break;
-                }
 
                 case GT_RETURN:
-                {
-                    GenTree* op1 = tree->gtGetOp1();
-
-                    // Only allow RETURNs if else conversion is being used.
-                    if (!m_doElseConversion)
                     {
-                        return false;
-                    }
+                        GenTree* op1 = tree->gtGetOp1();
 
-                    // Only one per operation per block can be conditionally executed.
-                    if (found || op1 == nullptr)
-                    {
-                        return false;
-                    }
+                        // Only allow RETURNs if else conversion is being used.
+                        if (!m_doElseConversion)
+                        {
+                            return false;
+                        }
 
-                    // Ensure the operation has integer type.
-                    if (!varTypeIsIntegralOrI(tree))
-                    {
-                        return false;
-                    }
+                        // Only one per operation per block can be conditionally executed.
+                        if (found || op1 == nullptr)
+                        {
+                            return false;
+                        }
+
+                        // Ensure the operation has integer type.
+                        if (!varTypeIsIntegralOrI(tree))
+                        {
+                            return false;
+                        }
 
 #ifndef TARGET_64BIT
-                    // Disallow 64-bit operands on 32-bit targets as the backend currently cannot
-                    // handle contained relops efficiently after decomposition.
-                    if (varTypeIsLong(tree))
-                    {
-                        return false;
-                    }
+                        // Disallow 64-bit operands on 32-bit targets as the backend currently cannot
+                        // handle contained relops efficiently after decomposition.
+                        if (varTypeIsLong(tree))
+                        {
+                            return false;
+                        }
 #endif
 
-                    // Ensure it won't cause any additional side effects.
-                    if ((op1->gtFlags & (GTF_SIDE_EFFECT | GTF_ORDER_SIDEEFF)) != 0)
-                    {
-                        return false;
-                    }
+                        // Ensure it won't cause any additional side effects.
+                        if ((op1->gtFlags & (GTF_SIDE_EFFECT | GTF_ORDER_SIDEEFF)) != 0)
+                        {
+                            return false;
+                        }
 
-                    // Evaluating unconditionally effectively has the same effect as reordering
-                    // with the condition (for example, the condition could be an explicit bounds
-                    // check and the operand could read an array element). Disallow this except
-                    // for some common cases that we know are always side effect free.
-                    if (((m_cond->gtFlags & GTF_ORDER_SIDEEFF) != 0) && !op1->IsInvariant() && !op1->OperIsLocal())
-                    {
-                        return false;
-                    }
+                        // Evaluating unconditionally effectively has the same effect as reordering
+                        // with the condition (for example, the condition could be an explicit bounds
+                        // check and the operand could read an array element). Disallow this except
+                        // for some common cases that we know are always side effect free.
+                        if (((m_cond->gtFlags & GTF_ORDER_SIDEEFF) != 0) && !op1->IsInvariant() && !op1->OperIsLocal())
+                        {
+                            return false;
+                        }
 
-                    found                 = true;
-                    foundOperation->block = block;
-                    foundOperation->stmt  = stmt;
-                    foundOperation->node  = tree;
-                    break;
-                }
+                        found                 = true;
+                        foundOperation->block = block;
+                        foundOperation->stmt  = stmt;
+                        foundOperation->node  = tree;
+                        break;
+                    }
 
                 // These do not need conditional execution.
                 case GT_NOP:

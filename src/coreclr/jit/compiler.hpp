@@ -65,8 +65,7 @@ inline UINT32 forceCastToUInt32(double d)
     return u;
 }
 
-enum RoundLevel
-{
+enum RoundLevel {
     ROUND_NEVER     = 0, // Never round
     ROUND_CMP_CONST = 1, // Round values compared against constants
     ROUND_CMP       = 2, // Round comparands and return values
@@ -91,8 +90,7 @@ inline RoundLevel getRoundFloatLevel()
  *  Return the lowest bit that is set
  */
 
-template <typename T>
-inline T genFindLowestBit(T value)
+template <typename T> inline T genFindLowestBit(T value)
 {
     return (value & (0 - value));
 }
@@ -102,8 +100,7 @@ inline T genFindLowestBit(T value)
  *  Return true if the given value has exactly zero or one bits set.
  */
 
-template <typename T>
-inline bool genMaxOneBit(T value)
+template <typename T> inline bool genMaxOneBit(T value)
 {
     return (value & (value - 1)) == 0;
 }
@@ -113,8 +110,7 @@ inline bool genMaxOneBit(T value)
  *  Return true if the given value has exactly one bit set.
  */
 
-template <typename T>
-inline bool genExactlyOneBit(T value)
+template <typename T> inline bool genExactlyOneBit(T value)
 {
     return ((value != 0) && genMaxOneBit(value));
 }
@@ -290,19 +286,22 @@ inline bool Compiler::jitIsBetweenInclusive(unsigned value, unsigned start, unsi
 
 class Dumpable
 {
-public:
-    virtual void dump(FILE* output) = 0;
+    public:
+        virtual void dump(FILE* output) = 0;
 };
 
 // Helper class record and display a simple single value.
 class Counter : public Dumpable
 {
-public:
-    int64_t Value;
+    public:
+        int64_t Value;
 
-    Counter(int64_t initialValue = 0) : Value(initialValue) {}
+        Counter(int64_t initialValue = 0)
+            : Value(initialValue)
+        {
+        }
 
-    void dump(FILE* output);
+        void dump(FILE* output);
 };
 
 // Helper class to record and display a histogram of different values.
@@ -318,16 +317,16 @@ public:
 // of the buckets (<= 1, <= 2, <= 5, <= 10, > 10).
 class Histogram : public Dumpable
 {
-public:
-    Histogram(const unsigned* const sizeTable);
+    public:
+        Histogram(const unsigned* const sizeTable);
 
-    void dump(FILE* output);
-    void record(unsigned size);
+        void dump(FILE* output);
+        void record(unsigned size);
 
-private:
-    unsigned              m_sizeCount;
-    const unsigned* const m_sizeTable;
-    LONG                  m_counts[HISTOGRAM_MAX_SIZE_COUNT];
+    private:
+        unsigned              m_sizeCount;
+        const unsigned* const m_sizeTable;
+        LONG                  m_counts[HISTOGRAM_MAX_SIZE_COUNT];
 };
 
 // Helper class to record and display counts of node types. Use like:
@@ -349,14 +348,17 @@ private:
 //
 class NodeCounts : public Dumpable
 {
-public:
-    NodeCounts() : m_counts() {}
+    public:
+        NodeCounts()
+            : m_counts()
+        {
+        }
 
-    void dump(FILE* output);
-    void record(genTreeOps oper);
+        void dump(FILE* output);
+        void record(genTreeOps oper);
 
-private:
-    LONG m_counts[GT_COUNT];
+    private:
+        LONG m_counts[GT_COUNT];
 };
 
 // Helper class to register a Histogram or NodeCounts instance to automatically
@@ -372,9 +374,9 @@ private:
 // function.
 class DumpOnShutdown
 {
-public:
-    DumpOnShutdown(const char* name, Dumpable* histogram);
-    static void DumpAll();
+    public:
+        DumpOnShutdown(const char* name, Dumpable* histogram);
+        static void DumpAll();
 };
 
 #endif // CALL_ARG_STATS || COUNT_BASIC_BLOCKS || COUNT_LOOPS || EMITTER_STATS || MEASURE_NODE_SIZE
@@ -464,8 +466,7 @@ inline EHblkDsc* Compiler::ehGetBlockHndDsc(const BasicBlock* block)
 //   EH subsystem may invoke any enclosed finally/fault right after invoking a
 //   filter.
 //
-template <typename TFunc>
-BasicBlockVisit BasicBlock::VisitEHEnclosedHandlerSecondPassSuccs(Compiler* comp, TFunc func)
+template <typename TFunc> BasicBlockVisit BasicBlock::VisitEHEnclosedHandlerSecondPassSuccs(Compiler* comp, TFunc func)
 {
     if (!hasHndIndex())
     {
@@ -618,8 +619,7 @@ static BasicBlockVisit VisitEHSuccs(Compiler* comp, BasicBlock* block, TFunc fun
 // Remarks:
 //   For more documentation, see ::VisitEHSuccs.
 //
-template <typename TFunc>
-BasicBlockVisit BasicBlock::VisitEHSuccs(Compiler* comp, TFunc func)
+template <typename TFunc> BasicBlockVisit BasicBlock::VisitEHSuccs(Compiler* comp, TFunc func)
 {
     // These are "pseudo-blocks" and control never actually flows into them
     // (codegen directly jumps to its successor after finally calls).
@@ -641,8 +641,7 @@ BasicBlockVisit BasicBlock::VisitEHSuccs(Compiler* comp, TFunc func)
 // Returns:
 //   Whether or not the visiting was aborted.
 //
-template <typename TFunc>
-BasicBlockVisit BasicBlock::VisitAllSuccs(Compiler* comp, TFunc func)
+template <typename TFunc> BasicBlockVisit BasicBlock::VisitAllSuccs(Compiler* comp, TFunc func)
 {
     switch (bbKind)
     {
@@ -686,15 +685,15 @@ BasicBlockVisit BasicBlock::VisitAllSuccs(Compiler* comp, TFunc func)
             return VisitEHSuccs(comp, func);
 
         case BBJ_SWITCH:
-        {
-            Compiler::SwitchUniqueSuccSet sd = comp->GetDescriptorForSwitch(this);
-            for (unsigned i = 0; i < sd.numDistinctSuccs; i++)
             {
-                RETURN_ON_ABORT(func(sd.nonDuplicates[i]->getDestinationBlock()));
-            }
+                Compiler::SwitchUniqueSuccSet sd = comp->GetDescriptorForSwitch(this);
+                for (unsigned i = 0; i < sd.numDistinctSuccs; i++)
+                {
+                    RETURN_ON_ABORT(func(sd.nonDuplicates[i]->getDestinationBlock()));
+                }
 
-            return VisitEHSuccs(comp, func);
-        }
+                return VisitEHSuccs(comp, func);
+            }
 
         case BBJ_THROW:
         case BBJ_RETURN:
@@ -716,8 +715,7 @@ BasicBlockVisit BasicBlock::VisitAllSuccs(Compiler* comp, TFunc func)
 // Returns:
 //   Whether or not the visiting was aborted.
 //
-template <typename TFunc>
-BasicBlockVisit BasicBlock::VisitRegularSuccs(Compiler* comp, TFunc func)
+template <typename TFunc> BasicBlockVisit BasicBlock::VisitRegularSuccs(Compiler* comp, TFunc func)
 {
     switch (bbKind)
     {
@@ -753,15 +751,15 @@ BasicBlockVisit BasicBlock::VisitRegularSuccs(Compiler* comp, TFunc func)
             return BasicBlockVisit::Continue;
 
         case BBJ_SWITCH:
-        {
-            Compiler::SwitchUniqueSuccSet sd = comp->GetDescriptorForSwitch(this);
-            for (unsigned i = 0; i < sd.numDistinctSuccs; i++)
             {
-                RETURN_ON_ABORT(func(sd.nonDuplicates[i]->getDestinationBlock()));
-            }
+                Compiler::SwitchUniqueSuccSet sd = comp->GetDescriptorForSwitch(this);
+                for (unsigned i = 0; i < sd.numDistinctSuccs; i++)
+                {
+                    RETURN_ON_ABORT(func(sd.nonDuplicates[i]->getDestinationBlock()));
+                }
 
-            return BasicBlockVisit::Continue;
-        }
+                return BasicBlockVisit::Continue;
+            }
 
         case BBJ_THROW:
         case BBJ_RETURN:
@@ -870,7 +868,7 @@ inline unsigned Compiler::funGetFuncIdx(BasicBlock* block)
     return funcIdx;
 }
 
-#else // !FEATURE_EH_FUNCLETS
+#else  // !FEATURE_EH_FUNCLETS
 
 /*****************************************************************************
  *  Get the FuncInfoDsc for the funclet we are currently generating code for.
@@ -993,8 +991,7 @@ inline regNumber genFirstRegNumFromMask(regMaskTP mask)
 
 extern const BYTE genTypeSizes[TYP_COUNT];
 
-template <class T>
-inline unsigned genTypeSize(T value)
+template <class T> inline unsigned genTypeSize(T value)
 {
     assert((unsigned)TypeGet(value) < ArrLen(genTypeSizes));
 
@@ -1009,8 +1006,7 @@ inline unsigned genTypeSize(T value)
 
 extern const BYTE genTypeStSzs[TYP_COUNT];
 
-template <class T>
-inline unsigned genTypeStSz(T value)
+template <class T> inline unsigned genTypeStSz(T value)
 {
     assert((unsigned)TypeGet(value) < ArrLen(genTypeStSzs));
 
@@ -1030,8 +1026,7 @@ inline unsigned genTypeStSz(T value)
 
 extern const BYTE genActualTypes[TYP_COUNT];
 
-template <class T>
-inline var_types genActualType(T value)
+template <class T> inline var_types genActualType(T value)
 {
     /* Spot check to make certain the table is in synch with the enum */
     assert(genActualTypes[TYP_DOUBLE] == TYP_DOUBLE);
@@ -1905,8 +1900,7 @@ inline void GenTree::ChangeOper(genTreeOps oper, ValueNumberUpdate vnUpdate)
 //    value - Value which the bashed constant will have
 //    type  - Type the bashed node will have
 //
-template <typename T>
-void GenTree::BashToConst(T value, var_types type /* = TYP_UNDEF */)
+template <typename T> void GenTree::BashToConst(T value, var_types type /* = TYP_UNDEF */)
 {
     static_assert_no_msg((std::is_same<T, int32_t>::value || std::is_same<T, int64_t>::value ||
                           std::is_same<T, long long>::value || std::is_same<T, float>::value ||
@@ -3538,8 +3532,7 @@ XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
 // Assumptions:
 //    The set of live variables reflects the result of only emitted code, it should not be considering the becoming
 //    live/dead of instructions that has not been emitted yet. This is requires by "compChangeLife".
-template <bool ForCodeGen>
-inline void Compiler::compUpdateLife(VARSET_VALARG_TP newLife)
+template <bool ForCodeGen> inline void Compiler::compUpdateLife(VARSET_VALARG_TP newLife)
 {
     if (!VarSetOps::Equal(this, compCurLife, newLife))
     {
@@ -4223,8 +4216,7 @@ inline bool Compiler::PreciseRefCountsRequired()
     return opts.OptimizationEnabled();
 }
 
-template <typename TVisitor>
-void GenTree::VisitOperands(TVisitor visitor)
+template <typename TVisitor> void GenTree::VisitOperands(TVisitor visitor)
 {
     switch (OperGet())
     {
@@ -4345,89 +4337,89 @@ void GenTree::VisitOperands(TVisitor visitor)
             return;
 
         case GT_CMPXCHG:
-        {
-            GenTreeCmpXchg* const cmpXchg = this->AsCmpXchg();
-            if (visitor(cmpXchg->Addr()) == VisitResult::Abort)
             {
+                GenTreeCmpXchg* const cmpXchg = this->AsCmpXchg();
+                if (visitor(cmpXchg->Addr()) == VisitResult::Abort)
+                {
+                    return;
+                }
+                if (visitor(cmpXchg->Data()) == VisitResult::Abort)
+                {
+                    return;
+                }
+                visitor(cmpXchg->Comparand());
                 return;
             }
-            if (visitor(cmpXchg->Data()) == VisitResult::Abort)
-            {
-                return;
-            }
-            visitor(cmpXchg->Comparand());
-            return;
-        }
 
         case GT_ARR_ELEM:
-        {
-            GenTreeArrElem* const arrElem = this->AsArrElem();
-            if (visitor(arrElem->gtArrObj) == VisitResult::Abort)
             {
-                return;
-            }
-            for (unsigned i = 0; i < arrElem->gtArrRank; i++)
-            {
-                if (visitor(arrElem->gtArrInds[i]) == VisitResult::Abort)
+                GenTreeArrElem* const arrElem = this->AsArrElem();
+                if (visitor(arrElem->gtArrObj) == VisitResult::Abort)
                 {
                     return;
                 }
+                for (unsigned i = 0; i < arrElem->gtArrRank; i++)
+                {
+                    if (visitor(arrElem->gtArrInds[i]) == VisitResult::Abort)
+                    {
+                        return;
+                    }
+                }
+                return;
             }
-            return;
-        }
 
         case GT_CALL:
-        {
-            GenTreeCall* const call = this->AsCall();
+            {
+                GenTreeCall* const call = this->AsCall();
 
-            for (CallArg& arg : call->gtArgs.EarlyArgs())
-            {
-                if (visitor(arg.GetEarlyNode()) == VisitResult::Abort)
+                for (CallArg& arg : call->gtArgs.EarlyArgs())
                 {
-                    return;
+                    if (visitor(arg.GetEarlyNode()) == VisitResult::Abort)
+                    {
+                        return;
+                    }
                 }
-            }
 
-            for (CallArg& arg : call->gtArgs.LateArgs())
-            {
-                if (visitor(arg.GetLateNode()) == VisitResult::Abort)
+                for (CallArg& arg : call->gtArgs.LateArgs())
                 {
-                    return;
+                    if (visitor(arg.GetLateNode()) == VisitResult::Abort)
+                    {
+                        return;
+                    }
                 }
-            }
 
-            if (call->gtCallType == CT_INDIRECT)
-            {
-                if ((call->gtCallCookie != nullptr) && (visitor(call->gtCallCookie) == VisitResult::Abort))
+                if (call->gtCallType == CT_INDIRECT)
                 {
-                    return;
+                    if ((call->gtCallCookie != nullptr) && (visitor(call->gtCallCookie) == VisitResult::Abort))
+                    {
+                        return;
+                    }
+                    if ((call->gtCallAddr != nullptr) && (visitor(call->gtCallAddr) == VisitResult::Abort))
+                    {
+                        return;
+                    }
                 }
-                if ((call->gtCallAddr != nullptr) && (visitor(call->gtCallAddr) == VisitResult::Abort))
+                if ((call->gtControlExpr != nullptr))
                 {
-                    return;
+                    visitor(call->gtControlExpr);
                 }
+                return;
             }
-            if ((call->gtControlExpr != nullptr))
-            {
-                visitor(call->gtControlExpr);
-            }
-            return;
-        }
 
         case GT_SELECT:
-        {
-            GenTreeConditional* const cond = this->AsConditional();
-            if (visitor(cond->gtCond) == VisitResult::Abort)
             {
+                GenTreeConditional* const cond = this->AsConditional();
+                if (visitor(cond->gtCond) == VisitResult::Abort)
+                {
+                    return;
+                }
+                if (visitor(cond->gtOp1) == VisitResult::Abort)
+                {
+                    return;
+                }
+                visitor(cond->gtOp2);
                 return;
             }
-            if (visitor(cond->gtOp1) == VisitResult::Abort)
-            {
-                return;
-            }
-            visitor(cond->gtOp2);
-            return;
-        }
 
         // Binary nodes
         default:
@@ -4437,8 +4429,7 @@ void GenTree::VisitOperands(TVisitor visitor)
     }
 }
 
-template <typename TVisitor>
-void GenTree::VisitBinOpOperands(TVisitor visitor)
+template <typename TVisitor> void GenTree::VisitBinOpOperands(TVisitor visitor)
 {
     assert(this->OperIsBinary());
 
@@ -4552,8 +4543,7 @@ inline void DEBUG_DESTROY_NODE(GenTree* tree)
 // Arguments:
 //    tree, ...rest: These nodes should not be referenced by anyone now
 //
-template <typename... T>
-void DEBUG_DESTROY_NODE(GenTree* tree, T... rest)
+template <typename... T> void DEBUG_DESTROY_NODE(GenTree* tree, T... rest)
 {
     DEBUG_DESTROY_NODE(tree);
     DEBUG_DESTROY_NODE(rest...);
@@ -4796,8 +4786,7 @@ unsigned Compiler::fgRunDfs(VisitPreorder visitPreorder, VisitPostorder visitPos
 
     ArrayStack<AllSuccessorEnumerator> blocks(getAllocator(CMK_DepthFirstSearch));
 
-    auto dfsFrom = [&](BasicBlock* firstBB)
-    {
+    auto dfsFrom = [&](BasicBlock* firstBB) {
         BitVecOps::AddElemD(&traits, visited, firstBB->bbNum);
         blocks.Emplace(this, firstBB);
         visitPreorder(firstBB, preOrderIndex++);
@@ -4863,21 +4852,18 @@ unsigned Compiler::fgRunDfs(VisitPreorder visitPreorder, VisitPostorder visitPos
 //    BasicBlockVisit that indicated whether the visit was aborted by the
 //    callback or whether all blocks were visited.
 //
-template <typename TFunc>
-BasicBlockVisit FlowGraphNaturalLoop::VisitLoopBlocksReversePostOrder(TFunc func)
+template <typename TFunc> BasicBlockVisit FlowGraphNaturalLoop::VisitLoopBlocksReversePostOrder(TFunc func)
 {
     BitVecTraits traits(m_blocksSize, m_dfsTree->GetCompiler());
-    bool         result = BitVecOps::VisitBits(&traits, m_blocks,
-                                               [=](unsigned index)
-                                               {
-                                           // head block rpo index = PostOrderCount - 1 - headPreOrderIndex
-                                           // loop block rpo index = head block rpoIndex + index
-                                           // loop block po index = PostOrderCount - 1 - loop block rpo index
-                                           //                     = headPreOrderIndex - index
-                                           unsigned poIndex = m_header->bbPostorderNum - index;
-                                           assert(poIndex < m_dfsTree->GetPostOrderCount());
-                                           return func(m_dfsTree->GetPostOrder(poIndex)) == BasicBlockVisit::Continue;
-                                       });
+    bool         result = BitVecOps::VisitBits(&traits, m_blocks, [=](unsigned index) {
+        // head block rpo index = PostOrderCount - 1 - headPreOrderIndex
+        // loop block rpo index = head block rpoIndex + index
+        // loop block po index = PostOrderCount - 1 - loop block rpo index
+        //                     = headPreOrderIndex - index
+        unsigned poIndex = m_header->bbPostorderNum - index;
+        assert(poIndex < m_dfsTree->GetPostOrderCount());
+        return func(m_dfsTree->GetPostOrder(poIndex)) == BasicBlockVisit::Continue;
+    });
 
     return result ? BasicBlockVisit::Continue : BasicBlockVisit::Abort;
 }
@@ -4897,18 +4883,14 @@ BasicBlockVisit FlowGraphNaturalLoop::VisitLoopBlocksReversePostOrder(TFunc func
 //    BasicBlockVisit that indicated whether the visit was aborted by the
 //    callback or whether all blocks were visited.
 //
-template <typename TFunc>
-BasicBlockVisit FlowGraphNaturalLoop::VisitLoopBlocksPostOrder(TFunc func)
+template <typename TFunc> BasicBlockVisit FlowGraphNaturalLoop::VisitLoopBlocksPostOrder(TFunc func)
 {
     BitVecTraits traits(m_blocksSize, m_dfsTree->GetCompiler());
-    bool         result =
-        BitVecOps::VisitBitsReverse(&traits, m_blocks,
-                                    [=](unsigned index)
-                                    {
-                                        unsigned poIndex = m_header->bbPostorderNum - index;
-                                        assert(poIndex < m_dfsTree->GetPostOrderCount());
-                                        return func(m_dfsTree->GetPostOrder(poIndex)) == BasicBlockVisit::Continue;
-                                    });
+    bool         result = BitVecOps::VisitBitsReverse(&traits, m_blocks, [=](unsigned index) {
+        unsigned poIndex = m_header->bbPostorderNum - index;
+        assert(poIndex < m_dfsTree->GetPostOrderCount());
+        return func(m_dfsTree->GetPostOrder(poIndex)) == BasicBlockVisit::Continue;
+    });
 
     return result ? BasicBlockVisit::Continue : BasicBlockVisit::Abort;
 }
@@ -4927,8 +4909,7 @@ BasicBlockVisit FlowGraphNaturalLoop::VisitLoopBlocksPostOrder(TFunc func)
 //    BasicBlockVisit that indicated whether the visit was aborted by the
 //    callback or whether all blocks were visited.
 //
-template <typename TFunc>
-BasicBlockVisit FlowGraphNaturalLoop::VisitLoopBlocks(TFunc func)
+template <typename TFunc> BasicBlockVisit FlowGraphNaturalLoop::VisitLoopBlocks(TFunc func)
 {
     return VisitLoopBlocksReversePostOrder(func);
 }
@@ -4948,22 +4929,19 @@ BasicBlockVisit FlowGraphNaturalLoop::VisitLoopBlocks(TFunc func)
 //    BasicBlockVisit that indicated whether the visit was aborted by the
 //    callback or whether all blocks were visited.
 //
-template <typename TFunc>
-BasicBlockVisit FlowGraphNaturalLoop::VisitLoopBlocksLexical(TFunc func)
+template <typename TFunc> BasicBlockVisit FlowGraphNaturalLoop::VisitLoopBlocksLexical(TFunc func)
 {
     BasicBlock* top           = m_header;
     unsigned    numLoopBlocks = 0;
-    VisitLoopBlocks(
-        [&](BasicBlock* block)
+    VisitLoopBlocks([&](BasicBlock* block) {
+        if (block->bbNum < top->bbNum)
         {
-            if (block->bbNum < top->bbNum)
-            {
-                top = block;
-            }
+            top = block;
+        }
 
-            numLoopBlocks++;
-            return BasicBlockVisit::Continue;
-        });
+        numLoopBlocks++;
+        return BasicBlockVisit::Continue;
+    });
 
     INDEBUG(BasicBlock* prev = nullptr);
     BasicBlock* cur = top;
@@ -5012,8 +4990,7 @@ BasicBlockVisit FlowGraphNaturalLoop::VisitLoopBlocksLexical(TFunc func)
 //   exceptional exit blocks that must always be handled specially by client
 //   code regardless.
 //
-template <typename TFunc>
-BasicBlockVisit FlowGraphNaturalLoop::VisitRegularExitBlocks(TFunc func)
+template <typename TFunc> BasicBlockVisit FlowGraphNaturalLoop::VisitRegularExitBlocks(TFunc func)
 {
     Compiler* comp = m_dfsTree->GetCompiler();
 

@@ -184,207 +184,208 @@ bool Compiler::fgForwardSubBlock(BasicBlock* block)
 //
 class ForwardSubVisitor final : public GenTreeVisitor<ForwardSubVisitor>
 {
-public:
-    enum
-    {
-        DoPostOrder       = true,
-        UseExecutionOrder = true
-    };
+    public:
+        enum {
+            DoPostOrder       = true,
+            UseExecutionOrder = true
+        };
 
-    ForwardSubVisitor(Compiler* compiler, unsigned lclNum) : GenTreeVisitor(compiler), m_lclNum(lclNum)
-    {
-        LclVarDsc* dsc = compiler->lvaGetDesc(m_lclNum);
-        if (dsc->lvIsStructField)
+        ForwardSubVisitor(Compiler* compiler, unsigned lclNum)
+            : GenTreeVisitor(compiler)
+            , m_lclNum(lclNum)
         {
-            m_parentLclNum = dsc->lvParentLcl;
-        }
-    }
-
-    Compiler::fgWalkResult PostOrderVisit(GenTree** use, GenTree* user)
-    {
-        m_treeSize++;
-
-        GenTree* const node = *use;
-
-        if (node->OperIs(GT_LCL_VAR))
-        {
-            unsigned const lclNum = node->AsLclVarCommon()->GetLclNum();
-
-            if (lclNum == m_lclNum)
+            LclVarDsc* dsc = compiler->lvaGetDesc(m_lclNum);
+            if (dsc->lvIsStructField)
             {
-                // Screen out contextual "uses"
-                //
-                GenTree* const parent = user;
-
-                // Quirk:
-                //
-                // fgGetStubAddrArg cannot handle complex trees (it calls gtClone)
-                //
-                bool isCallTarget = false;
-                if ((parent != nullptr) && parent->IsCall())
-                {
-                    GenTreeCall* const parentCall = parent->AsCall();
-                    isCallTarget = (parentCall->gtCallType == CT_INDIRECT) && (parentCall->gtCallAddr == node);
-                }
-
-                if (!isCallTarget && IsLastUse(node->AsLclVar()))
-                {
-                    m_node          = node;
-                    m_use           = use;
-                    m_useFlags      = m_accumulatedFlags;
-                    m_useExceptions = m_accumulatedExceptions;
-                    m_parentNode    = parent;
-                }
+                m_parentLclNum = dsc->lvParentLcl;
             }
         }
 
-        // Stores to and uses of address-exposed locals are modelled as global refs.
+        Compiler::fgWalkResult PostOrderVisit(GenTree** use, GenTree* user)
+        {
+            m_treeSize++;
+
+            GenTree* const node = *use;
+
+            if (node->OperIs(GT_LCL_VAR))
+            {
+                unsigned const lclNum = node->AsLclVarCommon()->GetLclNum();
+
+                if (lclNum == m_lclNum)
+                {
+                    // Screen out contextual "uses"
+                    //
+                    GenTree* const parent = user;
+
+                    // Quirk:
+                    //
+                    // fgGetStubAddrArg cannot handle complex trees (it calls gtClone)
+                    //
+                    bool isCallTarget = false;
+                    if ((parent != nullptr) && parent->IsCall())
+                    {
+                        GenTreeCall* const parentCall = parent->AsCall();
+                        isCallTarget = (parentCall->gtCallType == CT_INDIRECT) && (parentCall->gtCallAddr == node);
+                    }
+
+                    if (!isCallTarget && IsLastUse(node->AsLclVar()))
+                    {
+                        m_node          = node;
+                        m_use           = use;
+                        m_useFlags      = m_accumulatedFlags;
+                        m_useExceptions = m_accumulatedExceptions;
+                        m_parentNode    = parent;
+                    }
+                }
+            }
+
+            // Stores to and uses of address-exposed locals are modelled as global refs.
+            //
+            if (node->OperIsLocal())
+            {
+#ifdef DEBUG
+                if (IsUse(node->AsLclVarCommon()))
+                {
+                    m_useCount++;
+                }
+#endif
+                if (m_compiler->lvaGetDesc(node->AsLclVarCommon())->IsAddressExposed())
+                {
+                    m_accumulatedFlags |= GTF_GLOB_REF;
+                }
+            }
+
+            m_accumulatedFlags |= (node->gtFlags & GTF_GLOB_EFFECT);
+            if ((node->gtFlags & GTF_CALL) != 0)
+            {
+                m_accumulatedExceptions = ExceptionSetFlags::All;
+            }
+            else if ((node->gtFlags & GTF_EXCEPT) != 0)
+            {
+                // We can never reorder in the face of different exception types,
+                // so stop calling 'OperExceptions' once we've seen more than one
+                // different exception type.
+                if (genCountBits(static_cast<uint32_t>(m_accumulatedExceptions)) <= 1)
+                {
+                    m_accumulatedExceptions |= node->OperExceptions(m_compiler);
+                }
+            }
+
+            return fgWalkResult::WALK_CONTINUE;
+        }
+
+#ifdef DEBUG
+        unsigned GetUseCount() const
+        {
+            return m_useCount;
+        }
+#endif
+
+        GenTree* GetNode() const
+        {
+            return m_node;
+        }
+
+        GenTree** GetUse() const
+        {
+            return m_use;
+        }
+
+        GenTree* GetParentNode() const
+        {
+            return m_parentNode;
+        }
+
+        GenTreeFlags GetFlags() const
+        {
+            return m_useFlags;
+        }
+
+        //------------------------------------------------------------------------
+        // GetExceptions: Get precise exceptions thrown by the trees executed
+        // before the use.
         //
-        if (node->OperIsLocal())
+        // Returns:
+        //   Exception set.
+        //
+        // Remarks:
+        //   The visitor stops tracking precise exceptions once it finds that 2 or
+        //   more different exceptions can be thrown, so this set cannot be used
+        //   for determining the precise different exceptions thrown in that case.
+        //
+        ExceptionSetFlags GetExceptions() const
         {
-#ifdef DEBUG
-            if (IsUse(node->AsLclVarCommon()))
+            return m_useExceptions;
+        }
+
+        bool IsCallArg() const
+        {
+            return (m_parentNode != nullptr) && m_parentNode->IsCall();
+        }
+
+        unsigned GetComplexity() const
+        {
+            return m_treeSize;
+        }
+
+        //------------------------------------------------------------------------
+        // IsUse: Check if a local is considered a use of the forward sub candidate
+        // while taking promotion into account.
+        //
+        // Arguments:
+        //    lcl - the local
+        //
+        // Returns:
+        //    true if the node is a use of the local candidate or any of its fields.
+        //
+        bool IsUse(GenTreeLclVarCommon* lcl)
+        {
+            unsigned lclNum = lcl->GetLclNum();
+            if ((lclNum == m_lclNum) || (lclNum == m_parentLclNum))
             {
-                m_useCount++;
+                return true;
             }
-#endif
-            if (m_compiler->lvaGetDesc(node->AsLclVarCommon())->IsAddressExposed())
-            {
-                m_accumulatedFlags |= GTF_GLOB_REF;
-            }
+
+            LclVarDsc* dsc = m_compiler->lvaGetDesc(lclNum);
+            return dsc->lvIsStructField && (dsc->lvParentLcl == m_lclNum);
         }
 
-        m_accumulatedFlags |= (node->gtFlags & GTF_GLOB_EFFECT);
-        if ((node->gtFlags & GTF_CALL) != 0)
+        //------------------------------------------------------------------------
+        // IsLastUse: Check if the local node is a last use. The local node is expected
+        // to be a GT_LCL_VAR of the local being forward subbed.
+        //
+        // Arguments:
+        //    lcl - the GT_LCL_VAR of the current local.
+        //
+        // Returns:
+        //    true if the expression is a last use of the local; otherwise false.
+        //
+        bool IsLastUse(GenTreeLclVar* lcl)
         {
-            m_accumulatedExceptions = ExceptionSetFlags::All;
-        }
-        else if ((node->gtFlags & GTF_EXCEPT) != 0)
-        {
-            // We can never reorder in the face of different exception types,
-            // so stop calling 'OperExceptions' once we've seen more than one
-            // different exception type.
-            if (genCountBits(static_cast<uint32_t>(m_accumulatedExceptions)) <= 1)
-            {
-                m_accumulatedExceptions |= node->OperExceptions(m_compiler);
-            }
+            assert(lcl->OperIs(GT_LCL_VAR) && (lcl->GetLclNum() == m_lclNum));
+
+            LclVarDsc*   dsc        = m_compiler->lvaGetDesc(lcl);
+            GenTreeFlags deathFlags = dsc->FullDeathFlags();
+            return (lcl->gtFlags & deathFlags) == deathFlags;
         }
 
-        return fgWalkResult::WALK_CONTINUE;
-    }
-
+    private:
+        GenTree** m_use        = nullptr;
+        GenTree*  m_node       = nullptr;
+        GenTree*  m_parentNode = nullptr;
+        unsigned  m_lclNum;
+        unsigned  m_parentLclNum = BAD_VAR_NUM;
 #ifdef DEBUG
-    unsigned GetUseCount() const
-    {
-        return m_useCount;
-    }
+        unsigned m_useCount = 0;
 #endif
-
-    GenTree* GetNode() const
-    {
-        return m_node;
-    }
-
-    GenTree** GetUse() const
-    {
-        return m_use;
-    }
-
-    GenTree* GetParentNode() const
-    {
-        return m_parentNode;
-    }
-
-    GenTreeFlags GetFlags() const
-    {
-        return m_useFlags;
-    }
-
-    //------------------------------------------------------------------------
-    // GetExceptions: Get precise exceptions thrown by the trees executed
-    // before the use.
-    //
-    // Returns:
-    //   Exception set.
-    //
-    // Remarks:
-    //   The visitor stops tracking precise exceptions once it finds that 2 or
-    //   more different exceptions can be thrown, so this set cannot be used
-    //   for determining the precise different exceptions thrown in that case.
-    //
-    ExceptionSetFlags GetExceptions() const
-    {
-        return m_useExceptions;
-    }
-
-    bool IsCallArg() const
-    {
-        return (m_parentNode != nullptr) && m_parentNode->IsCall();
-    }
-
-    unsigned GetComplexity() const
-    {
-        return m_treeSize;
-    }
-
-    //------------------------------------------------------------------------
-    // IsUse: Check if a local is considered a use of the forward sub candidate
-    // while taking promotion into account.
-    //
-    // Arguments:
-    //    lcl - the local
-    //
-    // Returns:
-    //    true if the node is a use of the local candidate or any of its fields.
-    //
-    bool IsUse(GenTreeLclVarCommon* lcl)
-    {
-        unsigned lclNum = lcl->GetLclNum();
-        if ((lclNum == m_lclNum) || (lclNum == m_parentLclNum))
-        {
-            return true;
-        }
-
-        LclVarDsc* dsc = m_compiler->lvaGetDesc(lclNum);
-        return dsc->lvIsStructField && (dsc->lvParentLcl == m_lclNum);
-    }
-
-    //------------------------------------------------------------------------
-    // IsLastUse: Check if the local node is a last use. The local node is expected
-    // to be a GT_LCL_VAR of the local being forward subbed.
-    //
-    // Arguments:
-    //    lcl - the GT_LCL_VAR of the current local.
-    //
-    // Returns:
-    //    true if the expression is a last use of the local; otherwise false.
-    //
-    bool IsLastUse(GenTreeLclVar* lcl)
-    {
-        assert(lcl->OperIs(GT_LCL_VAR) && (lcl->GetLclNum() == m_lclNum));
-
-        LclVarDsc*   dsc        = m_compiler->lvaGetDesc(lcl);
-        GenTreeFlags deathFlags = dsc->FullDeathFlags();
-        return (lcl->gtFlags & deathFlags) == deathFlags;
-    }
-
-private:
-    GenTree** m_use        = nullptr;
-    GenTree*  m_node       = nullptr;
-    GenTree*  m_parentNode = nullptr;
-    unsigned  m_lclNum;
-    unsigned  m_parentLclNum = BAD_VAR_NUM;
-#ifdef DEBUG
-    unsigned m_useCount = 0;
-#endif
-    GenTreeFlags m_useFlags         = GTF_EMPTY;
-    GenTreeFlags m_accumulatedFlags = GTF_EMPTY;
-    // Precise exceptions thrown by the nodes that were visited so far. Note
-    // that we stop updating this field once we find that two or more separate
-    // exceptions.
-    ExceptionSetFlags m_accumulatedExceptions = ExceptionSetFlags::None;
-    ExceptionSetFlags m_useExceptions         = ExceptionSetFlags::None;
-    unsigned          m_treeSize              = 0;
+        GenTreeFlags m_useFlags         = GTF_EMPTY;
+        GenTreeFlags m_accumulatedFlags = GTF_EMPTY;
+        // Precise exceptions thrown by the nodes that were visited so far. Note
+        // that we stop updating this field once we find that two or more separate
+        // exceptions.
+        ExceptionSetFlags m_accumulatedExceptions = ExceptionSetFlags::None;
+        ExceptionSetFlags m_useExceptions         = ExceptionSetFlags::None;
+        unsigned          m_treeSize              = 0;
 };
 
 //------------------------------------------------------------------------
@@ -392,41 +393,44 @@ private:
 //
 class EffectsVisitor final : public GenTreeVisitor<EffectsVisitor>
 {
-public:
-    enum
-    {
-        DoPostOrder       = true,
-        UseExecutionOrder = true
-    };
+    public:
+        enum {
+            DoPostOrder       = true,
+            UseExecutionOrder = true
+        };
 
-    EffectsVisitor(Compiler* compiler) : GenTreeVisitor<EffectsVisitor>(compiler), m_flags(GTF_EMPTY) {}
-
-    Compiler::fgWalkResult PostOrderVisit(GenTree** use, GenTree* user)
-    {
-        GenTree* const node = *use;
-        m_flags |= node->gtFlags & GTF_ALL_EFFECT;
-
-        if (node->OperIsLocal())
+        EffectsVisitor(Compiler* compiler)
+            : GenTreeVisitor<EffectsVisitor>(compiler)
+            , m_flags(GTF_EMPTY)
         {
-            unsigned const   lclNum = node->AsLclVarCommon()->GetLclNum();
-            LclVarDsc* const varDsc = m_compiler->lvaGetDesc(lclNum);
-
-            if (varDsc->IsAddressExposed())
-            {
-                m_flags |= GTF_GLOB_REF;
-            }
         }
 
-        return fgWalkResult::WALK_CONTINUE;
-    }
+        Compiler::fgWalkResult PostOrderVisit(GenTree** use, GenTree* user)
+        {
+            GenTree* const node = *use;
+            m_flags |= node->gtFlags & GTF_ALL_EFFECT;
 
-    GenTreeFlags GetFlags()
-    {
-        return m_flags;
-    }
+            if (node->OperIsLocal())
+            {
+                unsigned const   lclNum = node->AsLclVarCommon()->GetLclNum();
+                LclVarDsc* const varDsc = m_compiler->lvaGetDesc(lclNum);
 
-private:
-    GenTreeFlags m_flags;
+                if (varDsc->IsAddressExposed())
+                {
+                    m_flags |= GTF_GLOB_REF;
+                }
+            }
+
+            return fgWalkResult::WALK_CONTINUE;
+        }
+
+        GenTreeFlags GetFlags()
+        {
+            return m_flags;
+        }
+
+    private:
+        GenTreeFlags m_flags;
 };
 
 //------------------------------------------------------------------------

@@ -167,51 +167,51 @@ bool IntegralRange::Contains(int64_t value) const
             break;
 
         case GT_IND:
-        {
-            GenTree* const addr = node->AsIndir()->Addr();
-
-            if (node->TypeIs(TYP_INT) && addr->OperIs(GT_ADD) && addr->gtGetOp1()->OperIs(GT_LCL_VAR) &&
-                addr->gtGetOp2()->IsIntegralConst(OFFSETOF__CORINFO_Span__length))
             {
-                GenTreeLclVar* const lclVar = addr->gtGetOp1()->AsLclVar();
+                GenTree* const addr = node->AsIndir()->Addr();
 
-                if (compiler->lvaGetDesc(lclVar->GetLclNum())->IsSpan())
+                if (node->TypeIs(TYP_INT) && addr->OperIs(GT_ADD) && addr->gtGetOp1()->OperIs(GT_LCL_VAR) &&
+                    addr->gtGetOp2()->IsIntegralConst(OFFSETOF__CORINFO_Span__length))
                 {
-                    assert(compiler->lvaIsImplicitByRefLocal(lclVar->GetLclNum()));
-                    return {SymbolicIntegerValue::Zero, UpperBoundForType(rangeType)};
+                    GenTreeLclVar* const lclVar = addr->gtGetOp1()->AsLclVar();
+
+                    if (compiler->lvaGetDesc(lclVar->GetLclNum())->IsSpan())
+                    {
+                        assert(compiler->lvaIsImplicitByRefLocal(lclVar->GetLclNum()));
+                        return {SymbolicIntegerValue::Zero, UpperBoundForType(rangeType)};
+                    }
                 }
+                break;
             }
-            break;
-        }
 
         case GT_LCL_FLD:
-        {
-            GenTreeLclFld* const lclFld = node->AsLclFld();
-            LclVarDsc* const     varDsc = compiler->lvaGetDesc(lclFld);
-
-            if (node->TypeIs(TYP_INT) && varDsc->IsSpan() && lclFld->GetLclOffs() == OFFSETOF__CORINFO_Span__length)
             {
-                return {SymbolicIntegerValue::Zero, UpperBoundForType(rangeType)};
-            }
+                GenTreeLclFld* const lclFld = node->AsLclFld();
+                LclVarDsc* const     varDsc = compiler->lvaGetDesc(lclFld);
 
-            break;
-        }
+                if (node->TypeIs(TYP_INT) && varDsc->IsSpan() && lclFld->GetLclOffs() == OFFSETOF__CORINFO_Span__length)
+                {
+                    return {SymbolicIntegerValue::Zero, UpperBoundForType(rangeType)};
+                }
+
+                break;
+            }
 
         case GT_LCL_VAR:
-        {
-            LclVarDsc* const varDsc = compiler->lvaGetDesc(node->AsLclVar());
-
-            if (varDsc->lvNormalizeOnStore())
             {
-                rangeType = compiler->lvaGetDesc(node->AsLclVar())->TypeGet();
-            }
+                LclVarDsc* const varDsc = compiler->lvaGetDesc(node->AsLclVar());
 
-            if (varDsc->IsNeverNegative())
-            {
-                return {SymbolicIntegerValue::Zero, UpperBoundForType(rangeType)};
+                if (varDsc->lvNormalizeOnStore())
+                {
+                    rangeType = compiler->lvaGetDesc(node->AsLclVar())->TypeGet();
+                }
+
+                if (varDsc->IsNeverNegative())
+                {
+                    return {SymbolicIntegerValue::Zero, UpperBoundForType(rangeType)};
+                }
+                break;
             }
-            break;
-        }
 
         case GT_CNS_INT:
             if (node->IsIntegralConst(0) || node->IsIntegralConst(1))
@@ -1332,136 +1332,136 @@ AssertionIndex Compiler::optCreateAssertion(GenTree*         op1,
                     op2Kind = O2K_CONST_DOUBLE;
                     goto CNS_COMMON;
 
-                CNS_COMMON:
-                {
-                    //
-                    // Must either be an OAK_EQUAL or an OAK_NOT_EQUAL assertion
-                    //
-                    if ((assertionKind != OAK_EQUAL) && (assertionKind != OAK_NOT_EQUAL))
+CNS_COMMON:
                     {
-                        goto DONE_ASSERTION; // Don't make an assertion
-                    }
-
-                    // If the LclVar is a TYP_LONG then we only make
-                    // assertions where op2 is also TYP_LONG
-                    //
-                    if ((lclVar->TypeGet() == TYP_LONG) && (op2->TypeGet() != TYP_LONG))
-                    {
-                        goto DONE_ASSERTION; // Don't make an assertion
-                    }
-
-                    assertion.op2.kind    = op2Kind;
-                    assertion.op2.lconVal = 0;
-                    assertion.op2.vn      = optConservativeNormalVN(op2);
-
-                    if (op2->gtOper == GT_CNS_INT)
-                    {
-                        ssize_t iconVal = op2->AsIntCon()->gtIconVal;
-
-                        if (varTypeIsSmall(lclVar))
+                        //
+                        // Must either be an OAK_EQUAL or an OAK_NOT_EQUAL assertion
+                        //
+                        if ((assertionKind != OAK_EQUAL) && (assertionKind != OAK_NOT_EQUAL))
                         {
-                            iconVal = optCastConstantSmall(iconVal, lclVar->TypeGet());
+                            goto DONE_ASSERTION; // Don't make an assertion
                         }
+
+                        // If the LclVar is a TYP_LONG then we only make
+                        // assertions where op2 is also TYP_LONG
+                        //
+                        if ((lclVar->TypeGet() == TYP_LONG) && (op2->TypeGet() != TYP_LONG))
+                        {
+                            goto DONE_ASSERTION; // Don't make an assertion
+                        }
+
+                        assertion.op2.kind    = op2Kind;
+                        assertion.op2.lconVal = 0;
+                        assertion.op2.vn      = optConservativeNormalVN(op2);
+
+                        if (op2->gtOper == GT_CNS_INT)
+                        {
+                            ssize_t iconVal = op2->AsIntCon()->gtIconVal;
+
+                            if (varTypeIsSmall(lclVar))
+                            {
+                                iconVal = optCastConstantSmall(iconVal, lclVar->TypeGet());
+                            }
 
 #ifdef TARGET_ARM
-                        // Do not Constant-Prop large constants for ARM
-                        // TODO-CrossBitness: we wouldn't need the cast below if GenTreeIntCon::gtIconVal had
-                        // target_ssize_t type.
-                        if (!codeGen->validImmForMov((target_ssize_t)iconVal))
-                        {
-                            goto DONE_ASSERTION; // Don't make an assertion
+                            // Do not Constant-Prop large constants for ARM
+                            // TODO-CrossBitness: we wouldn't need the cast below if GenTreeIntCon::gtIconVal had
+                            // target_ssize_t type.
+                            if (!codeGen->validImmForMov((target_ssize_t)iconVal))
+                            {
+                                goto DONE_ASSERTION; // Don't make an assertion
+                            }
+#endif                                               // TARGET_ARM
+
+                            assertion.op2.u1.iconVal = iconVal;
+                            assertion.op2.SetIconFlag(op2->GetIconHandleFlag(), op2->AsIntCon()->gtFieldSeq);
                         }
-#endif // TARGET_ARM
-
-                        assertion.op2.u1.iconVal = iconVal;
-                        assertion.op2.SetIconFlag(op2->GetIconHandleFlag(), op2->AsIntCon()->gtFieldSeq);
-                    }
-                    else if (op2->gtOper == GT_CNS_LNG)
-                    {
-                        assertion.op2.lconVal = op2->AsLngCon()->gtLconVal;
-                    }
-                    else
-                    {
-                        noway_assert(op2->gtOper == GT_CNS_DBL);
-                        /* If we have an NaN value then don't record it */
-                        if (FloatingPointUtils::isNaN(op2->AsDblCon()->DconValue()))
+                        else if (op2->gtOper == GT_CNS_LNG)
                         {
-                            goto DONE_ASSERTION; // Don't make an assertion
+                            assertion.op2.lconVal = op2->AsLngCon()->gtLconVal;
                         }
-                        assertion.op2.dconVal = op2->AsDblCon()->DconValue();
+                        else
+                        {
+                            noway_assert(op2->gtOper == GT_CNS_DBL);
+                            /* If we have an NaN value then don't record it */
+                            if (FloatingPointUtils::isNaN(op2->AsDblCon()->DconValue()))
+                            {
+                                goto DONE_ASSERTION; // Don't make an assertion
+                            }
+                            assertion.op2.dconVal = op2->AsDblCon()->DconValue();
+                        }
+
+                        //
+                        // Ok everything has been set and the assertion looks good
+                        //
+                        assertion.assertionKind = assertionKind;
+
+                        goto DONE_ASSERTION;
                     }
-
-                    //
-                    // Ok everything has been set and the assertion looks good
-                    //
-                    assertion.assertionKind = assertionKind;
-
-                    goto DONE_ASSERTION;
-                }
 
                 case GT_LCL_VAR:
-                {
-                    //
-                    // Must either be an OAK_EQUAL or an OAK_NOT_EQUAL assertion
-                    //
-                    if ((assertionKind != OAK_EQUAL) && (assertionKind != OAK_NOT_EQUAL))
                     {
-                        goto DONE_ASSERTION; // Don't make an assertion
+                        //
+                        // Must either be an OAK_EQUAL or an OAK_NOT_EQUAL assertion
+                        //
+                        if ((assertionKind != OAK_EQUAL) && (assertionKind != OAK_NOT_EQUAL))
+                        {
+                            goto DONE_ASSERTION; // Don't make an assertion
+                        }
+
+                        unsigned   lclNum2 = op2->AsLclVarCommon()->GetLclNum();
+                        LclVarDsc* lclVar2 = lvaGetDesc(lclNum2);
+
+                        // If the two locals are the same then bail
+                        if (lclNum == lclNum2)
+                        {
+                            goto DONE_ASSERTION; // Don't make an assertion
+                        }
+
+                        // If the types are different then bail */
+                        if (lclVar->lvType != lclVar2->lvType)
+                        {
+                            goto DONE_ASSERTION; // Don't make an assertion
+                        }
+
+                        // If we're making a copy of a "normalize on load" lclvar then the destination
+                        // has to be "normalize on load" as well, otherwise we risk skipping normalization.
+                        if (lclVar2->lvNormalizeOnLoad() && !lclVar->lvNormalizeOnLoad())
+                        {
+                            goto DONE_ASSERTION; // Don't make an assertion
+                        }
+
+                        //  If the local variable has its address exposed then bail
+                        if (lclVar2->IsAddressExposed())
+                        {
+                            goto DONE_ASSERTION; // Don't make an assertion
+                        }
+
+                        // We process locals when we see the LCL_VAR node instead
+                        // of at its actual use point (its parent). That opens us
+                        // up to problems in a case like the following, assuming we
+                        // allowed creating an assertion like V10 = V35:
+                        //
+                        // └──▌  ADD       int
+                        //    ├──▌  LCL_VAR   int    V10 tmp6        -> copy propagated to [V35 tmp31]
+                        //    └──▌  COMMA     int
+                        //       ├──▌  STORE_LCL_VAR int    V35 tmp31
+                        //       │  └──▌  LCL_FLD   int    V03 loc1         [+4]
+                        if (lclVar2->lvRedefinedInEmbeddedStatement)
+                        {
+                            goto DONE_ASSERTION; // Don't make an assertion
+                        }
+
+                        assertion.op2.kind       = O2K_LCLVAR_COPY;
+                        assertion.op2.vn         = optConservativeNormalVN(op2);
+                        assertion.op2.lcl.lclNum = lclNum2;
+                        assertion.op2.lcl.ssaNum = op2->AsLclVarCommon()->GetSsaNum();
+
+                        // Ok everything has been set and the assertion looks good
+                        assertion.assertionKind = assertionKind;
+
+                        goto DONE_ASSERTION;
                     }
-
-                    unsigned   lclNum2 = op2->AsLclVarCommon()->GetLclNum();
-                    LclVarDsc* lclVar2 = lvaGetDesc(lclNum2);
-
-                    // If the two locals are the same then bail
-                    if (lclNum == lclNum2)
-                    {
-                        goto DONE_ASSERTION; // Don't make an assertion
-                    }
-
-                    // If the types are different then bail */
-                    if (lclVar->lvType != lclVar2->lvType)
-                    {
-                        goto DONE_ASSERTION; // Don't make an assertion
-                    }
-
-                    // If we're making a copy of a "normalize on load" lclvar then the destination
-                    // has to be "normalize on load" as well, otherwise we risk skipping normalization.
-                    if (lclVar2->lvNormalizeOnLoad() && !lclVar->lvNormalizeOnLoad())
-                    {
-                        goto DONE_ASSERTION; // Don't make an assertion
-                    }
-
-                    //  If the local variable has its address exposed then bail
-                    if (lclVar2->IsAddressExposed())
-                    {
-                        goto DONE_ASSERTION; // Don't make an assertion
-                    }
-
-                    // We process locals when we see the LCL_VAR node instead
-                    // of at its actual use point (its parent). That opens us
-                    // up to problems in a case like the following, assuming we
-                    // allowed creating an assertion like V10 = V35:
-                    //
-                    // └──▌  ADD       int
-                    //    ├──▌  LCL_VAR   int    V10 tmp6        -> copy propagated to [V35 tmp31]
-                    //    └──▌  COMMA     int
-                    //       ├──▌  STORE_LCL_VAR int    V35 tmp31
-                    //       │  └──▌  LCL_FLD   int    V03 loc1         [+4]
-                    if (lclVar2->lvRedefinedInEmbeddedStatement)
-                    {
-                        goto DONE_ASSERTION; // Don't make an assertion
-                    }
-
-                    assertion.op2.kind       = O2K_LCLVAR_COPY;
-                    assertion.op2.vn         = optConservativeNormalVN(op2);
-                    assertion.op2.lcl.lclNum = lclNum2;
-                    assertion.op2.lcl.ssaNum = op2->AsLclVarCommon()->GetSsaNum();
-
-                    // Ok everything has been set and the assertion looks good
-                    assertion.assertionKind = assertionKind;
-
-                    goto DONE_ASSERTION;
-                }
 
                 default:
                     break;
@@ -1869,43 +1869,43 @@ void Compiler::optDebugCheckAssertion(AssertionDsc* assertion)
     {
         case O2K_IND_CNS_INT:
         case O2K_CONST_INT:
-        {
-            // The only flags that can be set are those in the GTF_ICON_HDL_MASK.
-            switch (assertion->op1.kind)
             {
-                case O1K_EXACT_TYPE:
-                case O1K_SUBTYPE:
-                    assert(assertion->op2.HasIconFlag());
-                    break;
-                case O1K_LCLVAR:
-                    assert((lvaGetDesc(assertion->op1.lcl.lclNum)->lvType != TYP_REF) ||
-                           (assertion->op2.u1.iconVal == 0) || doesMethodHaveFrozenObjects());
-                    break;
-                case O1K_VALUE_NUMBER:
-                    assert((vnStore->TypeOfVN(assertion->op1.vn) != TYP_REF) || (assertion->op2.u1.iconVal == 0));
-                    break;
-                default:
-                    break;
+                // The only flags that can be set are those in the GTF_ICON_HDL_MASK.
+                switch (assertion->op1.kind)
+                {
+                    case O1K_EXACT_TYPE:
+                    case O1K_SUBTYPE:
+                        assert(assertion->op2.HasIconFlag());
+                        break;
+                    case O1K_LCLVAR:
+                        assert((lvaGetDesc(assertion->op1.lcl.lclNum)->lvType != TYP_REF) ||
+                               (assertion->op2.u1.iconVal == 0) || doesMethodHaveFrozenObjects());
+                        break;
+                    case O1K_VALUE_NUMBER:
+                        assert((vnStore->TypeOfVN(assertion->op1.vn) != TYP_REF) || (assertion->op2.u1.iconVal == 0));
+                        break;
+                    default:
+                        break;
+                }
             }
-        }
-        break;
+            break;
 
         case O2K_CONST_LONG:
-        {
-            // All handles should be represented by O2K_CONST_INT,
-            // so no handle bits should be set here.
-            assert(!assertion->op2.HasIconFlag());
-        }
-        break;
+            {
+                // All handles should be represented by O2K_CONST_INT,
+                // so no handle bits should be set here.
+                assert(!assertion->op2.HasIconFlag());
+            }
+            break;
 
         case O2K_ZEROOBJ:
-        {
-            // We only make these assertion for stores (not control flow).
-            assert(assertion->assertionKind == OAK_EQUAL);
-            // We use "optLocalAssertionIsEqualOrNotEqual" to find these.
-            assert(assertion->op2.u1.iconVal == 0);
-        }
-        break;
+            {
+                // We only make these assertion for stores (not control flow).
+                assert(assertion->assertionKind == OAK_EQUAL);
+                // We use "optLocalAssertionIsEqualOrNotEqual" to find these.
+                assert(assertion->op2.u1.iconVal == 0);
+            }
+            break;
 
         default:
             // for all other 'assertion->op2.kind' values we don't check anything
@@ -2474,20 +2474,20 @@ void Compiler::optAssertionGen(GenTree* tree)
             break;
 
         case GT_CALL:
-        {
-            // A virtual call can create a non-null assertion. We transform some virtual calls into non-virtual calls
-            // with a GTF_CALL_NULLCHECK flag set.
-            // Ignore tail calls because they have 'this` pointer in the regular arg list and an implicit null check.
-            GenTreeCall* const call = tree->AsCall();
-            if (call->NeedsNullCheck() || (call->IsVirtual() && !call->IsTailCall()))
             {
-                //  Retrieve the 'this' arg.
-                GenTree* thisArg = call->gtArgs.GetThisArg()->GetNode();
-                assert(thisArg != nullptr);
-                assertionInfo = optCreateAssertion(thisArg, nullptr, OAK_NOT_EQUAL);
+                // A virtual call can create a non-null assertion. We transform some virtual calls into non-virtual
+                // calls with a GTF_CALL_NULLCHECK flag set. Ignore tail calls because they have 'this` pointer in the
+                // regular arg list and an implicit null check.
+                GenTreeCall* const call = tree->AsCall();
+                if (call->NeedsNullCheck() || (call->IsVirtual() && !call->IsTailCall()))
+                {
+                    //  Retrieve the 'this' arg.
+                    GenTree* thisArg = call->gtArgs.GetThisArg()->GetNode();
+                    assert(thisArg != nullptr);
+                    assertionInfo = optCreateAssertion(thisArg, nullptr, OAK_NOT_EQUAL);
+                }
             }
-        }
-        break;
+            break;
 
         case GT_CAST:
             // This represets an assertion that we would like to prove to be true.
@@ -2694,42 +2694,42 @@ GenTree* Compiler::optVNBasedFoldExpr_Call(BasicBlock* block, GenTree* parent, G
         case CORINFO_HELP_ISINSTANCEOFCLASS:
         case CORINFO_HELP_ISINSTANCEOFANY:
         case CORINFO_HELP_ISINSTANCEOFINTERFACE:
-        {
-            GenTree* castClsArg = call->gtArgs.GetUserArgByIndex(0)->GetNode();
-            GenTree* castObjArg = call->gtArgs.GetUserArgByIndex(1)->GetNode();
-
-            if ((castObjArg->gtFlags & GTF_ALL_EFFECT) != 0)
             {
-                // It won't be trivial to properly extract side-effects from the call node.
-                // Ideally, we only need side effects from the castClsArg argument as the call itself
-                // won't throw any exceptions. But we should not forget about the EarlyNode (setup args)
-                return nullptr;
-            }
+                GenTree* castClsArg = call->gtArgs.GetUserArgByIndex(0)->GetNode();
+                GenTree* castObjArg = call->gtArgs.GetUserArgByIndex(1)->GetNode();
 
-            // If object has the same VN as the cast, then the cast is effectively a no-op.
-            //
-            if (castObjArg->gtVNPair == call->gtVNPair)
-            {
-                return gtWrapWithSideEffects(castObjArg, call, GTF_ALL_EFFECT, true);
-            }
-
-            // Let's see if gtGetClassHandle may help us to fold the cast (since VNForCast did not).
-            if (castClsArg->IsIconHandle(GTF_ICON_CLASS_HDL))
-            {
-                bool                 isExact;
-                bool                 isNonNull;
-                CORINFO_CLASS_HANDLE castFrom = gtGetClassHandle(castObjArg, &isExact, &isNonNull);
-                if (castFrom != NO_CLASS_HANDLE)
+                if ((castObjArg->gtFlags & GTF_ALL_EFFECT) != 0)
                 {
-                    CORINFO_CLASS_HANDLE castTo = gtGetHelperArgClassHandle(castClsArg);
-                    if (info.compCompHnd->compareTypesForCast(castFrom, castTo) == TypeCompareState::Must)
+                    // It won't be trivial to properly extract side-effects from the call node.
+                    // Ideally, we only need side effects from the castClsArg argument as the call itself
+                    // won't throw any exceptions. But we should not forget about the EarlyNode (setup args)
+                    return nullptr;
+                }
+
+                // If object has the same VN as the cast, then the cast is effectively a no-op.
+                //
+                if (castObjArg->gtVNPair == call->gtVNPair)
+                {
+                    return gtWrapWithSideEffects(castObjArg, call, GTF_ALL_EFFECT, true);
+                }
+
+                // Let's see if gtGetClassHandle may help us to fold the cast (since VNForCast did not).
+                if (castClsArg->IsIconHandle(GTF_ICON_CLASS_HDL))
+                {
+                    bool                 isExact;
+                    bool                 isNonNull;
+                    CORINFO_CLASS_HANDLE castFrom = gtGetClassHandle(castObjArg, &isExact, &isNonNull);
+                    if (castFrom != NO_CLASS_HANDLE)
                     {
-                        return gtWrapWithSideEffects(castObjArg, call, GTF_ALL_EFFECT, true);
+                        CORINFO_CLASS_HANDLE castTo = gtGetHelperArgClassHandle(castClsArg);
+                        if (info.compCompHnd->compareTypesForCast(castFrom, castTo) == TypeCompareState::Must)
+                        {
+                            return gtWrapWithSideEffects(castObjArg, call, GTF_ALL_EFFECT, true);
+                        }
                     }
                 }
             }
-        }
-        break;
+            break;
 
         default:
             break;
@@ -2828,231 +2828,231 @@ GenTree* Compiler::optVNBasedFoldConstExpr(BasicBlock* block, GenTree* parent, G
     switch (vnStore->TypeOfVN(vnCns))
     {
         case TYP_FLOAT:
-        {
-            float value = vnStore->ConstantValue<float>(vnCns);
-
-            if (tree->TypeGet() == TYP_INT)
             {
-                // Same sized reinterpretation of bits to integer
-                conValTree = gtNewIconNode(*(reinterpret_cast<int*>(&value)));
-            }
-            else
-            {
-                // Implicit conversion to float or double
-                assert(varTypeIsFloating(tree->TypeGet()));
-                conValTree = gtNewDconNode(FloatingPointUtils::convertToDouble(value), tree->TypeGet());
-            }
-            break;
-        }
+                float value = vnStore->ConstantValue<float>(vnCns);
 
-        case TYP_DOUBLE:
-        {
-            double value = vnStore->ConstantValue<double>(vnCns);
-
-            if (tree->TypeGet() == TYP_LONG)
-            {
-                conValTree = gtNewLconNode(*(reinterpret_cast<INT64*>(&value)));
-            }
-            else
-            {
-                // Implicit conversion to float or double
-                assert(varTypeIsFloating(tree->TypeGet()));
-                conValTree = gtNewDconNode(value, tree->TypeGet());
-            }
-            break;
-        }
-
-        case TYP_LONG:
-        {
-            INT64 value = vnStore->ConstantValue<INT64>(vnCns);
-
-#ifdef TARGET_64BIT
-            if (vnStore->IsVNHandle(vnCns))
-            {
-                // Don't perform constant folding that involves a handle that needs
-                // to be recorded as a relocation with the VM.
-                if (!opts.compReloc)
+                if (tree->TypeGet() == TYP_INT)
                 {
-                    conValTree = gtNewIconHandleNode(value, vnStore->GetHandleFlags(vnCns));
-                }
-            }
-            else
-#endif
-            {
-                switch (tree->TypeGet())
-                {
-                    case TYP_INT:
-                        // Implicit conversion to smaller integer
-                        conValTree = gtNewIconNode(static_cast<int>(value));
-                        break;
-
-                    case TYP_LONG:
-                        // Same type no conversion required
-                        conValTree = gtNewLconNode(value);
-                        break;
-
-                    case TYP_FLOAT:
-                        // No implicit conversions from long to float and value numbering will
-                        // not propagate through memory reinterpretations of different size.
-                        unreached();
-                        break;
-
-                    case TYP_DOUBLE:
-                        // Same sized reinterpretation of bits to double
-                        conValTree = gtNewDconNodeD(*(reinterpret_cast<double*>(&value)));
-                        break;
-
-                    default:
-                        // Do not support such optimization.
-                        break;
-                }
-            }
-        }
-        break;
-
-        case TYP_REF:
-        {
-            if (tree->TypeGet() == TYP_REF)
-            {
-                const size_t value = vnStore->ConstantValue<size_t>(vnCns);
-                if (value == 0)
-                {
-                    conValTree = gtNewNull();
+                    // Same sized reinterpretation of bits to integer
+                    conValTree = gtNewIconNode(*(reinterpret_cast<int*>(&value)));
                 }
                 else
                 {
-                    assert(vnStore->IsVNObjHandle(vnCns));
-                    conValTree = gtNewIconHandleNode(value, GTF_ICON_OBJ_HDL);
+                    // Implicit conversion to float or double
+                    assert(varTypeIsFloating(tree->TypeGet()));
+                    conValTree = gtNewDconNode(FloatingPointUtils::convertToDouble(value), tree->TypeGet());
+                }
+                break;
+            }
+
+        case TYP_DOUBLE:
+            {
+                double value = vnStore->ConstantValue<double>(vnCns);
+
+                if (tree->TypeGet() == TYP_LONG)
+                {
+                    conValTree = gtNewLconNode(*(reinterpret_cast<INT64*>(&value)));
+                }
+                else
+                {
+                    // Implicit conversion to float or double
+                    assert(varTypeIsFloating(tree->TypeGet()));
+                    conValTree = gtNewDconNode(value, tree->TypeGet());
+                }
+                break;
+            }
+
+        case TYP_LONG:
+            {
+                INT64 value = vnStore->ConstantValue<INT64>(vnCns);
+
+#ifdef TARGET_64BIT
+                if (vnStore->IsVNHandle(vnCns))
+                {
+                    // Don't perform constant folding that involves a handle that needs
+                    // to be recorded as a relocation with the VM.
+                    if (!opts.compReloc)
+                    {
+                        conValTree = gtNewIconHandleNode(value, vnStore->GetHandleFlags(vnCns));
+                    }
+                }
+                else
+#endif
+                {
+                    switch (tree->TypeGet())
+                    {
+                        case TYP_INT:
+                            // Implicit conversion to smaller integer
+                            conValTree = gtNewIconNode(static_cast<int>(value));
+                            break;
+
+                        case TYP_LONG:
+                            // Same type no conversion required
+                            conValTree = gtNewLconNode(value);
+                            break;
+
+                        case TYP_FLOAT:
+                            // No implicit conversions from long to float and value numbering will
+                            // not propagate through memory reinterpretations of different size.
+                            unreached();
+                            break;
+
+                        case TYP_DOUBLE:
+                            // Same sized reinterpretation of bits to double
+                            conValTree = gtNewDconNodeD(*(reinterpret_cast<double*>(&value)));
+                            break;
+
+                        default:
+                            // Do not support such optimization.
+                            break;
+                    }
                 }
             }
-        }
-        break;
+            break;
+
+        case TYP_REF:
+            {
+                if (tree->TypeGet() == TYP_REF)
+                {
+                    const size_t value = vnStore->ConstantValue<size_t>(vnCns);
+                    if (value == 0)
+                    {
+                        conValTree = gtNewNull();
+                    }
+                    else
+                    {
+                        assert(vnStore->IsVNObjHandle(vnCns));
+                        conValTree = gtNewIconHandleNode(value, GTF_ICON_OBJ_HDL);
+                    }
+                }
+            }
+            break;
 
         case TYP_INT:
-        {
-            int value = vnStore->ConstantValue<int>(vnCns);
+            {
+                int value = vnStore->ConstantValue<int>(vnCns);
 #ifndef TARGET_64BIT
-            if (vnStore->IsVNHandle(vnCns))
-            {
-                // Don't perform constant folding that involves a handle that needs
-                // to be recorded as a relocation with the VM.
-                if (!opts.compReloc)
+                if (vnStore->IsVNHandle(vnCns))
                 {
-                    conValTree = gtNewIconHandleNode(value, vnStore->GetHandleFlags(vnCns));
+                    // Don't perform constant folding that involves a handle that needs
+                    // to be recorded as a relocation with the VM.
+                    if (!opts.compReloc)
+                    {
+                        conValTree = gtNewIconHandleNode(value, vnStore->GetHandleFlags(vnCns));
+                    }
                 }
-            }
-            else
+                else
 #endif
-            {
-                switch (tree->TypeGet())
                 {
-                    case TYP_REF:
-                    case TYP_INT:
-                        // Same type no conversion required
-                        conValTree = gtNewIconNode(value);
-                        break;
+                    switch (tree->TypeGet())
+                    {
+                        case TYP_REF:
+                        case TYP_INT:
+                            // Same type no conversion required
+                            conValTree = gtNewIconNode(value);
+                            break;
 
-                    case TYP_LONG:
-                        // Implicit conversion to larger integer
-                        conValTree = gtNewLconNode(value);
-                        break;
+                        case TYP_LONG:
+                            // Implicit conversion to larger integer
+                            conValTree = gtNewLconNode(value);
+                            break;
 
-                    case TYP_FLOAT:
-                        // Same sized reinterpretation of bits to float
-                        conValTree = gtNewDconNodeF(BitOperations::UInt32BitsToSingle((uint32_t)value));
-                        break;
+                        case TYP_FLOAT:
+                            // Same sized reinterpretation of bits to float
+                            conValTree = gtNewDconNodeF(BitOperations::UInt32BitsToSingle((uint32_t)value));
+                            break;
 
-                    case TYP_DOUBLE:
-                        // No implicit conversions from int to double and value numbering will
-                        // not propagate through memory reinterpretations of different size.
-                        unreached();
-                        break;
+                        case TYP_DOUBLE:
+                            // No implicit conversions from int to double and value numbering will
+                            // not propagate through memory reinterpretations of different size.
+                            unreached();
+                            break;
 
-                    case TYP_BYTE:
-                    case TYP_UBYTE:
-                    case TYP_SHORT:
-                    case TYP_USHORT:
-                        assert(FitsIn(tree->TypeGet(), value));
-                        conValTree = gtNewIconNode(value);
-                        break;
+                        case TYP_BYTE:
+                        case TYP_UBYTE:
+                        case TYP_SHORT:
+                        case TYP_USHORT:
+                            assert(FitsIn(tree->TypeGet(), value));
+                            conValTree = gtNewIconNode(value);
+                            break;
 
-                    default:
-                        // Do not support (e.g. byref(const int)).
-                        break;
+                        default:
+                            // Do not support (e.g. byref(const int)).
+                            break;
+                    }
                 }
             }
-        }
-        break;
+            break;
 
 #if FEATURE_SIMD
         case TYP_SIMD8:
-        {
-            simd8_t value = vnStore->ConstantValue<simd8_t>(vnCns);
+            {
+                simd8_t value = vnStore->ConstantValue<simd8_t>(vnCns);
 
-            GenTreeVecCon* vecCon = gtNewVconNode(tree->TypeGet());
-            memcpy(&vecCon->gtSimdVal, &value, sizeof(simd8_t));
+                GenTreeVecCon* vecCon = gtNewVconNode(tree->TypeGet());
+                memcpy(&vecCon->gtSimdVal, &value, sizeof(simd8_t));
 
-            conValTree = vecCon;
-            break;
-        }
+                conValTree = vecCon;
+                break;
+            }
 
         case TYP_SIMD12:
-        {
-            simd12_t value = vnStore->ConstantValue<simd12_t>(vnCns);
+            {
+                simd12_t value = vnStore->ConstantValue<simd12_t>(vnCns);
 
-            GenTreeVecCon* vecCon = gtNewVconNode(tree->TypeGet());
-            memcpy(&vecCon->gtSimdVal, &value, sizeof(simd12_t));
+                GenTreeVecCon* vecCon = gtNewVconNode(tree->TypeGet());
+                memcpy(&vecCon->gtSimdVal, &value, sizeof(simd12_t));
 
-            conValTree = vecCon;
-            break;
-        }
+                conValTree = vecCon;
+                break;
+            }
 
         case TYP_SIMD16:
-        {
-            simd16_t value = vnStore->ConstantValue<simd16_t>(vnCns);
+            {
+                simd16_t value = vnStore->ConstantValue<simd16_t>(vnCns);
 
-            GenTreeVecCon* vecCon = gtNewVconNode(tree->TypeGet());
-            memcpy(&vecCon->gtSimdVal, &value, sizeof(simd16_t));
+                GenTreeVecCon* vecCon = gtNewVconNode(tree->TypeGet());
+                memcpy(&vecCon->gtSimdVal, &value, sizeof(simd16_t));
 
-            conValTree = vecCon;
-            break;
-        }
+                conValTree = vecCon;
+                break;
+            }
 
 #if defined(TARGET_XARCH)
         case TYP_SIMD32:
-        {
-            simd32_t value = vnStore->ConstantValue<simd32_t>(vnCns);
+            {
+                simd32_t value = vnStore->ConstantValue<simd32_t>(vnCns);
 
-            GenTreeVecCon* vecCon = gtNewVconNode(tree->TypeGet());
-            memcpy(&vecCon->gtSimdVal, &value, sizeof(simd32_t));
+                GenTreeVecCon* vecCon = gtNewVconNode(tree->TypeGet());
+                memcpy(&vecCon->gtSimdVal, &value, sizeof(simd32_t));
 
-            conValTree = vecCon;
-            break;
-        }
+                conValTree = vecCon;
+                break;
+            }
 
         case TYP_SIMD64:
-        {
-            simd64_t value = vnStore->ConstantValue<simd64_t>(vnCns);
+            {
+                simd64_t value = vnStore->ConstantValue<simd64_t>(vnCns);
 
-            GenTreeVecCon* vecCon = gtNewVconNode(tree->TypeGet());
-            memcpy(&vecCon->gtSimdVal, &value, sizeof(simd64_t));
+                GenTreeVecCon* vecCon = gtNewVconNode(tree->TypeGet());
+                memcpy(&vecCon->gtSimdVal, &value, sizeof(simd64_t));
 
-            conValTree = vecCon;
+                conValTree = vecCon;
+                break;
+            }
             break;
-        }
-        break;
 
         case TYP_MASK:
-        {
-            simdmask_t value = vnStore->ConstantValue<simdmask_t>(vnCns);
+            {
+                simdmask_t value = vnStore->ConstantValue<simdmask_t>(vnCns);
 
-            GenTreeVecCon* vecCon = gtNewVconNode(tree->TypeGet());
-            memcpy(&vecCon->gtSimdVal, &value, sizeof(simdmask_t));
+                GenTreeVecCon* vecCon = gtNewVconNode(tree->TypeGet());
+                memcpy(&vecCon->gtSimdVal, &value, sizeof(simdmask_t));
 
-            conValTree = vecCon;
+                conValTree = vecCon;
+                break;
+            }
             break;
-        }
-        break;
 #endif // TARGET_XARCH
 #endif // FEATURE_SIMD
 
@@ -3187,31 +3187,31 @@ bool Compiler::optIsProfitableToSubstitute(GenTree* dest, BasicBlock* destBlock,
                 case NI_Vector512_op_Equality:
                 case NI_Vector512_op_Inequality:
 #endif // TARGET_XARCH
-                {
-                    // We can optimize when the constant is zero, but only
-                    // for non floating-point since +0.0 == -0.0
-
-                    if (!vecCon->IsZero() || varTypeIsFloating(simdBaseType))
                     {
-                        return false;
+                        // We can optimize when the constant is zero, but only
+                        // for non floating-point since +0.0 == -0.0
+
+                        if (!vecCon->IsZero() || varTypeIsFloating(simdBaseType))
+                        {
+                            return false;
+                        }
+                        break;
                     }
-                    break;
-                }
 
 #if defined(TARGET_ARM64)
                 case NI_AdvSimd_CompareEqual:
                 case NI_AdvSimd_Arm64_CompareEqual:
                 case NI_AdvSimd_Arm64_CompareEqualScalar:
-                {
-                    // We can optimize when the constant is zero due to a
-                    // specialized encoding for the instruction
-
-                    if (!vecCon->IsZero())
                     {
-                        return false;
+                        // We can optimize when the constant is zero due to a
+                        // specialized encoding for the instruction
+
+                        if (!vecCon->IsZero())
+                        {
+                            return false;
+                        }
+                        break;
                     }
-                    break;
-                }
 
                 case NI_AdvSimd_CompareGreaterThan:
                 case NI_AdvSimd_CompareGreaterThanOrEqual:
@@ -3219,52 +3219,52 @@ bool Compiler::optIsProfitableToSubstitute(GenTree* dest, BasicBlock* destBlock,
                 case NI_AdvSimd_Arm64_CompareGreaterThanOrEqual:
                 case NI_AdvSimd_Arm64_CompareGreaterThanScalar:
                 case NI_AdvSimd_Arm64_CompareGreaterThanOrEqualScalar:
-                {
-                    // We can optimize when the constant is zero, but only
-                    // for signed types, due to a specialized encoding for
-                    // the instruction
-
-                    if (!vecCon->IsZero() || varTypeIsUnsigned(simdBaseType))
                     {
-                        return false;
+                        // We can optimize when the constant is zero, but only
+                        // for signed types, due to a specialized encoding for
+                        // the instruction
+
+                        if (!vecCon->IsZero() || varTypeIsUnsigned(simdBaseType))
+                        {
+                            return false;
+                        }
+                        break;
                     }
-                    break;
-                }
 #endif // TARGET_ARM64
 
 #if defined(TARGET_XARCH)
                 case NI_SSE2_Insert:
                 case NI_SSE41_Insert:
                 case NI_SSE41_X64_Insert:
-                {
-                    // We can optimize for float when the constant is zero
-                    // due to a specialized encoding for the instruction
-
-                    if ((simdBaseType != TYP_FLOAT) || !vecCon->IsZero())
                     {
-                        return false;
+                        // We can optimize for float when the constant is zero
+                        // due to a specialized encoding for the instruction
+
+                        if ((simdBaseType != TYP_FLOAT) || !vecCon->IsZero())
+                        {
+                            return false;
+                        }
+                        break;
                     }
-                    break;
-                }
 
                 case NI_AVX512F_CompareEqualMask:
                 case NI_AVX512F_CompareNotEqualMask:
-                {
-                    // We can optimize when the constant is zero, but only
-                    // for non floating-point since +0.0 == -0.0
-
-                    if (!vecCon->IsZero() || varTypeIsFloating(simdBaseType))
                     {
-                        return false;
+                        // We can optimize when the constant is zero, but only
+                        // for non floating-point since +0.0 == -0.0
+
+                        if (!vecCon->IsZero() || varTypeIsFloating(simdBaseType))
+                        {
+                            return false;
+                        }
+                        break;
                     }
-                    break;
-                }
 #endif // TARGET_XARCH
 
                 default:
-                {
-                    break;
-                }
+                    {
+                        break;
+                    }
             }
         }
 #endif // FEATURE_HW_INTRINSICS
@@ -5957,153 +5957,155 @@ void Compiler::optImpliedByCopyAssertion(AssertionDsc* copyAssertion, AssertionD
  */
 class AssertionPropFlowCallback
 {
-private:
-    ASSERT_TP preMergeOut;
-    ASSERT_TP preMergeJumpDestOut;
+    private:
+        ASSERT_TP preMergeOut;
+        ASSERT_TP preMergeJumpDestOut;
 
-    ASSERT_TP* mJumpDestOut;
-    ASSERT_TP* mJumpDestGen;
+        ASSERT_TP* mJumpDestOut;
+        ASSERT_TP* mJumpDestGen;
 
-    BitVecTraits* apTraits;
+        BitVecTraits* apTraits;
 
-public:
-    AssertionPropFlowCallback(Compiler* pCompiler, ASSERT_TP* jumpDestOut, ASSERT_TP* jumpDestGen)
-        : preMergeOut(BitVecOps::UninitVal())
-        , preMergeJumpDestOut(BitVecOps::UninitVal())
-        , mJumpDestOut(jumpDestOut)
-        , mJumpDestGen(jumpDestGen)
-        , apTraits(pCompiler->apTraits)
-    {
-    }
-
-    // At the start of the merge function of the dataflow equations, initialize premerge state (to detect change.)
-    void StartMerge(BasicBlock* block)
-    {
-        if (VerboseDataflow())
+    public:
+        AssertionPropFlowCallback(Compiler* pCompiler, ASSERT_TP* jumpDestOut, ASSERT_TP* jumpDestGen)
+            : preMergeOut(BitVecOps::UninitVal())
+            , preMergeJumpDestOut(BitVecOps::UninitVal())
+            , mJumpDestOut(jumpDestOut)
+            , mJumpDestGen(jumpDestGen)
+            , apTraits(pCompiler->apTraits)
         {
-            JITDUMP("StartMerge: " FMT_BB " ", block->bbNum);
-            Compiler::optDumpAssertionIndices("in -> ", block->bbAssertionIn, "\n");
         }
 
-        BitVecOps::Assign(apTraits, preMergeOut, block->bbAssertionOut);
-        BitVecOps::Assign(apTraits, preMergeJumpDestOut, mJumpDestOut[block->bbNum]);
-    }
-
-    // During merge, perform the actual merging of the predecessor's (since this is a forward analysis) dataflow flags.
-    void Merge(BasicBlock* block, BasicBlock* predBlock, unsigned dupCount)
-    {
-        ASSERT_TP pAssertionOut;
-
-        if (predBlock->KindIs(BBJ_COND) && predBlock->TrueTargetIs(block))
+        // At the start of the merge function of the dataflow equations, initialize premerge state (to detect change.)
+        void StartMerge(BasicBlock* block)
         {
-            pAssertionOut = mJumpDestOut[predBlock->bbNum];
-
-            if (dupCount > 1)
+            if (VerboseDataflow())
             {
-                // Scenario where next block and conditional block, both point to the same block.
-                // In such case, intersect the assertions present on both the out edges of predBlock.
-                assert(predBlock->FalseTargetIs(block));
-                BitVecOps::IntersectionD(apTraits, pAssertionOut, predBlock->bbAssertionOut);
-
-                if (VerboseDataflow())
-                {
-                    JITDUMP("Merge     : Duplicate flow, " FMT_BB " ", block->bbNum);
-                    Compiler::optDumpAssertionIndices("in -> ", block->bbAssertionIn, "; ");
-                    JITDUMP("pred " FMT_BB " ", predBlock->bbNum);
-                    Compiler::optDumpAssertionIndices("out1 -> ", mJumpDestOut[predBlock->bbNum], "; ");
-                    Compiler::optDumpAssertionIndices("out2 -> ", predBlock->bbAssertionOut, "\n");
-                }
+                JITDUMP("StartMerge: " FMT_BB " ", block->bbNum);
+                Compiler::optDumpAssertionIndices("in -> ", block->bbAssertionIn, "\n");
             }
-        }
-        else
-        {
-            pAssertionOut = predBlock->bbAssertionOut;
-        }
 
-        if (VerboseDataflow())
-        {
-            JITDUMP("Merge     : " FMT_BB " ", block->bbNum);
-            Compiler::optDumpAssertionIndices("in -> ", block->bbAssertionIn, "; ");
-            JITDUMP("pred " FMT_BB " ", predBlock->bbNum);
-            Compiler::optDumpAssertionIndices("out -> ", pAssertionOut, "\n");
+            BitVecOps::Assign(apTraits, preMergeOut, block->bbAssertionOut);
+            BitVecOps::Assign(apTraits, preMergeJumpDestOut, mJumpDestOut[block->bbNum]);
         }
 
-        BitVecOps::IntersectionD(apTraits, block->bbAssertionIn, pAssertionOut);
-    }
-
-    //------------------------------------------------------------------------
-    // MergeHandler: Merge assertions into the first exception handler/filter block.
-    //
-    // Arguments:
-    //   block         - the block that is the start of a handler or filter;
-    //   firstTryBlock - the first block of the try for "block" handler;
-    //   lastTryBlock  - the last block of the try for "block" handler;.
-    //
-    // Notes:
-    //   We can jump to the handler from any instruction in the try region. It
-    //   means we can propagate only assertions that are valid for the whole
-    //   try region.
-    //
-    //   It suffices to intersect with only the head 'try' block's assertions,
-    //   since that block dominates all other blocks in the try, and since
-    //   assertions are VN-based and can never become false.
-    //
-    void MergeHandler(BasicBlock* block, BasicBlock* firstTryBlock, BasicBlock* lastTryBlock)
-    {
-        if (VerboseDataflow())
+        // During merge, perform the actual merging of the predecessor's (since this is a forward analysis) dataflow
+        // flags.
+        void Merge(BasicBlock* block, BasicBlock* predBlock, unsigned dupCount)
         {
-            JITDUMP("Merge     : " FMT_BB " ", block->bbNum);
-            Compiler::optDumpAssertionIndices("in -> ", block->bbAssertionIn, "; ");
-            JITDUMP("firstTryBlock " FMT_BB " ", firstTryBlock->bbNum);
-            Compiler::optDumpAssertionIndices("in -> ", firstTryBlock->bbAssertionIn, "; ");
-        }
-        BitVecOps::IntersectionD(apTraits, block->bbAssertionIn, firstTryBlock->bbAssertionIn);
-    }
+            ASSERT_TP pAssertionOut;
 
-    // At the end of the merge store results of the dataflow equations, in a postmerge state.
-    bool EndMerge(BasicBlock* block)
-    {
-        if (VerboseDataflow())
-        {
-            JITDUMP("EndMerge  : " FMT_BB " ", block->bbNum);
-            Compiler::optDumpAssertionIndices("in -> ", block->bbAssertionIn, "\n\n");
-        }
-
-        BitVecOps::DataFlowD(apTraits, block->bbAssertionOut, block->bbAssertionGen, block->bbAssertionIn);
-        BitVecOps::DataFlowD(apTraits, mJumpDestOut[block->bbNum], mJumpDestGen[block->bbNum], block->bbAssertionIn);
-
-        bool changed = (!BitVecOps::Equal(apTraits, preMergeOut, block->bbAssertionOut) ||
-                        !BitVecOps::Equal(apTraits, preMergeJumpDestOut, mJumpDestOut[block->bbNum]));
-
-        if (VerboseDataflow())
-        {
-            if (changed)
+            if (predBlock->KindIs(BBJ_COND) && predBlock->TrueTargetIs(block))
             {
-                JITDUMP("Changed   : " FMT_BB " ", block->bbNum);
-                Compiler::optDumpAssertionIndices("before out -> ", preMergeOut, "; ");
-                Compiler::optDumpAssertionIndices("after out -> ", block->bbAssertionOut, ";\n        ");
-                Compiler::optDumpAssertionIndices("jumpDest before out -> ", preMergeJumpDestOut, "; ");
-                Compiler::optDumpAssertionIndices("jumpDest after out -> ", mJumpDestOut[block->bbNum], ";\n\n");
+                pAssertionOut = mJumpDestOut[predBlock->bbNum];
+
+                if (dupCount > 1)
+                {
+                    // Scenario where next block and conditional block, both point to the same block.
+                    // In such case, intersect the assertions present on both the out edges of predBlock.
+                    assert(predBlock->FalseTargetIs(block));
+                    BitVecOps::IntersectionD(apTraits, pAssertionOut, predBlock->bbAssertionOut);
+
+                    if (VerboseDataflow())
+                    {
+                        JITDUMP("Merge     : Duplicate flow, " FMT_BB " ", block->bbNum);
+                        Compiler::optDumpAssertionIndices("in -> ", block->bbAssertionIn, "; ");
+                        JITDUMP("pred " FMT_BB " ", predBlock->bbNum);
+                        Compiler::optDumpAssertionIndices("out1 -> ", mJumpDestOut[predBlock->bbNum], "; ");
+                        Compiler::optDumpAssertionIndices("out2 -> ", predBlock->bbAssertionOut, "\n");
+                    }
+                }
             }
             else
             {
-                JITDUMP("Unchanged : " FMT_BB " ", block->bbNum);
-                Compiler::optDumpAssertionIndices("out -> ", block->bbAssertionOut, "; ");
-                Compiler::optDumpAssertionIndices("jumpDest out -> ", mJumpDestOut[block->bbNum], "\n\n");
+                pAssertionOut = predBlock->bbAssertionOut;
             }
+
+            if (VerboseDataflow())
+            {
+                JITDUMP("Merge     : " FMT_BB " ", block->bbNum);
+                Compiler::optDumpAssertionIndices("in -> ", block->bbAssertionIn, "; ");
+                JITDUMP("pred " FMT_BB " ", predBlock->bbNum);
+                Compiler::optDumpAssertionIndices("out -> ", pAssertionOut, "\n");
+            }
+
+            BitVecOps::IntersectionD(apTraits, block->bbAssertionIn, pAssertionOut);
         }
 
-        return changed;
-    }
+        //------------------------------------------------------------------------
+        // MergeHandler: Merge assertions into the first exception handler/filter block.
+        //
+        // Arguments:
+        //   block         - the block that is the start of a handler or filter;
+        //   firstTryBlock - the first block of the try for "block" handler;
+        //   lastTryBlock  - the last block of the try for "block" handler;.
+        //
+        // Notes:
+        //   We can jump to the handler from any instruction in the try region. It
+        //   means we can propagate only assertions that are valid for the whole
+        //   try region.
+        //
+        //   It suffices to intersect with only the head 'try' block's assertions,
+        //   since that block dominates all other blocks in the try, and since
+        //   assertions are VN-based and can never become false.
+        //
+        void MergeHandler(BasicBlock* block, BasicBlock* firstTryBlock, BasicBlock* lastTryBlock)
+        {
+            if (VerboseDataflow())
+            {
+                JITDUMP("Merge     : " FMT_BB " ", block->bbNum);
+                Compiler::optDumpAssertionIndices("in -> ", block->bbAssertionIn, "; ");
+                JITDUMP("firstTryBlock " FMT_BB " ", firstTryBlock->bbNum);
+                Compiler::optDumpAssertionIndices("in -> ", firstTryBlock->bbAssertionIn, "; ");
+            }
+            BitVecOps::IntersectionD(apTraits, block->bbAssertionIn, firstTryBlock->bbAssertionIn);
+        }
 
-    // Can be enabled to get detailed debug output about dataflow for assertions.
-    bool VerboseDataflow()
-    {
+        // At the end of the merge store results of the dataflow equations, in a postmerge state.
+        bool EndMerge(BasicBlock* block)
+        {
+            if (VerboseDataflow())
+            {
+                JITDUMP("EndMerge  : " FMT_BB " ", block->bbNum);
+                Compiler::optDumpAssertionIndices("in -> ", block->bbAssertionIn, "\n\n");
+            }
+
+            BitVecOps::DataFlowD(apTraits, block->bbAssertionOut, block->bbAssertionGen, block->bbAssertionIn);
+            BitVecOps::DataFlowD(apTraits, mJumpDestOut[block->bbNum], mJumpDestGen[block->bbNum],
+                                 block->bbAssertionIn);
+
+            bool changed = (!BitVecOps::Equal(apTraits, preMergeOut, block->bbAssertionOut) ||
+                            !BitVecOps::Equal(apTraits, preMergeJumpDestOut, mJumpDestOut[block->bbNum]));
+
+            if (VerboseDataflow())
+            {
+                if (changed)
+                {
+                    JITDUMP("Changed   : " FMT_BB " ", block->bbNum);
+                    Compiler::optDumpAssertionIndices("before out -> ", preMergeOut, "; ");
+                    Compiler::optDumpAssertionIndices("after out -> ", block->bbAssertionOut, ";\n        ");
+                    Compiler::optDumpAssertionIndices("jumpDest before out -> ", preMergeJumpDestOut, "; ");
+                    Compiler::optDumpAssertionIndices("jumpDest after out -> ", mJumpDestOut[block->bbNum], ";\n\n");
+                }
+                else
+                {
+                    JITDUMP("Unchanged : " FMT_BB " ", block->bbNum);
+                    Compiler::optDumpAssertionIndices("out -> ", block->bbAssertionOut, "; ");
+                    Compiler::optDumpAssertionIndices("jumpDest out -> ", mJumpDestOut[block->bbNum], "\n\n");
+                }
+            }
+
+            return changed;
+        }
+
+        // Can be enabled to get detailed debug output about dataflow for assertions.
+        bool VerboseDataflow()
+        {
 #if 0
         return VERBOSE;
 #endif
-        return false;
-    }
+            return false;
+        }
 };
 
 /*****************************************************************************
@@ -6254,13 +6256,15 @@ ASSERT_TP* Compiler::optInitAssertionDataflowFlags()
 // Callback data for the VN based constant prop visitor.
 struct VNAssertionPropVisitorInfo
 {
-    Compiler*   pThis;
-    Statement*  stmt;
-    BasicBlock* block;
-    VNAssertionPropVisitorInfo(Compiler* pThis, BasicBlock* block, Statement* stmt)
-        : pThis(pThis), stmt(stmt), block(block)
-    {
-    }
+        Compiler*   pThis;
+        Statement*  stmt;
+        BasicBlock* block;
+        VNAssertionPropVisitorInfo(Compiler* pThis, BasicBlock* block, Statement* stmt)
+            : pThis(pThis)
+            , stmt(stmt)
+            , block(block)
+        {
+        }
 };
 
 //------------------------------------------------------------------------------
@@ -6477,14 +6481,14 @@ Compiler::fgWalkResult Compiler::optVNBasedFoldCurStmt(BasicBlock* block,
 
         case GT_BLK:
         case GT_IND:
-        {
-            const ValueNum vn = tree->GetVN(VNK_Conservative);
-            if (vnStore->VNNormalValue(vn) != vn)
             {
-                return WALK_CONTINUE;
+                const ValueNum vn = tree->GetVN(VNK_Conservative);
+                if (vnStore->VNNormalValue(vn) != vn)
+                {
+                    return WALK_CONTINUE;
+                }
             }
-        }
-        break;
+            break;
 
         case GT_JTRUE:
             break;

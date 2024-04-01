@@ -415,7 +415,7 @@ void CodeGenInterface::siVarLoc::siFillRegisterVarLoc(
             this->vlReg.vlrReg = varDsc->GetRegNum();
             break;
 
-#else // !TARGET_64BIT
+#else  // !TARGET_64BIT
 
         case TYP_FLOAT:
         case TYP_DOUBLE:
@@ -439,17 +439,17 @@ void CodeGenInterface::siVarLoc::siFillRegisterVarLoc(
 #if defined(FEATURE_MASKED_HW_INTRINSICS)
         case TYP_MASK:
 #endif // FEATURE_MASKED_HW_INTRINSICS
-        {
-            this->vlType = VLT_REG_FP;
+            {
+                this->vlType = VLT_REG_FP;
 
-            // TODO-AMD64-Bug: ndp\clr\src\inc\corinfo.h has a definition of RegNum that only goes up to R15,
-            // so no XMM registers can get debug information.
-            //
-            // Note: Need to initialize vlrReg field, otherwise during jit dump hitting an assert
-            // in eeDispVar() --> getRegName() that regNumber is valid.
-            this->vlReg.vlrReg = varDsc->GetRegNum();
-            break;
-        }
+                // TODO-AMD64-Bug: ndp\clr\src\inc\corinfo.h has a definition of RegNum that only goes up to R15,
+                // so no XMM registers can get debug information.
+                //
+                // Note: Need to initialize vlrReg field, otherwise during jit dump hitting an assert
+                // in eeDispVar() --> getRegName() that regNumber is valid.
+                this->vlReg.vlrReg = varDsc->GetRegNum();
+                break;
+            }
 #endif // FEATURE_SIMD
 
         default:
@@ -1586,7 +1586,7 @@ void CodeGen::siOpenScopesForNonTrackedVars(const BasicBlock* block, unsigned in
             }
         }
 
-#else // !FEATURE_EH_FUNCLETS
+#else  // !FEATURE_EH_FUNCLETS
 
         if (lastBlockILEndOffset != beginOffs)
         {
@@ -1889,9 +1889,8 @@ void CodeGen::genSetScopeInfoUsingVariableRanges()
             continue;
         }
 
-        auto reportRange =
-            [this, varDsc, varNum, &liveRangeIndex](siVarLoc* loc, UNATIVE_OFFSET start, UNATIVE_OFFSET end)
-        {
+        auto reportRange = [this, varDsc, varNum, &liveRangeIndex](siVarLoc* loc, UNATIVE_OFFSET start,
+                                                                   UNATIVE_OFFSET end) {
             if (varDsc->lvIsParam && (start == end))
             {
                 // If the length is zero, it means that the prolog is empty. In that case,

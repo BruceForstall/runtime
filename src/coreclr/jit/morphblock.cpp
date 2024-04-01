@@ -5,61 +5,60 @@
 
 class MorphInitBlockHelper
 {
-public:
-    static GenTree* MorphInitBlock(Compiler* comp, GenTree* tree);
+    public:
+        static GenTree* MorphInitBlock(Compiler* comp, GenTree* tree);
 
-protected:
-    MorphInitBlockHelper(Compiler* comp, GenTree* store, bool initBlock);
+    protected:
+        MorphInitBlockHelper(Compiler* comp, GenTree* store, bool initBlock);
 
-    GenTree* Morph();
+        GenTree* Morph();
 
-    void         PrepareDst();
-    virtual void PrepareSrc();
+        void         PrepareDst();
+        virtual void PrepareSrc();
 
-    virtual void TrySpecialCases();
-    virtual void MorphStructCases();
+        virtual void TrySpecialCases();
+        virtual void MorphStructCases();
 
-    void PropagateBlockAssertions();
-    void PropagateExpansionAssertions();
+        void PropagateBlockAssertions();
+        void PropagateExpansionAssertions();
 
-    virtual const char* GetHelperName() const
-    {
-        return "MorphInitBlock";
-    }
+        virtual const char* GetHelperName() const
+        {
+            return "MorphInitBlock";
+        }
 
-private:
-    void     TryInitFieldByField();
-    void     TryPrimitiveInit();
-    GenTree* EliminateCommas(GenTree** commaPool);
+    private:
+        void     TryInitFieldByField();
+        void     TryPrimitiveInit();
+        GenTree* EliminateCommas(GenTree** commaPool);
 
-protected:
-    Compiler* m_comp;
-    bool      m_initBlock;
+    protected:
+        Compiler* m_comp;
+        bool      m_initBlock;
 
-    GenTree* m_store = nullptr;
-    GenTree* m_src   = nullptr;
+        GenTree* m_store = nullptr;
+        GenTree* m_src   = nullptr;
 
-    unsigned             m_blockSize            = 0;
-    ClassLayout*         m_blockLayout          = nullptr;
-    unsigned             m_dstLclNum            = BAD_VAR_NUM;
-    GenTreeLclVarCommon* m_dstLclNode           = nullptr;
-    LclVarDsc*           m_dstVarDsc            = nullptr;
-    unsigned             m_dstLclOffset         = 0;
-    bool                 m_dstSingleStoreLclVar = false;
+        unsigned             m_blockSize            = 0;
+        ClassLayout*         m_blockLayout          = nullptr;
+        unsigned             m_dstLclNum            = BAD_VAR_NUM;
+        GenTreeLclVarCommon* m_dstLclNode           = nullptr;
+        LclVarDsc*           m_dstVarDsc            = nullptr;
+        unsigned             m_dstLclOffset         = 0;
+        bool                 m_dstSingleStoreLclVar = false;
 
-    enum class BlockTransformation
-    {
-        Undefined,
-        FieldByField,
-        OneStoreBlock,
-        StructBlock,
-        SkipMultiRegSrc,
-        SkipSingleRegCallSrc,
-        Nop
-    };
+        enum class BlockTransformation {
+            Undefined,
+            FieldByField,
+            OneStoreBlock,
+            StructBlock,
+            SkipMultiRegSrc,
+            SkipSingleRegCallSrc,
+            Nop
+        };
 
-    BlockTransformation m_transformationDecision = BlockTransformation::Undefined;
-    GenTree*            m_result                 = nullptr;
+        BlockTransformation m_transformationDecision = BlockTransformation::Undefined;
+        GenTree*            m_result                 = nullptr;
 };
 
 //------------------------------------------------------------------------
@@ -92,7 +91,8 @@ GenTree* MorphInitBlockHelper::MorphInitBlock(Compiler* comp, GenTree* tree)
 //    Most class members are initialized via in-class member initializers.
 //
 MorphInitBlockHelper::MorphInitBlockHelper(Compiler* comp, GenTree* store, bool initBlock = true)
-    : m_comp(comp), m_initBlock(initBlock)
+    : m_comp(comp)
+    , m_initBlock(initBlock)
 {
     assert(store->OperIsStore());
     assert((m_initBlock == store->OperIsInitBlkOp()) && (!m_initBlock == store->OperIsCopyBlkOp()));
@@ -531,14 +531,12 @@ GenTree* MorphInitBlockHelper::EliminateCommas(GenTree** commaPool)
     *commaPool = nullptr;
 
     GenTree* sideEffects   = nullptr;
-    auto     addSideEffect = [&sideEffects](GenTree* sideEff)
-    {
+    auto     addSideEffect = [&sideEffects](GenTree* sideEff) {
         sideEff->gtNext = sideEffects;
         sideEffects     = sideEff;
     };
 
-    auto addComma = [commaPool, &addSideEffect](GenTree* comma)
-    {
+    auto addComma = [commaPool, &addSideEffect](GenTree* comma) {
         addSideEffect(comma->gtGetOp1());
         comma->gtNext = *commaPool;
         *commaPool    = comma;
@@ -587,37 +585,37 @@ GenTree* MorphInitBlockHelper::EliminateCommas(GenTree** commaPool)
 
 class MorphCopyBlockHelper : public MorphInitBlockHelper
 {
-public:
-    static GenTree* MorphCopyBlock(Compiler* comp, GenTree* tree);
+    public:
+        static GenTree* MorphCopyBlock(Compiler* comp, GenTree* tree);
 
-protected:
-    MorphCopyBlockHelper(Compiler* comp, GenTree* store);
+    protected:
+        MorphCopyBlockHelper(Compiler* comp, GenTree* store);
 
-    void PrepareSrc() override;
+        void PrepareSrc() override;
 
-    void TrySpecialCases() override;
+        void TrySpecialCases() override;
 
-    void     MorphStructCases() override;
-    void     TryPrimitiveCopy();
-    GenTree* CopyFieldByField();
+        void     MorphStructCases() override;
+        void     TryPrimitiveCopy();
+        GenTree* CopyFieldByField();
 
-    const char* GetHelperName() const override
-    {
-        return "MorphCopyBlock";
-    }
+        const char* GetHelperName() const override
+        {
+            return "MorphCopyBlock";
+        }
 
-protected:
-    unsigned             m_srcLclNum            = BAD_VAR_NUM;
-    LclVarDsc*           m_srcVarDsc            = nullptr;
-    GenTreeLclVarCommon* m_srcLclNode           = nullptr;
-    unsigned             m_srcLclOffset         = 0;
-    bool                 m_srcSingleStoreLclVar = false;
+    protected:
+        unsigned             m_srcLclNum            = BAD_VAR_NUM;
+        LclVarDsc*           m_srcVarDsc            = nullptr;
+        GenTreeLclVarCommon* m_srcLclNode           = nullptr;
+        unsigned             m_srcLclOffset         = 0;
+        bool                 m_srcSingleStoreLclVar = false;
 
-    bool m_dstDoFldStore = false;
-    bool m_srcDoFldStore = false;
+        bool m_dstDoFldStore = false;
+        bool m_srcDoFldStore = false;
 
-private:
-    bool CanReuseAddressForDecomposedStore(GenTree* addr);
+    private:
+        bool CanReuseAddressForDecomposedStore(GenTree* addr);
 };
 
 //------------------------------------------------------------------------
@@ -647,7 +645,10 @@ GenTree* MorphCopyBlockHelper::MorphCopyBlock(Compiler* comp, GenTree* tree)
 // Notes:
 //    Most class members are initialized via in-class member initializers.
 //
-MorphCopyBlockHelper::MorphCopyBlockHelper(Compiler* comp, GenTree* store) : MorphInitBlockHelper(comp, store, false) {}
+MorphCopyBlockHelper::MorphCopyBlockHelper(Compiler* comp, GenTree* store)
+    : MorphInitBlockHelper(comp, store, false)
+{
+}
 
 //------------------------------------------------------------------------
 // PrepareSrc: Initialize member fields with information about the store's
@@ -1042,8 +1043,7 @@ void MorphCopyBlockHelper::TryPrimitiveCopy()
         return;
     }
 
-    auto doRetypeNode = [storeType](GenTree* op, LclVarDsc* varDsc, bool isUse)
-    {
+    auto doRetypeNode = [storeType](GenTree* op, LclVarDsc* varDsc, bool isUse) {
         if (op->OperIsIndir())
         {
             op->SetOper(isUse ? GT_IND : GT_STOREIND);
@@ -1183,8 +1183,7 @@ GenTree* MorphCopyBlockHelper::CopyFieldByField()
         addrSpillStore          = m_comp->gtNewTempStore(addrSpillTemp, addrSpill);
     }
 
-    auto grabAddr = [=, &result](unsigned offs)
-    {
+    auto grabAddr = [=, &result](unsigned offs) {
         GenTree* addrClone = nullptr;
         // Need address of the source.
         if (addrSpill)

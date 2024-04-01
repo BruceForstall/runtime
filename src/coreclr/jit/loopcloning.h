@@ -190,17 +190,24 @@ class Compiler;
  */
 struct ArrIndex
 {
-    unsigned                      arrLcl;   // The array base local num
-    JitExpandArrayStack<unsigned> indLcls;  // The indices local nums
-    JitExpandArrayStack<GenTree*> bndsChks; // The bounds checks nodes along each dimension.
-    unsigned                      rank;     // Rank of the array
-    BasicBlock*                   useBlock; // Block where the [] occurs
+        unsigned                      arrLcl;   // The array base local num
+        JitExpandArrayStack<unsigned> indLcls;  // The indices local nums
+        JitExpandArrayStack<GenTree*> bndsChks; // The bounds checks nodes along each dimension.
+        unsigned                      rank;     // Rank of the array
+        BasicBlock*                   useBlock; // Block where the [] occurs
 
-    ArrIndex(CompAllocator alloc) : arrLcl(BAD_VAR_NUM), indLcls(alloc), bndsChks(alloc), rank(0), useBlock(nullptr) {}
+        ArrIndex(CompAllocator alloc)
+            : arrLcl(BAD_VAR_NUM)
+            , indLcls(alloc)
+            , bndsChks(alloc)
+            , rank(0)
+            , useBlock(nullptr)
+        {
+        }
 
 #ifdef DEBUG
-    void Print(unsigned dim = -1);
-    void PrintBoundsCheckNodes(unsigned dim = -1);
+        void Print(unsigned dim = -1);
+        void PrintBoundsCheckNodes(unsigned dim = -1);
 #endif
 };
 
@@ -227,19 +234,21 @@ struct ArrIndex
  */
 struct LcOptInfo
 {
-    enum OptType
-    {
+        enum OptType {
 #define LC_OPT(en) en,
 #include "loopcloningopts.h"
-    };
+        };
 
-    OptType optType;
-    LcOptInfo(OptType optType) : optType(optType) {}
+        OptType optType;
+        LcOptInfo(OptType optType)
+            : optType(optType)
+        {
+        }
 
-    OptType GetOptType()
-    {
-        return optType;
-    }
+        OptType GetOptType()
+        {
+            return optType;
+        }
 
 #define LC_OPT(en)                                                                                                     \
     en##OptInfo* As##en##OptInfo()                                                                                     \
@@ -256,31 +265,34 @@ struct LcOptInfo
  */
 struct LcMdArrayOptInfo : public LcOptInfo
 {
-    GenTreeArrElem* arrElem; // "arrElem" node of an MD array.
-    unsigned        dim;     // "dim" represents up to what level of the rank this optimization applies to.
-                             //    For example, a[i,j,k] could be the MD array "arrElem" but if "dim" is 2,
-                             //    then this node is treated as though it were a[i,j]
-    ArrIndex* index;         // "index" cached computation in the form of an ArrIndex representation.
+        GenTreeArrElem* arrElem; // "arrElem" node of an MD array.
+        unsigned        dim;     // "dim" represents up to what level of the rank this optimization applies to.
+                                 //    For example, a[i,j,k] could be the MD array "arrElem" but if "dim" is 2,
+                                 //    then this node is treated as though it were a[i,j]
+        ArrIndex* index;         // "index" cached computation in the form of an ArrIndex representation.
 
-    LcMdArrayOptInfo(GenTreeArrElem* arrElem, unsigned dim)
-        : LcOptInfo(LcMdArray), arrElem(arrElem), dim(dim), index(nullptr)
-    {
-    }
-
-    ArrIndex* GetArrIndexForDim(CompAllocator alloc)
-    {
-        if (index == nullptr)
+        LcMdArrayOptInfo(GenTreeArrElem* arrElem, unsigned dim)
+            : LcOptInfo(LcMdArray)
+            , arrElem(arrElem)
+            , dim(dim)
+            , index(nullptr)
         {
-            index       = new (alloc) ArrIndex(alloc);
-            index->rank = arrElem->gtArrRank;
-            for (unsigned i = 0; i < dim; ++i)
-            {
-                index->indLcls.Push(arrElem->gtArrInds[i]->AsLclVarCommon()->GetLclNum());
-            }
-            index->arrLcl = arrElem->gtArrObj->AsLclVarCommon()->GetLclNum();
         }
-        return index;
-    }
+
+        ArrIndex* GetArrIndexForDim(CompAllocator alloc)
+        {
+            if (index == nullptr)
+            {
+                index       = new (alloc) ArrIndex(alloc);
+                index->rank = arrElem->gtArrRank;
+                for (unsigned i = 0; i < dim; ++i)
+                {
+                    index->indLcls.Push(arrElem->gtArrInds[i]->AsLclVarCommon()->GetLclNum());
+                }
+                index->arrLcl = arrElem->gtArrObj->AsLclVarCommon()->GetLclNum();
+            }
+            return index;
+        }
 };
 
 /**
@@ -289,65 +301,72 @@ struct LcMdArrayOptInfo : public LcOptInfo
  */
 struct LcJaggedArrayOptInfo : public LcOptInfo
 {
-    unsigned dim;        // "dim" represents up to what level of the rank this optimization applies to.
-                         //    For example, a[i][j][k] could be the jagged array but if "dim" is 2,
-                         //    then this node is treated as though it were a[i][j]
-    ArrIndex   arrIndex; // ArrIndex representation of the array.
-    Statement* stmt;     // "stmt" where the optimization opportunity occurs.
+        unsigned dim;        // "dim" represents up to what level of the rank this optimization applies to.
+                             //    For example, a[i][j][k] could be the jagged array but if "dim" is 2,
+                             //    then this node is treated as though it were a[i][j]
+        ArrIndex   arrIndex; // ArrIndex representation of the array.
+        Statement* stmt;     // "stmt" where the optimization opportunity occurs.
 
-    LcJaggedArrayOptInfo(ArrIndex& arrIndex, unsigned dim, Statement* stmt)
-        : LcOptInfo(LcJaggedArray), dim(dim), arrIndex(arrIndex), stmt(stmt)
-    {
-    }
+        LcJaggedArrayOptInfo(ArrIndex& arrIndex, unsigned dim, Statement* stmt)
+            : LcOptInfo(LcJaggedArray)
+            , dim(dim)
+            , arrIndex(arrIndex)
+            , stmt(stmt)
+        {
+        }
 };
 
 // Optimization info for a type test
 //
 struct LcTypeTestOptInfo : public LcOptInfo
 {
-    // statement where the opportunity occurs
-    Statement* stmt;
-    // indir for the method table
-    GenTreeIndir* methodTableIndir;
-    // local whose method table is tested
-    unsigned lclNum;
-    // handle being tested for
-    CORINFO_CLASS_HANDLE clsHnd;
+        // statement where the opportunity occurs
+        Statement* stmt;
+        // indir for the method table
+        GenTreeIndir* methodTableIndir;
+        // local whose method table is tested
+        unsigned lclNum;
+        // handle being tested for
+        CORINFO_CLASS_HANDLE clsHnd;
 
-    LcTypeTestOptInfo(Statement* stmt, GenTreeIndir* methodTableIndir, unsigned lclNum, CORINFO_CLASS_HANDLE clsHnd)
-        : LcOptInfo(LcTypeTest), stmt(stmt), methodTableIndir(methodTableIndir), lclNum(lclNum), clsHnd(clsHnd)
-    {
-    }
+        LcTypeTestOptInfo(Statement* stmt, GenTreeIndir* methodTableIndir, unsigned lclNum, CORINFO_CLASS_HANDLE clsHnd)
+            : LcOptInfo(LcTypeTest)
+            , stmt(stmt)
+            , methodTableIndir(methodTableIndir)
+            , lclNum(lclNum)
+            , clsHnd(clsHnd)
+        {
+        }
 };
 
 struct LcMethodAddrTestOptInfo : public LcOptInfo
 {
-    // statement where the opportunity occurs
-    Statement* stmt;
-    // indir on the delegate
-    GenTreeIndir* delegateAddressIndir;
-    // Invariant local whose target field(s) are tested
-    unsigned delegateLclNum;
-    // Invariant tree representing method address on the other side of the test
-    void* methAddr;
-    bool  isSlot;
+        // statement where the opportunity occurs
+        Statement* stmt;
+        // indir on the delegate
+        GenTreeIndir* delegateAddressIndir;
+        // Invariant local whose target field(s) are tested
+        unsigned delegateLclNum;
+        // Invariant tree representing method address on the other side of the test
+        void* methAddr;
+        bool  isSlot;
 #ifdef DEBUG
-    CORINFO_METHOD_HANDLE targetMethHnd;
+        CORINFO_METHOD_HANDLE targetMethHnd;
 #endif
 
-    LcMethodAddrTestOptInfo(Statement*    stmt,
-                            GenTreeIndir* delegateAddressIndir,
-                            unsigned      delegateLclNum,
-                            void*         methAddr,
-                            bool isSlot   DEBUG_ARG(CORINFO_METHOD_HANDLE targetMethHnd))
-        : LcOptInfo(LcMethodAddrTest)
-        , stmt(stmt)
-        , delegateAddressIndir(delegateAddressIndir)
-        , delegateLclNum(delegateLclNum)
-        , methAddr(methAddr)
-        , isSlot(isSlot) DEBUG_ARG(targetMethHnd(targetMethHnd))
-    {
-    }
+        LcMethodAddrTestOptInfo(Statement*    stmt,
+                                GenTreeIndir* delegateAddressIndir,
+                                unsigned      delegateLclNum,
+                                void*         methAddr,
+                                bool isSlot   DEBUG_ARG(CORINFO_METHOD_HANDLE targetMethHnd))
+            : LcOptInfo(LcMethodAddrTest)
+            , stmt(stmt)
+            , delegateAddressIndir(delegateAddressIndir)
+            , delegateLclNum(delegateLclNum)
+            , methAddr(methAddr)
+            , isSlot(isSlot) DEBUG_ARG(targetMethHnd(targetMethHnd))
+        {
+        }
 };
 
 /**
@@ -357,84 +376,95 @@ struct LcMethodAddrTestOptInfo : public LcOptInfo
  */
 struct LC_Array
 {
-    enum ArrType
-    {
-        Invalid,
-        Jagged,
-        MdArray
-    };
+        enum ArrType {
+            Invalid,
+            Jagged,
+            MdArray
+        };
 
-    enum OperType
-    {
-        None,
-        ArrLen,
-    };
+        enum OperType {
+            None,
+            ArrLen,
+        };
 
-    ArrType   type;     // The type of the array on which to invoke length operator.
-    ArrIndex* arrIndex; // ArrIndex representation of this array.
+        ArrType   type;     // The type of the array on which to invoke length operator.
+        ArrIndex* arrIndex; // ArrIndex representation of this array.
 
-    OperType oper;
+        OperType oper;
 
 #ifdef DEBUG
-    void Print()
-    {
-        arrIndex->Print(dim);
-        if (oper == ArrLen)
+        void Print()
         {
-            printf(".Length");
+            arrIndex->Print(dim);
+            if (oper == ArrLen)
+            {
+                printf(".Length");
+            }
         }
-    }
 #endif
 
-    int dim; // "dim" = which index to invoke arrLen on, if -1 invoke on the whole array
-             //     Example 1: a[0][1][2] and dim =  2 implies a[0][1].length
-             //     Example 2: a[0][1][2] and dim = -1 implies a[0][1][2].length
-    LC_Array() : type(Invalid), dim(-1) {}
-    LC_Array(ArrType type, ArrIndex* arrIndex, int dim, OperType oper)
-        : type(type), arrIndex(arrIndex), oper(oper), dim(dim)
-    {
-    }
-
-    LC_Array(ArrType type, ArrIndex* arrIndex, OperType oper) : type(type), arrIndex(arrIndex), oper(oper), dim(-1) {}
-
-    // Equality operator
-    bool operator==(const LC_Array& that) const
-    {
-        assert(type != Invalid && that.type != Invalid);
-
-        // Types match and the array base matches.
-        if (type != that.type || arrIndex->arrLcl != that.arrIndex->arrLcl || oper != that.oper)
+        int dim; // "dim" = which index to invoke arrLen on, if -1 invoke on the whole array
+                 //     Example 1: a[0][1][2] and dim =  2 implies a[0][1].length
+                 //     Example 2: a[0][1][2] and dim = -1 implies a[0][1][2].length
+        LC_Array()
+            : type(Invalid)
+            , dim(-1)
         {
-            return false;
+        }
+        LC_Array(ArrType type, ArrIndex* arrIndex, int dim, OperType oper)
+            : type(type)
+            , arrIndex(arrIndex)
+            , oper(oper)
+            , dim(dim)
+        {
         }
 
-        // If the dim ranks are not matching, quit.
-        int rank1 = GetDimRank();
-        int rank2 = that.GetDimRank();
-        if (rank1 != rank2)
+        LC_Array(ArrType type, ArrIndex* arrIndex, OperType oper)
+            : type(type)
+            , arrIndex(arrIndex)
+            , oper(oper)
+            , dim(-1)
         {
-            return false;
         }
 
-        // Check for the indices.
-        for (int i = 0; i < rank1; ++i)
+        // Equality operator
+        bool operator==(const LC_Array& that) const
         {
-            if (arrIndex->indLcls[i] != that.arrIndex->indLcls[i])
+            assert(type != Invalid && that.type != Invalid);
+
+            // Types match and the array base matches.
+            if (type != that.type || arrIndex->arrLcl != that.arrIndex->arrLcl || oper != that.oper)
             {
                 return false;
             }
+
+            // If the dim ranks are not matching, quit.
+            int rank1 = GetDimRank();
+            int rank2 = that.GetDimRank();
+            if (rank1 != rank2)
+            {
+                return false;
+            }
+
+            // Check for the indices.
+            for (int i = 0; i < rank1; ++i)
+            {
+                if (arrIndex->indLcls[i] != that.arrIndex->indLcls[i])
+                {
+                    return false;
+                }
+            }
+            return true;
         }
-        return true;
-    }
 
-    // The max dim on which length is invoked.
-    int GetDimRank() const
-    {
-        return (dim < 0) ? (int)arrIndex->rank : dim;
-    }
+        // The max dim on which length is invoked.
+        int GetDimRank() const
+        {
+            return (dim < 0) ? (int)arrIndex->rank : dim;
+        }
 
-    // Get a tree representation for this symbolic a.length
-    GenTree* ToGenTree(Compiler* comp, BasicBlock* bb);
+        // Get a tree representation for this symbolic a.length
+        GenTree* ToGenTree(Compiler* comp, BasicBlock* bb);
 };
 
 //------------------------------------------------------------------------
@@ -442,187 +472,192 @@ struct LC_Array
 //
 struct LC_Ident
 {
-    enum IdentType
-    {
-        Invalid,
-        Const,
-        Var,
-        ArrAccess,
-        Null,
-        ClassHandle,
-        IndirOfLocal,
-        MethodAddr,
-        IndirOfMethodAddrSlot,
-    };
-
-private:
-    union
-    {
-        unsigned constant;
-        struct
-        {
-            unsigned lclNum;
-            unsigned indirOffs;
+        enum IdentType {
+            Invalid,
+            Const,
+            Var,
+            ArrAccess,
+            Null,
+            ClassHandle,
+            IndirOfLocal,
+            MethodAddr,
+            IndirOfMethodAddrSlot,
         };
-        LC_Array             arrAccess;
-        CORINFO_CLASS_HANDLE clsHnd;
-        struct
+
+    private:
+        union
         {
-            void* methAddr;
+                unsigned constant;
+                struct
+                {
+                        unsigned lclNum;
+                        unsigned indirOffs;
+                };
+                LC_Array             arrAccess;
+                CORINFO_CLASS_HANDLE clsHnd;
+                struct
+                {
+                        void* methAddr;
 #ifdef DEBUG
-            CORINFO_METHOD_HANDLE targetMethHnd; // for nice disassembly
+                        CORINFO_METHOD_HANDLE targetMethHnd; // for nice disassembly
 #endif
+                };
         };
-    };
 
-    LC_Ident(IdentType type) : type(type) {}
-
-public:
-    // The type of this object
-    IdentType type;
-
-    LC_Ident() : type(Invalid) {}
-
-    // Equality operator
-    bool operator==(const LC_Ident& that) const
-    {
-        if (type != that.type)
+        LC_Ident(IdentType type)
+            : type(type)
         {
-            return false;
         }
 
-        switch (type)
-        {
-            case Const:
-                return (constant == that.constant);
-            case ClassHandle:
-                return (clsHnd == that.clsHnd);
-            case Var:
-                return (lclNum == that.lclNum);
-            case IndirOfLocal:
-                return (lclNum == that.lclNum) && (indirOffs == that.indirOffs);
-            case ArrAccess:
-                return (arrAccess == that.arrAccess);
-            case Null:
-                return true;
-            case MethodAddr:
-                return (methAddr == that.methAddr);
-            case IndirOfMethodAddrSlot:
-                return (methAddr == that.methAddr);
-            default:
-                assert(!"Unknown LC_Ident type");
-                unreached();
-        }
-    }
+    public:
+        // The type of this object
+        IdentType type;
 
-    unsigned LclNum() const
-    {
-        assert((type == Var) || (type == IndirOfLocal));
-        return lclNum;
-    }
+        LC_Ident()
+            : type(Invalid)
+        {
+        }
+
+        // Equality operator
+        bool operator==(const LC_Ident& that) const
+        {
+            if (type != that.type)
+            {
+                return false;
+            }
+
+            switch (type)
+            {
+                case Const:
+                    return (constant == that.constant);
+                case ClassHandle:
+                    return (clsHnd == that.clsHnd);
+                case Var:
+                    return (lclNum == that.lclNum);
+                case IndirOfLocal:
+                    return (lclNum == that.lclNum) && (indirOffs == that.indirOffs);
+                case ArrAccess:
+                    return (arrAccess == that.arrAccess);
+                case Null:
+                    return true;
+                case MethodAddr:
+                    return (methAddr == that.methAddr);
+                case IndirOfMethodAddrSlot:
+                    return (methAddr == that.methAddr);
+                default:
+                    assert(!"Unknown LC_Ident type");
+                    unreached();
+            }
+        }
+
+        unsigned LclNum() const
+        {
+            assert((type == Var) || (type == IndirOfLocal));
+            return lclNum;
+        }
 
 #ifdef DEBUG
-    void Print()
-    {
-        switch (type)
+        void Print()
         {
-            case Const:
-                printf("%u", constant);
-                break;
-            case Var:
-                printf("V%02u", lclNum);
-                break;
-            case IndirOfLocal:
-                if (indirOffs != 0)
-                {
-                    printf("*(V%02u + %u)", lclNum, indirOffs);
-                }
-                else
-                {
-                    printf("*V%02u", lclNum);
-                }
-                break;
-            case ClassHandle:
-                printf("%p", clsHnd);
-                break;
-            case ArrAccess:
-                arrAccess.Print();
-                break;
-            case Null:
-                printf("null");
-                break;
-            case MethodAddr:
-                printf("%p", methAddr);
-                break;
-            case IndirOfMethodAddrSlot:
-                printf("[%p]", methAddr);
-                break;
-            default:
-                printf("INVALID");
-                break;
+            switch (type)
+            {
+                case Const:
+                    printf("%u", constant);
+                    break;
+                case Var:
+                    printf("V%02u", lclNum);
+                    break;
+                case IndirOfLocal:
+                    if (indirOffs != 0)
+                    {
+                        printf("*(V%02u + %u)", lclNum, indirOffs);
+                    }
+                    else
+                    {
+                        printf("*V%02u", lclNum);
+                    }
+                    break;
+                case ClassHandle:
+                    printf("%p", clsHnd);
+                    break;
+                case ArrAccess:
+                    arrAccess.Print();
+                    break;
+                case Null:
+                    printf("null");
+                    break;
+                case MethodAddr:
+                    printf("%p", methAddr);
+                    break;
+                case IndirOfMethodAddrSlot:
+                    printf("[%p]", methAddr);
+                    break;
+                default:
+                    printf("INVALID");
+                    break;
+            }
         }
-    }
 #endif
 
-    // Convert this symbolic representation into a tree node.
-    GenTree* ToGenTree(Compiler* comp, BasicBlock* bb);
+        // Convert this symbolic representation into a tree node.
+        GenTree* ToGenTree(Compiler* comp, BasicBlock* bb);
 
-    static LC_Ident CreateVar(unsigned lclNum)
-    {
-        LC_Ident id(Var);
-        id.lclNum = lclNum;
-        return id;
-    }
+        static LC_Ident CreateVar(unsigned lclNum)
+        {
+            LC_Ident id(Var);
+            id.lclNum = lclNum;
+            return id;
+        }
 
-    static LC_Ident CreateIndirOfLocal(unsigned lclNum, unsigned offs)
-    {
-        LC_Ident id(IndirOfLocal);
-        id.lclNum    = lclNum;
-        id.indirOffs = offs;
-        return id;
-    }
+        static LC_Ident CreateIndirOfLocal(unsigned lclNum, unsigned offs)
+        {
+            LC_Ident id(IndirOfLocal);
+            id.lclNum    = lclNum;
+            id.indirOffs = offs;
+            return id;
+        }
 
-    static LC_Ident CreateConst(unsigned value)
-    {
-        LC_Ident id(Const);
-        id.constant = value;
-        return id;
-    }
+        static LC_Ident CreateConst(unsigned value)
+        {
+            LC_Ident id(Const);
+            id.constant = value;
+            return id;
+        }
 
-    static LC_Ident CreateArrAccess(const LC_Array& arrLen)
-    {
-        LC_Ident id(ArrAccess);
-        id.arrAccess = arrLen;
-        return id;
-    }
+        static LC_Ident CreateArrAccess(const LC_Array& arrLen)
+        {
+            LC_Ident id(ArrAccess);
+            id.arrAccess = arrLen;
+            return id;
+        }
 
-    static LC_Ident CreateNull()
-    {
-        return LC_Ident(Null);
-    }
+        static LC_Ident CreateNull()
+        {
+            return LC_Ident(Null);
+        }
 
-    static LC_Ident CreateClassHandle(CORINFO_CLASS_HANDLE clsHnd)
-    {
-        LC_Ident id(ClassHandle);
-        id.clsHnd = clsHnd;
-        return id;
-    }
+        static LC_Ident CreateClassHandle(CORINFO_CLASS_HANDLE clsHnd)
+        {
+            LC_Ident id(ClassHandle);
+            id.clsHnd = clsHnd;
+            return id;
+        }
 
-    static LC_Ident CreateMethodAddr(void* methAddr DEBUG_ARG(CORINFO_METHOD_HANDLE methHnd))
-    {
-        LC_Ident id(MethodAddr);
-        id.methAddr = methAddr;
-        INDEBUG(id.targetMethHnd = methHnd);
-        return id;
-    }
+        static LC_Ident CreateMethodAddr(void* methAddr DEBUG_ARG(CORINFO_METHOD_HANDLE methHnd))
+        {
+            LC_Ident id(MethodAddr);
+            id.methAddr = methAddr;
+            INDEBUG(id.targetMethHnd = methHnd);
+            return id;
+        }
 
-    static LC_Ident CreateIndirMethodAddrSlot(void* methAddrSlot DEBUG_ARG(CORINFO_METHOD_HANDLE methHnd))
-    {
-        LC_Ident id(IndirOfMethodAddrSlot);
-        id.methAddr = methAddrSlot;
-        INDEBUG(id.targetMethHnd = methHnd);
-        return id;
-    }
+        static LC_Ident CreateIndirMethodAddrSlot(void* methAddrSlot DEBUG_ARG(CORINFO_METHOD_HANDLE methHnd))
+        {
+            LC_Ident id(IndirOfMethodAddrSlot);
+            id.methAddr = methAddrSlot;
+            INDEBUG(id.targetMethHnd = methHnd);
+            return id;
+        }
 };
 
 /**
@@ -631,49 +666,55 @@ public:
  */
 struct LC_Expr
 {
-    enum ExprType
-    {
-        Invalid,
-        Ident,
-    };
+        enum ExprType {
+            Invalid,
+            Ident,
+        };
 
-    LC_Ident ident;
-    ExprType type;
+        LC_Ident ident;
+        ExprType type;
 
-    // Equality operator
-    bool operator==(const LC_Expr& that) const
-    {
-        assert(type != Invalid && that.type != Invalid);
-
-        // If the types don't match quit.
-        if (type != that.type)
+        // Equality operator
+        bool operator==(const LC_Expr& that) const
         {
-            return false;
-        }
+            assert(type != Invalid && that.type != Invalid);
 
-        // Check if the ident match.
-        return (ident == that.ident);
-    }
+            // If the types don't match quit.
+            if (type != that.type)
+            {
+                return false;
+            }
+
+            // Check if the ident match.
+            return (ident == that.ident);
+        }
 
 #ifdef DEBUG
-    void Print()
-    {
-        if (type == Ident)
+        void Print()
         {
-            ident.Print();
+            if (type == Ident)
+            {
+                ident.Print();
+            }
+            else
+            {
+                printf("INVALID");
+            }
         }
-        else
-        {
-            printf("INVALID");
-        }
-    }
 #endif
 
-    LC_Expr() : type(Invalid) {}
-    explicit LC_Expr(const LC_Ident& ident) : ident(ident), type(Ident) {}
+        LC_Expr()
+            : type(Invalid)
+        {
+        }
+        explicit LC_Expr(const LC_Ident& ident)
+            : ident(ident)
+            , type(Ident)
+        {
+        }
 
-    // Convert LC_Expr into a tree node.
-    GenTree* ToGenTree(Compiler* comp, BasicBlock* bb);
+        // Convert LC_Expr into a tree node.
+        GenTree* ToGenTree(Compiler* comp, BasicBlock* bb);
 };
 
 /**
@@ -683,36 +724,41 @@ struct LC_Expr
  */
 struct LC_Condition
 {
-    LC_Expr    op1;
-    LC_Expr    op2;
-    genTreeOps oper;
-    bool       compareUnsigned;
+        LC_Expr    op1;
+        LC_Expr    op2;
+        genTreeOps oper;
+        bool       compareUnsigned;
 
 #ifdef DEBUG
-    void Print()
-    {
-        op1.Print();
-        printf(" %s%s ", GenTree::OpName(oper), compareUnsigned ? "U" : "");
-        op2.Print();
-    }
+        void Print()
+        {
+            op1.Print();
+            printf(" %s%s ", GenTree::OpName(oper), compareUnsigned ? "U" : "");
+            op2.Print();
+        }
 #endif
 
-    // Check if the condition evaluates statically to true or false, i < i => false, a.length > 0 => true
-    // The result is put in "pResult" parameter and is valid if the method returns "true". Otherwise, the
-    // condition could not be evaluated.
-    bool Evaluates(bool* pResult);
+        // Check if the condition evaluates statically to true or false, i < i => false, a.length > 0 => true
+        // The result is put in "pResult" parameter and is valid if the method returns "true". Otherwise, the
+        // condition could not be evaluated.
+        bool Evaluates(bool* pResult);
 
-    // Check if two conditions can be combined to yield one condition.
-    bool Combines(const LC_Condition& cond, LC_Condition* newCond);
+        // Check if two conditions can be combined to yield one condition.
+        bool Combines(const LC_Condition& cond, LC_Condition* newCond);
 
-    LC_Condition() {}
-    LC_Condition(genTreeOps oper, const LC_Expr& op1, const LC_Expr& op2, bool asUnsigned = false)
-        : op1(op1), op2(op2), oper(oper), compareUnsigned(asUnsigned)
-    {
-    }
+        LC_Condition()
+        {
+        }
+        LC_Condition(genTreeOps oper, const LC_Expr& op1, const LC_Expr& op2, bool asUnsigned = false)
+            : op1(op1)
+            , op2(op2)
+            , oper(oper)
+            , compareUnsigned(asUnsigned)
+        {
+        }
 
-    // Convert this conditional operation into a GenTree.
-    GenTree* ToGenTree(Compiler* comp, BasicBlock* bb, bool invert);
+        // Convert this conditional operation into a GenTree.
+        GenTree* ToGenTree(Compiler* comp, BasicBlock* bb, bool invert);
 };
 
 /**
@@ -734,46 +780,51 @@ struct LC_Condition
  */
 struct LC_ArrayDeref
 {
-    const LC_Array                       array;
-    JitExpandArrayStack<LC_ArrayDeref*>* children;
+        const LC_Array                       array;
+        JitExpandArrayStack<LC_ArrayDeref*>* children;
 
-    unsigned level;
+        unsigned level;
 
-    LC_ArrayDeref(const LC_Array& array, unsigned level) : array(array), children(nullptr), level(level) {}
+        LC_ArrayDeref(const LC_Array& array, unsigned level)
+            : array(array)
+            , children(nullptr)
+            , level(level)
+        {
+        }
 
-    LC_ArrayDeref* Find(unsigned lcl);
+        LC_ArrayDeref* Find(unsigned lcl);
 
-    unsigned Lcl();
+        unsigned Lcl();
 
-    bool                  HasChildren();
-    void                  EnsureChildren(CompAllocator alloc);
-    static LC_ArrayDeref* Find(JitExpandArrayStack<LC_ArrayDeref*>* children, unsigned lcl);
+        bool                  HasChildren();
+        void                  EnsureChildren(CompAllocator alloc);
+        static LC_ArrayDeref* Find(JitExpandArrayStack<LC_ArrayDeref*>* children, unsigned lcl);
 
-    void DeriveLevelConditions(JitExpandArrayStack<JitExpandArrayStack<LC_Condition>*>* len);
+        void DeriveLevelConditions(JitExpandArrayStack<JitExpandArrayStack<LC_Condition>*>* len);
 
 #ifdef DEBUG
-    void Print(unsigned indent = 0)
-    {
-        unsigned tab = 4 * indent;
-        printf("%*sV%02d, level %d => {", tab, "", Lcl(), level);
-        if (children != nullptr)
+        void Print(unsigned indent = 0)
         {
-            for (unsigned i = 0; i < children->Size(); ++i)
+            unsigned tab = 4 * indent;
+            printf("%*sV%02d, level %d => {", tab, "", Lcl(), level);
+            if (children != nullptr)
             {
-                if (i > 0)
+                for (unsigned i = 0; i < children->Size(); ++i)
                 {
-                    printf(",");
-                }
-                printf("\n");
+                    if (i > 0)
+                    {
+                        printf(",");
+                    }
+                    printf("\n");
 #ifdef _MSC_VER
-                (*children)[i]->Print(indent + 1);
+                    (*children)[i]->Print(indent + 1);
 #else  // _MSC_VER
-                (*((JitExpandArray<LC_ArrayDeref*>*)children))[i]->Print(indent + 1);
+                    (*((JitExpandArray<LC_ArrayDeref*>*)children))[i]->Print(indent + 1);
 #endif // _MSC_VER
+                }
             }
+            printf("\n%*s}", tab, "");
         }
-        printf("\n%*s}", tab, "");
-    }
 #endif
 };
 
@@ -795,125 +846,126 @@ struct NaturalLoopIterInfo;
  */
 struct LoopCloneContext
 {
-    // We assume that the fast path will run 99% of the time, and thus should get 99% of the block weights.
-    // The slow path will, correspondingly, get only 1% of the block weights. It could be argued that we should
-    // mark the slow path as "run rarely", since it really shouldn't execute (given the currently optimized loop
-    // conditions) except under exceptional circumstances.
-    //
-    static constexpr weight_t fastPathWeightScaleFactor = 0.99;
-    static constexpr weight_t slowPathWeightScaleFactor = 1.0 - fastPathWeightScaleFactor;
+        // We assume that the fast path will run 99% of the time, and thus should get 99% of the block weights.
+        // The slow path will, correspondingly, get only 1% of the block weights. It could be argued that we should
+        // mark the slow path as "run rarely", since it really shouldn't execute (given the currently optimized loop
+        // conditions) except under exceptional circumstances.
+        //
+        static constexpr weight_t fastPathWeightScaleFactor = 0.99;
+        static constexpr weight_t slowPathWeightScaleFactor = 1.0 - fastPathWeightScaleFactor;
 
-    CompAllocator alloc; // The allocator
+        CompAllocator alloc; // The allocator
 
-    // The array of optimization opportunities found in each loop. (loop x optimization-opportunities)
-    jitstd::vector<JitExpandArrayStack<LcOptInfo*>*> optInfo;
+        // The array of optimization opportunities found in each loop. (loop x optimization-opportunities)
+        jitstd::vector<JitExpandArrayStack<LcOptInfo*>*> optInfo;
 
-    // The array of conditions that influence which path to take for each loop. (loop x cloning-conditions)
-    jitstd::vector<JitExpandArrayStack<LC_Condition>*> conditions;
+        // The array of conditions that influence which path to take for each loop. (loop x cloning-conditions)
+        jitstd::vector<JitExpandArrayStack<LC_Condition>*> conditions;
 
-    // The array of array dereference conditions found in each loop. (loop x deref-conditions)
-    jitstd::vector<JitExpandArrayStack<LC_Array>*> arrayDerefs;
+        // The array of array dereference conditions found in each loop. (loop x deref-conditions)
+        jitstd::vector<JitExpandArrayStack<LC_Array>*> arrayDerefs;
 
-    // The array of object dereference conditions found in each loop.
-    jitstd::vector<JitExpandArrayStack<LC_Ident>*> objDerefs;
+        // The array of object dereference conditions found in each loop.
+        jitstd::vector<JitExpandArrayStack<LC_Ident>*> objDerefs;
 
-    // The array of block levels of conditions for each loop. (loop x level x conditions)
-    jitstd::vector<JitExpandArrayStack<JitExpandArrayStack<LC_Condition>*>*> blockConditions;
+        // The array of block levels of conditions for each loop. (loop x level x conditions)
+        jitstd::vector<JitExpandArrayStack<JitExpandArrayStack<LC_Condition>*>*> blockConditions;
 
-    jitstd::vector<NaturalLoopIterInfo*> iterInfo;
+        jitstd::vector<NaturalLoopIterInfo*> iterInfo;
 
-    LoopCloneContext(unsigned loopCount, CompAllocator alloc)
-        : alloc(alloc)
-        , optInfo(alloc)
-        , conditions(alloc)
-        , arrayDerefs(alloc)
-        , objDerefs(alloc)
-        , blockConditions(alloc)
-        , iterInfo(alloc)
-    {
-        optInfo.resize(loopCount, nullptr);
-        conditions.resize(loopCount, nullptr);
-        arrayDerefs.resize(loopCount, nullptr);
-        objDerefs.resize(loopCount, nullptr);
-        blockConditions.resize(loopCount, nullptr);
-        iterInfo.resize(loopCount, nullptr);
-    }
+        LoopCloneContext(unsigned loopCount, CompAllocator alloc)
+            : alloc(alloc)
+            , optInfo(alloc)
+            , conditions(alloc)
+            , arrayDerefs(alloc)
+            , objDerefs(alloc)
+            , blockConditions(alloc)
+            , iterInfo(alloc)
+        {
+            optInfo.resize(loopCount, nullptr);
+            conditions.resize(loopCount, nullptr);
+            arrayDerefs.resize(loopCount, nullptr);
+            objDerefs.resize(loopCount, nullptr);
+            blockConditions.resize(loopCount, nullptr);
+            iterInfo.resize(loopCount, nullptr);
+        }
 
-    NaturalLoopIterInfo* GetLoopIterInfo(unsigned loopNum);
-    void                 SetLoopIterInfo(unsigned loopNum, NaturalLoopIterInfo* info);
+        NaturalLoopIterInfo* GetLoopIterInfo(unsigned loopNum);
+        void                 SetLoopIterInfo(unsigned loopNum, NaturalLoopIterInfo* info);
 
-    // Evaluate conditions into a JTRUE stmt and put it in a new block after `insertAfter`.
-    BasicBlock* CondToStmtInBlock(Compiler*                          comp,
-                                  JitExpandArrayStack<LC_Condition>& conds,
-                                  BasicBlock*                        slowHead,
-                                  BasicBlock*                        insertAfter);
+        // Evaluate conditions into a JTRUE stmt and put it in a new block after `insertAfter`.
+        BasicBlock* CondToStmtInBlock(Compiler*                          comp,
+                                      JitExpandArrayStack<LC_Condition>& conds,
+                                      BasicBlock*                        slowHead,
+                                      BasicBlock*                        insertAfter);
 
-    // Get all the optimization information for loop "loopNum"; this information is held in "optInfo" array.
-    // If NULL this allocates the optInfo[loopNum] array for "loopNum".
-    JitExpandArrayStack<LcOptInfo*>* EnsureLoopOptInfo(unsigned loopNum);
+        // Get all the optimization information for loop "loopNum"; this information is held in "optInfo" array.
+        // If NULL this allocates the optInfo[loopNum] array for "loopNum".
+        JitExpandArrayStack<LcOptInfo*>* EnsureLoopOptInfo(unsigned loopNum);
 
-    // Get all the optimization information for loop "loopNum"; this information is held in "optInfo" array.
-    // If NULL this does not allocate the optInfo[loopNum] array for "loopNum".
-    JitExpandArrayStack<LcOptInfo*>* GetLoopOptInfo(unsigned loopNum);
+        // Get all the optimization information for loop "loopNum"; this information is held in "optInfo" array.
+        // If NULL this does not allocate the optInfo[loopNum] array for "loopNum".
+        JitExpandArrayStack<LcOptInfo*>* GetLoopOptInfo(unsigned loopNum);
 
-    // Cancel all optimizations for loop "loopNum" by clearing out the "conditions" member if non-null
-    // and setting the optInfo to "null". If "null", then the user of this class is not supposed to
-    // clone this loop.
-    void CancelLoopOptInfo(unsigned loopNum);
+        // Cancel all optimizations for loop "loopNum" by clearing out the "conditions" member if non-null
+        // and setting the optInfo to "null". If "null", then the user of this class is not supposed to
+        // clone this loop.
+        void CancelLoopOptInfo(unsigned loopNum);
 
-    // Get the conditions that decide which loop to take for "loopNum." If NULL allocate an empty array.
-    JitExpandArrayStack<LC_Condition>* EnsureConditions(unsigned loopNum);
+        // Get the conditions that decide which loop to take for "loopNum." If NULL allocate an empty array.
+        JitExpandArrayStack<LC_Condition>* EnsureConditions(unsigned loopNum);
 
-    // Get the conditions for loop. No allocation is performed.
-    JitExpandArrayStack<LC_Condition>* GetConditions(unsigned loopNum);
+        // Get the conditions for loop. No allocation is performed.
+        JitExpandArrayStack<LC_Condition>* GetConditions(unsigned loopNum);
 
-    // Ensure that the array "deref" conditions array is allocated.
-    JitExpandArrayStack<LC_Array>* EnsureArrayDerefs(unsigned loopNum);
+        // Ensure that the array "deref" conditions array is allocated.
+        JitExpandArrayStack<LC_Array>* EnsureArrayDerefs(unsigned loopNum);
 
-    // Ensure that the obj "deref" conditions array is allocated.
-    JitExpandArrayStack<LC_Ident>* EnsureObjDerefs(unsigned loopNum);
+        // Ensure that the obj "deref" conditions array is allocated.
+        JitExpandArrayStack<LC_Ident>* EnsureObjDerefs(unsigned loopNum);
 
-    // Get block conditions for each loop, no allocation is performed.
-    JitExpandArrayStack<JitExpandArrayStack<LC_Condition>*>* GetBlockConditions(unsigned loopNum);
+        // Get block conditions for each loop, no allocation is performed.
+        JitExpandArrayStack<JitExpandArrayStack<LC_Condition>*>* GetBlockConditions(unsigned loopNum);
 
-    // Ensure that the block condition is present, if not allocate space.
-    JitExpandArrayStack<JitExpandArrayStack<LC_Condition>*>* EnsureBlockConditions(unsigned loopNum,
-                                                                                   unsigned totalBlocks);
+        // Ensure that the block condition is present, if not allocate space.
+        JitExpandArrayStack<JitExpandArrayStack<LC_Condition>*>* EnsureBlockConditions(unsigned loopNum,
+                                                                                       unsigned totalBlocks);
 
 #ifdef DEBUG
-    // Print the block conditions for the loop.
-    void PrintBlockConditions(unsigned loopNum);
-    void PrintBlockLevelConditions(unsigned level, JitExpandArrayStack<LC_Condition>* levelCond);
+        // Print the block conditions for the loop.
+        void PrintBlockConditions(unsigned loopNum);
+        void PrintBlockLevelConditions(unsigned level, JitExpandArrayStack<LC_Condition>* levelCond);
 #endif
 
-    // Does the loop have block conditions?
-    bool HasBlockConditions(unsigned loopNum);
+        // Does the loop have block conditions?
+        bool HasBlockConditions(unsigned loopNum);
 
-    // Evaluate the conditions for "loopNum" and indicate if they are either all true or any of them are false.
-    //
-    // `pAllTrue` and `pAnyFalse` are OUT parameters.
-    //
-    // If `*pAllTrue` is `true`, then all the conditions are statically known to be true.
-    // The caller doesn't need to clone the loop, but it can perform fast path optimizations.
-    //
-    // If `*pAnyFalse` is `true`, then at least one condition is statically known to be false.
-    // The caller needs to abort cloning the loop (neither clone nor fast path optimizations.)
-    //
-    // If neither `*pAllTrue` nor `*pAnyFalse` is true, then the evaluation of some conditions are statically unknown.
-    //
-    // Assumes the conditions involve an AND join operator.
-    void EvaluateConditions(unsigned loopNum, bool* pAllTrue, bool* pAnyFalse DEBUGARG(bool verbose));
+        // Evaluate the conditions for "loopNum" and indicate if they are either all true or any of them are false.
+        //
+        // `pAllTrue` and `pAnyFalse` are OUT parameters.
+        //
+        // If `*pAllTrue` is `true`, then all the conditions are statically known to be true.
+        // The caller doesn't need to clone the loop, but it can perform fast path optimizations.
+        //
+        // If `*pAnyFalse` is `true`, then at least one condition is statically known to be false.
+        // The caller needs to abort cloning the loop (neither clone nor fast path optimizations.)
+        //
+        // If neither `*pAllTrue` nor `*pAnyFalse` is true, then the evaluation of some conditions are statically
+        // unknown.
+        //
+        // Assumes the conditions involve an AND join operator.
+        void EvaluateConditions(unsigned loopNum, bool* pAllTrue, bool* pAnyFalse DEBUGARG(bool verbose));
 
-private:
-    void OptimizeConditions(JitExpandArrayStack<LC_Condition>& conds);
+    private:
+        void OptimizeConditions(JitExpandArrayStack<LC_Condition>& conds);
 
-public:
-    // Optimize conditions to remove redundant conditions.
-    void OptimizeConditions(unsigned loopNum DEBUGARG(bool verbose));
+    public:
+        // Optimize conditions to remove redundant conditions.
+        void OptimizeConditions(unsigned loopNum DEBUGARG(bool verbose));
 
-    void OptimizeBlockConditions(unsigned loopNum DEBUGARG(bool verbose));
+        void OptimizeBlockConditions(unsigned loopNum DEBUGARG(bool verbose));
 
 #ifdef DEBUG
-    void PrintConditions(unsigned loopNum);
+        void PrintConditions(unsigned loopNum);
 #endif
 };

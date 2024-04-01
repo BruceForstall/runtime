@@ -129,89 +129,89 @@ const char* CodeGen::genInsDisplayName(emitter::instrDesc* id)
                 switch (ins)
                 {
                     case INS_movdqa:
-                    {
-                        return "vmovdqa32";
-                    }
+                        {
+                            return "vmovdqa32";
+                        }
 
                     case INS_movdqu:
-                    {
-                        return "vmovdqu32";
-                    }
+                        {
+                            return "vmovdqu32";
+                        }
 
                     case INS_pand:
-                    {
-                        return "vpandd";
-                    }
+                        {
+                            return "vpandd";
+                        }
 
                     case INS_pandn:
-                    {
-                        return "vpandnd";
-                    }
+                        {
+                            return "vpandnd";
+                        }
 
                     case INS_por:
-                    {
-                        return "vpord";
-                    }
+                        {
+                            return "vpord";
+                        }
 
                     case INS_pxor:
-                    {
-                        return "vpxord";
-                    }
+                        {
+                            return "vpxord";
+                        }
 
                     case INS_roundpd:
-                    {
-                        return "vrndscalepd";
-                    }
+                        {
+                            return "vrndscalepd";
+                        }
 
                     case INS_roundps:
-                    {
-                        return "vrndscaleps";
-                    }
+                        {
+                            return "vrndscaleps";
+                        }
 
                     case INS_roundsd:
-                    {
-                        return "vrndscalesd";
-                    }
+                        {
+                            return "vrndscalesd";
+                        }
 
                     case INS_roundss:
-                    {
-                        return "vrndscaless";
-                    }
+                        {
+                            return "vrndscaless";
+                        }
 
                     case INS_vbroadcastf128:
-                    {
-                        return "vbroadcastf32x4";
-                    }
+                        {
+                            return "vbroadcastf32x4";
+                        }
 
                     case INS_vextractf128:
-                    {
-                        return "vextractf32x4";
-                    }
+                        {
+                            return "vextractf32x4";
+                        }
 
                     case INS_vinsertf128:
-                    {
-                        return "vinsertf32x4";
-                    }
+                        {
+                            return "vinsertf32x4";
+                        }
 
                     case INS_vbroadcasti128:
-                    {
-                        return "vbroadcasti32x4";
-                    }
+                        {
+                            return "vbroadcasti32x4";
+                        }
 
                     case INS_vextracti128:
-                    {
-                        return "vextracti32x4";
-                    }
+                        {
+                            return "vextracti32x4";
+                        }
 
                     case INS_vinserti128:
-                    {
-                        return "vinserti32x4";
-                    }
+                        {
+                            return "vinserti32x4";
+                        }
 
                     default:
-                    {
-                        break;
-                    }
+                        {
+                            break;
+                        }
                 }
             }
 
@@ -667,7 +667,7 @@ void CodeGen::inst_RV_IV(
     GetEmitter()->emitIns_R_R_I(ins, size, reg, reg, val);
 #elif defined(TARGET_LOONGARCH64) || defined(TARGET_RISCV64)
     GetEmitter()->emitIns_R_R_I(ins, size, reg, reg, val);
-#else // !TARGET_ARM
+#else  // !TARGET_ARM
 #ifdef TARGET_AMD64
     // Instead of an 8-byte immediate load, a 4-byte immediate will do fine
     // as the high 4 bytes will be zero anyway.
@@ -831,85 +831,85 @@ CodeGen::OperandDesc CodeGen::genOperandDesc(GenTree* op)
             {
                 case NI_AVX_BroadcastScalarToVector128:
                 case NI_AVX_BroadcastScalarToVector256:
-                {
-                    // we have the assumption that AVX_BroadcastScalarToVector*
-                    // only take the memory address as the operand.
-                    assert(hwintrinsic->isContained());
-                    assert(hwintrinsic->OperIsMemoryLoad());
-                    assert(hwintrinsic->GetOperandCount() == 1);
-                    assert(varTypeIsFloating(simdBaseType));
-                    GenTree* hwintrinsicChild = hwintrinsic->Op(1);
-                    assert(hwintrinsicChild->isContained());
-                    if (hwintrinsicChild->OperIs(GT_LCL_ADDR, GT_CNS_INT, GT_LEA))
                     {
-                        addr = hwintrinsic->Op(1);
-                        break;
+                        // we have the assumption that AVX_BroadcastScalarToVector*
+                        // only take the memory address as the operand.
+                        assert(hwintrinsic->isContained());
+                        assert(hwintrinsic->OperIsMemoryLoad());
+                        assert(hwintrinsic->GetOperandCount() == 1);
+                        assert(varTypeIsFloating(simdBaseType));
+                        GenTree* hwintrinsicChild = hwintrinsic->Op(1);
+                        assert(hwintrinsicChild->isContained());
+                        if (hwintrinsicChild->OperIs(GT_LCL_ADDR, GT_CNS_INT, GT_LEA))
+                        {
+                            addr = hwintrinsic->Op(1);
+                            break;
+                        }
+                        else
+                        {
+                            assert(hwintrinsicChild->OperIs(GT_LCL_VAR));
+                            return OperandDesc(simdBaseType, hwintrinsicChild);
+                        }
                     }
-                    else
-                    {
-                        assert(hwintrinsicChild->OperIs(GT_LCL_VAR));
-                        return OperandDesc(simdBaseType, hwintrinsicChild);
-                    }
-                }
 
                 case NI_SSE3_MoveAndDuplicate:
                 case NI_AVX2_BroadcastScalarToVector128:
                 case NI_AVX2_BroadcastScalarToVector256:
                 case NI_AVX512F_BroadcastScalarToVector512:
-                {
-                    assert(hwintrinsic->isContained());
-                    if (intrinsicId == NI_SSE3_MoveAndDuplicate)
                     {
-                        assert(simdBaseType == TYP_DOUBLE);
+                        assert(hwintrinsic->isContained());
+                        if (intrinsicId == NI_SSE3_MoveAndDuplicate)
+                        {
+                            assert(simdBaseType == TYP_DOUBLE);
+                        }
+                        // If broadcast node is contained, should mean that we have some forms like
+                        // Broadcast -> CreateScalarUnsafe -> Scalar.
+                        // If so, directly emit scalar.
+                        // In the codes below, we specially handle the `Broadcast -> CNS_INT` form and
+                        // handle other cases recursively.
+                        GenTree* hwintrinsicChild = hwintrinsic->Op(1);
+                        assert(hwintrinsicChild->isContained());
+                        if (hwintrinsicChild->OperIs(GT_CNS_INT))
+                        {
+                            // a special case is when the operand of CreateScalarUnsafe is in integer type,
+                            // CreateScalarUnsafe node will be fold, so we directly match a pattern of
+                            // broadcast -> LCL_VAR(TYP_(U)INT)
+                            ssize_t        scalarValue = hwintrinsicChild->AsIntCon()->IconValue();
+                            UNATIVE_OFFSET cnum        = emit->emitDataConst(&scalarValue, genTypeSize(simdBaseType),
+                                                                             genTypeSize(simdBaseType), simdBaseType);
+                            return OperandDesc(compiler->eeFindJitDataOffs(cnum));
+                        }
+                        else
+                        {
+                            // If the operand of broadcast is not a constant integer,
+                            // we handle all the other cases recursively.
+                            return genOperandDesc(hwintrinsicChild);
+                        }
+                        break;
                     }
-                    // If broadcast node is contained, should mean that we have some forms like
-                    // Broadcast -> CreateScalarUnsafe -> Scalar.
-                    // If so, directly emit scalar.
-                    // In the codes below, we specially handle the `Broadcast -> CNS_INT` form and
-                    // handle other cases recursively.
-                    GenTree* hwintrinsicChild = hwintrinsic->Op(1);
-                    assert(hwintrinsicChild->isContained());
-                    if (hwintrinsicChild->OperIs(GT_CNS_INT))
-                    {
-                        // a special case is when the operand of CreateScalarUnsafe is in integer type,
-                        // CreateScalarUnsafe node will be fold, so we directly match a pattern of
-                        // broadcast -> LCL_VAR(TYP_(U)INT)
-                        ssize_t        scalarValue = hwintrinsicChild->AsIntCon()->IconValue();
-                        UNATIVE_OFFSET cnum        = emit->emitDataConst(&scalarValue, genTypeSize(simdBaseType),
-                                                                         genTypeSize(simdBaseType), simdBaseType);
-                        return OperandDesc(compiler->eeFindJitDataOffs(cnum));
-                    }
-                    else
-                    {
-                        // If the operand of broadcast is not a constant integer,
-                        // we handle all the other cases recursively.
-                        return genOperandDesc(hwintrinsicChild);
-                    }
-                    break;
-                }
                 case NI_Vector128_CreateScalarUnsafe:
                 case NI_Vector256_CreateScalarUnsafe:
                 case NI_Vector512_CreateScalarUnsafe:
-                {
-                    // The hwintrinsic should be contained and its
-                    // op1 should be either contained or spilled. This
-                    // allows us to transparently "look through" the
-                    // CreateScalarUnsafe and treat it directly like
-                    // a load from memory.
+                    {
+                        // The hwintrinsic should be contained and its
+                        // op1 should be either contained or spilled. This
+                        // allows us to transparently "look through" the
+                        // CreateScalarUnsafe and treat it directly like
+                        // a load from memory.
 
-                    assert(hwintrinsic->isContained());
-                    op = hwintrinsic->Op(1);
-                    return genOperandDesc(op);
-                }
+                        assert(hwintrinsic->isContained());
+                        op = hwintrinsic->Op(1);
+                        return genOperandDesc(op);
+                    }
 
                 default:
-                {
-                    assert(hwintrinsic->OperIsMemoryLoad());
-                    assert(hwintrinsic->GetOperandCount() == 1);
+                    {
+                        assert(hwintrinsic->OperIsMemoryLoad());
+                        assert(hwintrinsic->GetOperandCount() == 1);
 
-                    addr = hwintrinsic->Op(1);
-                    break;
-                }
+                        addr = hwintrinsic->Op(1);
+                        break;
+                    }
             }
 #else
             unreached();
@@ -945,66 +945,66 @@ CodeGen::OperandDesc CodeGen::genOperandDesc(GenTree* op)
                 return OperandDesc(emit->emitFltOrDblConst(op->AsDblCon()->DconValue(), emitTypeSize(op)));
 
             case GT_CNS_INT:
-            {
-                assert(op->isContainedIntOrIImmed());
-                return OperandDesc(op->AsIntCon()->IconValue(), op->AsIntCon()->ImmedValNeedsReloc(compiler));
-            }
+                {
+                    assert(op->isContainedIntOrIImmed());
+                    return OperandDesc(op->AsIntCon()->IconValue(), op->AsIntCon()->ImmedValNeedsReloc(compiler));
+                }
 
             case GT_CNS_VEC:
-            {
-                switch (op->TypeGet())
                 {
+                    switch (op->TypeGet())
+                    {
 #if defined(FEATURE_SIMD)
-                    case TYP_SIMD8:
-                    {
-                        simd8_t constValue;
-                        memcpy(&constValue, &op->AsVecCon()->gtSimdVal, sizeof(simd8_t));
-                        return OperandDesc(emit->emitSimd8Const(constValue));
-                    }
+                        case TYP_SIMD8:
+                            {
+                                simd8_t constValue;
+                                memcpy(&constValue, &op->AsVecCon()->gtSimdVal, sizeof(simd8_t));
+                                return OperandDesc(emit->emitSimd8Const(constValue));
+                            }
 
-                    case TYP_SIMD12:
-                    {
-                        simd16_t constValue = {};
-                        memcpy(&constValue, &op->AsVecCon()->gtSimdVal, sizeof(simd12_t));
-                        return OperandDesc(emit->emitSimd16Const(constValue));
-                    }
-                    case TYP_SIMD16:
-                    {
-                        simd16_t constValue;
-                        memcpy(&constValue, &op->AsVecCon()->gtSimdVal, sizeof(simd16_t));
-                        return OperandDesc(emit->emitSimd16Const(constValue));
-                    }
+                        case TYP_SIMD12:
+                            {
+                                simd16_t constValue = {};
+                                memcpy(&constValue, &op->AsVecCon()->gtSimdVal, sizeof(simd12_t));
+                                return OperandDesc(emit->emitSimd16Const(constValue));
+                            }
+                        case TYP_SIMD16:
+                            {
+                                simd16_t constValue;
+                                memcpy(&constValue, &op->AsVecCon()->gtSimdVal, sizeof(simd16_t));
+                                return OperandDesc(emit->emitSimd16Const(constValue));
+                            }
 
 #if defined(TARGET_XARCH)
-                    case TYP_SIMD32:
-                    {
-                        simd32_t constValue;
-                        memcpy(&constValue, &op->AsVecCon()->gtSimdVal, sizeof(simd32_t));
-                        return OperandDesc(emit->emitSimd32Const(constValue));
-                    }
+                        case TYP_SIMD32:
+                            {
+                                simd32_t constValue;
+                                memcpy(&constValue, &op->AsVecCon()->gtSimdVal, sizeof(simd32_t));
+                                return OperandDesc(emit->emitSimd32Const(constValue));
+                            }
 
-                    case TYP_SIMD64:
-                    {
-                        simd64_t constValue;
-                        memcpy(&constValue, &op->AsVecCon()->gtSimdVal, sizeof(simd64_t));
-                        return OperandDesc(emit->emitSimd64Const(constValue));
-                    }
+                        case TYP_SIMD64:
+                            {
+                                simd64_t constValue;
+                                memcpy(&constValue, &op->AsVecCon()->gtSimdVal, sizeof(simd64_t));
+                                return OperandDesc(emit->emitSimd64Const(constValue));
+                            }
 
-                    case TYP_MASK:
-                    {
-                        simdmask_t constValue;
-                        memcpy(&constValue, &op->AsVecCon()->gtSimdVal, sizeof(simdmask_t));
-                        return OperandDesc(emit->emitSimdMaskConst(constValue));
-                    }
+                        case TYP_MASK:
+                            {
+                                simdmask_t constValue;
+                                memcpy(&constValue, &op->AsVecCon()->gtSimdVal, sizeof(simdmask_t));
+                                return OperandDesc(emit->emitSimdMaskConst(constValue));
+                            }
 #endif // TARGET_XARCH
 #endif // FEATURE_SIMD
 
-                    default:
-                    {
-                        unreached();
+                        default:
+                            {
+                                unreached();
+                            }
                     }
                 }
-            }
 
             default:
                 unreached();
@@ -1045,14 +1045,14 @@ void CodeGen::inst_TT(instruction ins, emitAttr size, GenTree* op1)
             break;
 
         case OperandKind::Indir:
-        {
-            // Until we improve the handling of addressing modes in the emitter, we'll create a
-            // temporary GT_IND to generate code with.
-            GenTreeIndir  indirForm;
-            GenTreeIndir* indir = op1Desc.GetIndirForm(&indirForm);
-            emit->emitIns_A(ins, size, indir);
-        }
-        break;
+            {
+                // Until we improve the handling of addressing modes in the emitter, we'll create a
+                // temporary GT_IND to generate code with.
+                GenTreeIndir  indirForm;
+                GenTreeIndir* indir = op1Desc.GetIndirForm(&indirForm);
+                emit->emitIns_A(ins, size, indir);
+            }
+            break;
 
         case OperandKind::Imm:
             emit->emitIns_I(ins, op1Desc.GetEmitAttrForImmediate(size), op1Desc.GetImmediate());
@@ -1094,14 +1094,14 @@ void CodeGen::inst_RV_TT(instruction ins, emitAttr size, regNumber op1Reg, GenTr
             break;
 
         case OperandKind::Indir:
-        {
-            // Until we improve the handling of addressing modes in the emitter, we'll create a
-            // temporary GT_IND to generate code with.
-            GenTreeIndir  indirForm;
-            GenTreeIndir* indir = op2Desc.GetIndirForm(&indirForm);
-            emit->emitIns_R_A(ins, size, op1Reg, indir);
-        }
-        break;
+            {
+                // Until we improve the handling of addressing modes in the emitter, we'll create a
+                // temporary GT_IND to generate code with.
+                GenTreeIndir  indirForm;
+                GenTreeIndir* indir = op2Desc.GetIndirForm(&indirForm);
+                emit->emitIns_R_A(ins, size, op1Reg, indir);
+            }
+            break;
 
         case OperandKind::Imm:
             emit->emitIns_R_I(ins, op2Desc.GetEmitAttrForImmediate(size), op1Reg, op2Desc.GetImmediate());
@@ -1167,14 +1167,14 @@ void CodeGen::inst_RV_TT_IV(instruction ins, emitAttr attr, regNumber reg1, GenT
             break;
 
         case OperandKind::Indir:
-        {
-            // Until we improve the handling of addressing modes in the emitter, we'll create a
-            // temporary GT_IND to generate code with.
-            GenTreeIndir  indirForm;
-            GenTreeIndir* indir = rmOpDesc.GetIndirForm(&indirForm);
-            emit->emitIns_R_A_I(ins, attr, reg1, indir, ival);
-        }
-        break;
+            {
+                // Until we improve the handling of addressing modes in the emitter, we'll create a
+                // temporary GT_IND to generate code with.
+                GenTreeIndir  indirForm;
+                GenTreeIndir* indir = rmOpDesc.GetIndirForm(&indirForm);
+                emit->emitIns_R_A_I(ins, attr, reg1, indir, ival);
+            }
+            break;
 
         case OperandKind::Reg:
             emit->emitIns_SIMD_R_R_I(ins, attr, reg1, rmOpDesc.GetReg(), ival);
@@ -1296,45 +1296,45 @@ void CodeGen::inst_RV_RV_TT(instruction ins,
     switch (op2Desc.GetKind())
     {
         case OperandKind::ClsVar:
-        {
-            emit->emitIns_SIMD_R_R_C(ins, size, targetReg, op1Reg, op2Desc.GetFieldHnd(), 0, instOptions);
-            break;
-        }
+            {
+                emit->emitIns_SIMD_R_R_C(ins, size, targetReg, op1Reg, op2Desc.GetFieldHnd(), 0, instOptions);
+                break;
+            }
         case OperandKind::Local:
             emit->emitIns_SIMD_R_R_S(ins, size, targetReg, op1Reg, op2Desc.GetVarNum(), op2Desc.GetLclOffset(),
                                      instOptions);
             break;
 
         case OperandKind::Indir:
-        {
-            // Until we improve the handling of addressing modes in the emitter, we'll create a
-            // temporary GT_IND to generate code with.
-            GenTreeIndir  indirForm;
-            GenTreeIndir* indir = op2Desc.GetIndirForm(&indirForm);
-            emit->emitIns_SIMD_R_R_A(ins, size, targetReg, op1Reg, indir, instOptions);
-        }
-        break;
+            {
+                // Until we improve the handling of addressing modes in the emitter, we'll create a
+                // temporary GT_IND to generate code with.
+                GenTreeIndir  indirForm;
+                GenTreeIndir* indir = op2Desc.GetIndirForm(&indirForm);
+                emit->emitIns_SIMD_R_R_A(ins, size, targetReg, op1Reg, indir, instOptions);
+            }
+            break;
 
         case OperandKind::Reg:
-        {
-            regNumber op2Reg = op2Desc.GetReg();
-
-            if ((op1Reg != targetReg) && (op2Reg == targetReg) && isRMW)
             {
-                // We have "reg2 = reg1 op reg2" where "reg1 != reg2" on a RMW instruction.
-                //
-                // For non-commutative instructions, we should have ensured that op2 was marked
-                // delay free in order to prevent it from getting assigned the same register
-                // as target. However, for commutative instructions, we can just swap the operands
-                // in order to have "reg2 = reg2 op reg1" which will end up producing the right code.
+                regNumber op2Reg = op2Desc.GetReg();
 
-                op2Reg = op1Reg;
-                op1Reg = targetReg;
+                if ((op1Reg != targetReg) && (op2Reg == targetReg) && isRMW)
+                {
+                    // We have "reg2 = reg1 op reg2" where "reg1 != reg2" on a RMW instruction.
+                    //
+                    // For non-commutative instructions, we should have ensured that op2 was marked
+                    // delay free in order to prevent it from getting assigned the same register
+                    // as target. However, for commutative instructions, we can just swap the operands
+                    // in order to have "reg2 = reg2 op reg1" which will end up producing the right code.
+
+                    op2Reg = op1Reg;
+                    op1Reg = targetReg;
+                }
+
+                emit->emitIns_SIMD_R_R_R(ins, size, targetReg, op1Reg, op2Reg, instOptions);
             }
-
-            emit->emitIns_SIMD_R_R_R(ins, size, targetReg, op1Reg, op2Reg, instOptions);
-        }
-        break;
+            break;
 
         default:
             unreached();
@@ -1376,35 +1376,35 @@ void CodeGen::inst_RV_RV_TT_IV(
             break;
 
         case OperandKind::Indir:
-        {
-            // Until we improve the handling of addressing modes in the emitter, we'll create a
-            // temporary GT_IND to generate code with.
-            GenTreeIndir  indirForm;
-            GenTreeIndir* indir = op2Desc.GetIndirForm(&indirForm);
-            emit->emitIns_SIMD_R_R_A_I(ins, size, targetReg, op1Reg, indir, ival);
-        }
-        break;
+            {
+                // Until we improve the handling of addressing modes in the emitter, we'll create a
+                // temporary GT_IND to generate code with.
+                GenTreeIndir  indirForm;
+                GenTreeIndir* indir = op2Desc.GetIndirForm(&indirForm);
+                emit->emitIns_SIMD_R_R_A_I(ins, size, targetReg, op1Reg, indir, ival);
+            }
+            break;
 
         case OperandKind::Reg:
-        {
-            regNumber op2Reg = op2Desc.GetReg();
-
-            if ((op1Reg != targetReg) && (op2Reg == targetReg) && isRMW)
             {
-                // We have "reg2 = reg1 op reg2" where "reg1 != reg2" on a RMW intrinsic.
-                //
-                // For non-commutative intrinsics, we should have ensured that op2 was marked
-                // delay free in order to prevent it from getting assigned the same register
-                // as target. However, for commutative intrinsics, we can just swap the operands
-                // in order to have "reg2 = reg2 op reg1" which will end up producing the right code.
+                regNumber op2Reg = op2Desc.GetReg();
 
-                op2Reg = op1Reg;
-                op1Reg = targetReg;
+                if ((op1Reg != targetReg) && (op2Reg == targetReg) && isRMW)
+                {
+                    // We have "reg2 = reg1 op reg2" where "reg1 != reg2" on a RMW intrinsic.
+                    //
+                    // For non-commutative intrinsics, we should have ensured that op2 was marked
+                    // delay free in order to prevent it from getting assigned the same register
+                    // as target. However, for commutative intrinsics, we can just swap the operands
+                    // in order to have "reg2 = reg2 op reg1" which will end up producing the right code.
+
+                    op2Reg = op1Reg;
+                    op1Reg = targetReg;
+                }
+
+                emit->emitIns_SIMD_R_R_R_I(ins, size, targetReg, op1Reg, op2Reg, ival);
             }
-
-            emit->emitIns_SIMD_R_R_R_I(ins, size, targetReg, op1Reg, op2Reg, ival);
-        }
-        break;
+            break;
 
         default:
             unreached();
@@ -2376,29 +2376,29 @@ instruction CodeGen::ins_FloatConv(var_types to, var_types from, emitAttr attr)
             switch (to)
             {
                 case TYP_FLOAT:
-                {
-                    if (EA_SIZE(attr) == EA_4BYTE)
                     {
-                        return INS_cvtsi2ss32;
+                        if (EA_SIZE(attr) == EA_4BYTE)
+                        {
+                            return INS_cvtsi2ss32;
+                        }
+                        else if (EA_SIZE(attr) == EA_8BYTE)
+                        {
+                            return INS_cvtsi2ss64;
+                        }
+                        unreached();
                     }
-                    else if (EA_SIZE(attr) == EA_8BYTE)
-                    {
-                        return INS_cvtsi2ss64;
-                    }
-                    unreached();
-                }
                 case TYP_DOUBLE:
-                {
-                    if (EA_SIZE(attr) == EA_4BYTE)
                     {
-                        return INS_cvtsi2sd32;
+                        if (EA_SIZE(attr) == EA_4BYTE)
+                        {
+                            return INS_cvtsi2sd32;
+                        }
+                        else if (EA_SIZE(attr) == EA_8BYTE)
+                        {
+                            return INS_cvtsi2sd64;
+                        }
+                        unreached();
                     }
-                    else if (EA_SIZE(attr) == EA_8BYTE)
-                    {
-                        return INS_cvtsi2sd64;
-                    }
-                    unreached();
-                }
                 default:
                     unreached();
             }

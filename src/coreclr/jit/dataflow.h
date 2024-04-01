@@ -26,21 +26,19 @@
 
 class DataFlow
 {
-private:
-    DataFlow();
+    private:
+        DataFlow();
 
-public:
-    DataFlow(Compiler* pCompiler);
+    public:
+        DataFlow(Compiler* pCompiler);
 
-    template <typename TCallback>
-    void ForwardAnalysis(TCallback& callback);
+        template <typename TCallback> void ForwardAnalysis(TCallback& callback);
 
-private:
-    Compiler* m_pCompiler;
+    private:
+        Compiler* m_pCompiler;
 };
 
-template <typename TCallback>
-void DataFlow::ForwardAnalysis(TCallback& callback)
+template <typename TCallback> void DataFlow::ForwardAnalysis(TCallback& callback)
 {
     jitstd::list<BasicBlock*> worklist(jitstd::allocator<void>(m_pCompiler->getAllocator()));
 
@@ -78,12 +76,10 @@ void DataFlow::ForwardAnalysis(TCallback& callback)
             // block dominates all other blocks in the 'try'. That will happen
             // as part of processing handlers below.
             //
-            block->VisitRegularSuccs(m_pCompiler,
-                                     [&worklist](BasicBlock* succ)
-                                     {
-                                         worklist.insert(worklist.end(), succ);
-                                         return BasicBlockVisit::Continue;
-                                     });
+            block->VisitRegularSuccs(m_pCompiler, [&worklist](BasicBlock* succ) {
+                worklist.insert(worklist.end(), succ);
+                return BasicBlockVisit::Continue;
+            });
         }
 
         if (m_pCompiler->bbIsTryBeg(block))

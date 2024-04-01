@@ -409,23 +409,23 @@ GenTree* Lowering::LowerNode(GenTree* node)
     {
         case GT_NULLCHECK:
         case GT_IND:
-        {
-            return LowerIndir(node->AsIndir());
-        }
+            {
+                return LowerIndir(node->AsIndir());
+            }
 
         case GT_STOREIND:
             LowerStoreIndirCommon(node->AsStoreInd());
             break;
 
         case GT_ADD:
-        {
-            GenTree* next = LowerAdd(node->AsOp());
-            if (next != nullptr)
             {
-                return next;
+                GenTree* next = LowerAdd(node->AsOp());
+                if (next != nullptr)
+                {
+                    return next;
+                }
             }
-        }
-        break;
+            break;
 
 #if !defined(TARGET_64BIT)
         case GT_ADD_LO:
@@ -437,19 +437,19 @@ GenTree* Lowering::LowerNode(GenTree* node)
         case GT_AND:
         case GT_OR:
         case GT_XOR:
-        {
-            if (comp->opts.OptimizationEnabled() && node->OperIs(GT_AND))
             {
-                GenTree* nextNode = nullptr;
-                if (TryLowerAndNegativeOne(node->AsOp(), &nextNode))
+                if (comp->opts.OptimizationEnabled() && node->OperIs(GT_AND))
                 {
-                    return nextNode;
+                    GenTree* nextNode = nullptr;
+                    if (TryLowerAndNegativeOne(node->AsOp(), &nextNode))
+                    {
+                        return nextNode;
+                    }
+                    assert(nextNode == nullptr);
                 }
-                assert(nextNode == nullptr);
-            }
 
-            return LowerBinaryArithmetic(node->AsOp());
-        }
+                return LowerBinaryArithmetic(node->AsOp());
+            }
 
         case GT_MUL:
         case GT_MULHI:
@@ -474,14 +474,14 @@ GenTree* Lowering::LowerNode(GenTree* node)
             return LowerSwitch(node);
 
         case GT_CALL:
-        {
-            GenTree* newNode = LowerCall(node);
-            if (newNode != nullptr)
             {
-                return newNode;
+                GenTree* newNode = LowerCall(node);
+                if (newNode != nullptr)
+                {
+                    return newNode;
+                }
             }
-        }
-        break;
+            break;
 
         case GT_LT:
         case GT_LE:
@@ -499,16 +499,16 @@ GenTree* Lowering::LowerNode(GenTree* node)
 
         case GT_NEG:
 #ifdef TARGET_ARM64
-        {
-            GenTree* next;
-            if (TryLowerNegToMulLongOp(node->AsOp(), &next))
             {
-                return next;
+                GenTree* next;
+                if (TryLowerNegToMulLongOp(node->AsOp(), &next))
+                {
+                    return next;
+                }
+                ContainCheckNeg(node->AsOp());
             }
-            ContainCheckNeg(node->AsOp());
-        }
 #endif
-        break;
+            break;
         case GT_SELECT:
             return LowerSelect(node->AsConditional());
 
@@ -589,35 +589,36 @@ GenTree* Lowering::LowerNode(GenTree* node)
 #endif // FEATURE_HW_INTRINSICS
 
         case GT_LCL_FLD:
-        {
-            // We should only encounter this for lclVars that are lvDoNotEnregister.
-            verifyLclFldDoNotEnregister(node->AsLclVarCommon()->GetLclNum());
-            break;
-        }
+            {
+                // We should only encounter this for lclVars that are lvDoNotEnregister.
+                verifyLclFldDoNotEnregister(node->AsLclVarCommon()->GetLclNum());
+                break;
+            }
 
         case GT_LCL_VAR:
-        {
-            GenTreeLclVar* lclNode = node->AsLclVar();
-            WidenSIMD12IfNecessary(lclNode);
-            LclVarDsc* varDsc = comp->lvaGetDesc(lclNode);
-
-            // The consumer of this node must check compatibility of the fields.
-            // This merely checks whether it is possible for this to be a multireg node.
-            if (lclNode->IsMultiRegLclVar())
             {
-                if (!varDsc->lvPromoted ||
-                    (comp->lvaGetPromotionType(varDsc) != Compiler::PROMOTION_TYPE_INDEPENDENT) ||
-                    (varDsc->lvFieldCnt > MAX_MULTIREG_COUNT))
+                GenTreeLclVar* lclNode = node->AsLclVar();
+                WidenSIMD12IfNecessary(lclNode);
+                LclVarDsc* varDsc = comp->lvaGetDesc(lclNode);
+
+                // The consumer of this node must check compatibility of the fields.
+                // This merely checks whether it is possible for this to be a multireg node.
+                if (lclNode->IsMultiRegLclVar())
                 {
-                    lclNode->ClearMultiReg();
-                    if (lclNode->TypeIs(TYP_STRUCT))
+                    if (!varDsc->lvPromoted ||
+                        (comp->lvaGetPromotionType(varDsc) != Compiler::PROMOTION_TYPE_INDEPENDENT) ||
+                        (varDsc->lvFieldCnt > MAX_MULTIREG_COUNT))
                     {
-                        comp->lvaSetVarDoNotEnregister(lclNode->GetLclNum() DEBUGARG(DoNotEnregisterReason::BlockOp));
+                        lclNode->ClearMultiReg();
+                        if (lclNode->TypeIs(TYP_STRUCT))
+                        {
+                            comp->lvaSetVarDoNotEnregister(lclNode->GetLclNum()
+                                                               DEBUGARG(DoNotEnregisterReason::BlockOp));
+                        }
                     }
                 }
+                break;
             }
-            break;
-        }
 
         case GT_STORE_LCL_VAR:
             WidenSIMD12IfNecessary(node->AsLclVarCommon());
@@ -658,17 +659,17 @@ GenTree* Lowering::LowerNode(GenTree* node)
             break;
 
         case GT_LCL_ADDR:
-        {
-            const GenTreeLclVarCommon* lclAddr = node->AsLclVarCommon();
-            const LclVarDsc*           varDsc  = comp->lvaGetDesc(lclAddr);
-            if (!varDsc->lvDoNotEnregister)
             {
-                // TODO-Cleanup: this is definitely not the best place for this detection,
-                // but for now it is the easiest. Move it to morph.
-                comp->lvaSetVarDoNotEnregister(lclAddr->GetLclNum() DEBUGARG(DoNotEnregisterReason::LclAddrNode));
+                const GenTreeLclVarCommon* lclAddr = node->AsLclVarCommon();
+                const LclVarDsc*           varDsc  = comp->lvaGetDesc(lclAddr);
+                if (!varDsc->lvDoNotEnregister)
+                {
+                    // TODO-Cleanup: this is definitely not the best place for this detection,
+                    // but for now it is the easiest. Move it to morph.
+                    comp->lvaSetVarDoNotEnregister(lclAddr->GetLclNum() DEBUGARG(DoNotEnregisterReason::LclAddrNode));
+                }
             }
-        }
-        break;
+            break;
 
 #if defined(FEATURE_HW_INTRINSICS) && defined(TARGET_XARCH)
         case GT_BSWAP:
@@ -711,12 +712,12 @@ GenTree* Lowering::LowerArrLength(GenTreeArrCommon* node)
     switch (node->OperGet())
     {
         case GT_ARR_LENGTH:
-        {
-            lenOffset = node->AsArrLen()->ArrLenOffset();
-            noway_assert(lenOffset == OFFSETOF__CORINFO_Array__length ||
-                         lenOffset == OFFSETOF__CORINFO_String__stringLen);
-            break;
-        }
+            {
+                lenOffset = node->AsArrLen()->ArrLenOffset();
+                noway_assert(lenOffset == OFFSETOF__CORINFO_Array__length ||
+                             lenOffset == OFFSETOF__CORINFO_String__stringLen);
+                break;
+            }
 
         case GT_MDARR_LENGTH:
             lenOffset = (int)comp->eeGetMDArrayLengthOffset(node->AsMDArr()->Rank(), node->AsMDArr()->Dim());
@@ -2320,8 +2321,7 @@ bool Lowering::LowerCallMemcmp(GenTreeCall* call, GenTree** next)
                 GenTree* result = nullptr;
 
                 auto newBinaryOp = [](Compiler* comp, genTreeOps oper, var_types type, GenTree* op1,
-                                      GenTree* op2) -> GenTree*
-                {
+                                      GenTree* op2) -> GenTree* {
 #ifdef FEATURE_SIMD
                     if (varTypeIsSIMD(op1))
                     {
@@ -2726,7 +2726,7 @@ void Lowering::InsertProfTailCallHook(GenTreeCall* call, GenTree* insertionPoint
         insertionPoint = call;
     }
 
-#else // !defined(TARGET_X86)
+#else  // !defined(TARGET_X86)
 
     if (insertionPoint == nullptr)
     {
@@ -3353,122 +3353,122 @@ void Lowering::LowerCFGCall(GenTreeCall* call)
     switch (cfgKind)
     {
         case CFGCallKind::ValidateAndCall:
-        {
-            // To safely apply CFG we need to generate a very specific pattern:
-            // in particular, it is a safety issue to allow the JIT to reload
-            // the call target from memory between calling
-            // CORINFO_HELP_VALIDATE_INDIRECT_CALL and the target. This is
-            // something that would easily occur in debug codegen if we
-            // produced high-level IR. Instead we will use a GT_PHYSREG node
-            // to get the target back from the register that contains the target.
-            //
-            // Additionally, the validator does not preserve all arg registers,
-            // so we have to move all GT_PUTARG_REG nodes that would otherwise
-            // be trashed ahead. The JIT also has an internal invariant that
-            // once GT_PUTARG nodes start to appear in LIR, the call is coming
-            // up. To avoid breaking this invariant we move _all_ GT_PUTARG
-            // nodes (in particular, GC info reporting relies on this).
-            //
-            // To sum up, we end up transforming
-            //
-            // ta... = <early args>
-            // tb... = <late args>
-            // tc = callTarget
-            // GT_CALL tc, ta..., tb...
-            //
-            // into
-            //
-            // ta... = <early args> (without GT_PUTARG_* nodes)
-            // tb = callTarget
-            // GT_CALL CORINFO_HELP_VALIDATE_INDIRECT_CALL, tb
-            // tc = GT_PHYSREG REG_VALIDATE_INDIRECT_CALL_ADDR (preserved by helper)
-            // td = <moved GT_PUTARG_* nodes>
-            // GT_CALL tb, ta..., td..
-            //
-
-            GenTree* regNode = PhysReg(REG_VALIDATE_INDIRECT_CALL_ADDR, TYP_I_IMPL);
-            LIR::Use useOfTar;
-            bool     gotUse = BlockRange().TryGetUse(callTarget, &useOfTar);
-            assert(gotUse);
-            useOfTar.ReplaceWith(regNode);
-
-            // Add the call to the validator. Use a placeholder for the target while we
-            // morph, sequence and lower, to avoid redoing that for the actual target.
-            GenTree*     targetPlaceholder = comp->gtNewZeroConNode(callTarget->TypeGet());
-            GenTreeCall* validate          = comp->gtNewHelperCallNode(CORINFO_HELP_VALIDATE_INDIRECT_CALL, TYP_VOID);
-            NewCallArg   newArg =
-                NewCallArg::Primitive(targetPlaceholder).WellKnown(WellKnownArg::ValidateIndirectCallTarget);
-            validate->gtArgs.PushFront(comp, newArg);
-
-            comp->fgMorphTree(validate);
-
-            LIR::Range validateRange = LIR::SeqTree(comp, validate);
-            GenTree*   validateFirst = validateRange.FirstNode();
-            GenTree*   validateLast  = validateRange.LastNode();
-            // Insert the validator with the call target before the late args.
-            BlockRange().InsertBefore(call, std::move(validateRange));
-
-            // Swap out the target
-            gotUse = BlockRange().TryGetUse(targetPlaceholder, &useOfTar);
-            assert(gotUse);
-            useOfTar.ReplaceWith(callTarget);
-            targetPlaceholder->SetUnusedValue();
-
-            LowerRange(validateFirst, validateLast);
-
-            // Insert the PHYSREG node that we must load right after validation.
-            BlockRange().InsertAfter(validate, regNode);
-            LowerNode(regNode);
-
-            // Finally move all GT_PUTARG_* nodes
-            MoveCFGCallArgs(call);
-            break;
-        }
-        case CFGCallKind::Dispatch:
-        {
-#ifdef REG_DISPATCH_INDIRECT_CALL_ADDR
-            // Now insert the call target as an extra argument.
-            //
-            NewCallArg callTargetNewArg =
-                NewCallArg::Primitive(callTarget).WellKnown(WellKnownArg::DispatchIndirectCallTarget);
-            CallArg* targetArg = call->gtArgs.PushBack(comp, callTargetNewArg);
-            targetArg->SetEarlyNode(nullptr);
-            targetArg->SetLateNode(callTarget);
-            call->gtArgs.PushLateBack(targetArg);
-
-            // Set up ABI information for this arg.
-            targetArg->AbiInfo.ArgType = callTarget->TypeGet();
-            targetArg->AbiInfo.SetRegNum(0, REG_DISPATCH_INDIRECT_CALL_ADDR);
-            targetArg->AbiInfo.NumRegs = 1;
-            targetArg->AbiInfo.SetByteSize(TARGET_POINTER_SIZE, TARGET_POINTER_SIZE, false, false);
-
-            // Lower the newly added args now that call is updated
-            LowerArg(call, targetArg, true /* late */);
-
-            // Finally update the call to be a helper call
-            call->gtCallType    = CT_HELPER;
-            call->gtCallMethHnd = Compiler::eeFindHelper(CORINFO_HELP_DISPATCH_INDIRECT_CALL);
-            call->gtFlags &= ~GTF_CALL_VIRT_KIND_MASK;
-#ifdef FEATURE_READYTORUN
-            call->gtEntryPoint.addr       = nullptr;
-            call->gtEntryPoint.accessType = IAT_VALUE;
-#endif
-
-            // Now relower the call target
-            call->gtControlExpr = LowerDirectCall(call);
-
-            if (call->gtControlExpr != nullptr)
             {
-                LIR::Range dispatchControlExprRange = LIR::SeqTree(comp, call->gtControlExpr);
+                // To safely apply CFG we need to generate a very specific pattern:
+                // in particular, it is a safety issue to allow the JIT to reload
+                // the call target from memory between calling
+                // CORINFO_HELP_VALIDATE_INDIRECT_CALL and the target. This is
+                // something that would easily occur in debug codegen if we
+                // produced high-level IR. Instead we will use a GT_PHYSREG node
+                // to get the target back from the register that contains the target.
+                //
+                // Additionally, the validator does not preserve all arg registers,
+                // so we have to move all GT_PUTARG_REG nodes that would otherwise
+                // be trashed ahead. The JIT also has an internal invariant that
+                // once GT_PUTARG nodes start to appear in LIR, the call is coming
+                // up. To avoid breaking this invariant we move _all_ GT_PUTARG
+                // nodes (in particular, GC info reporting relies on this).
+                //
+                // To sum up, we end up transforming
+                //
+                // ta... = <early args>
+                // tb... = <late args>
+                // tc = callTarget
+                // GT_CALL tc, ta..., tb...
+                //
+                // into
+                //
+                // ta... = <early args> (without GT_PUTARG_* nodes)
+                // tb = callTarget
+                // GT_CALL CORINFO_HELP_VALIDATE_INDIRECT_CALL, tb
+                // tc = GT_PHYSREG REG_VALIDATE_INDIRECT_CALL_ADDR (preserved by helper)
+                // td = <moved GT_PUTARG_* nodes>
+                // GT_CALL tb, ta..., td..
+                //
 
-                ContainCheckRange(dispatchControlExprRange);
-                BlockRange().InsertBefore(call, std::move(dispatchControlExprRange));
+                GenTree* regNode = PhysReg(REG_VALIDATE_INDIRECT_CALL_ADDR, TYP_I_IMPL);
+                LIR::Use useOfTar;
+                bool     gotUse = BlockRange().TryGetUse(callTarget, &useOfTar);
+                assert(gotUse);
+                useOfTar.ReplaceWith(regNode);
+
+                // Add the call to the validator. Use a placeholder for the target while we
+                // morph, sequence and lower, to avoid redoing that for the actual target.
+                GenTree*     targetPlaceholder = comp->gtNewZeroConNode(callTarget->TypeGet());
+                GenTreeCall* validate = comp->gtNewHelperCallNode(CORINFO_HELP_VALIDATE_INDIRECT_CALL, TYP_VOID);
+                NewCallArg   newArg =
+                    NewCallArg::Primitive(targetPlaceholder).WellKnown(WellKnownArg::ValidateIndirectCallTarget);
+                validate->gtArgs.PushFront(comp, newArg);
+
+                comp->fgMorphTree(validate);
+
+                LIR::Range validateRange = LIR::SeqTree(comp, validate);
+                GenTree*   validateFirst = validateRange.FirstNode();
+                GenTree*   validateLast  = validateRange.LastNode();
+                // Insert the validator with the call target before the late args.
+                BlockRange().InsertBefore(call, std::move(validateRange));
+
+                // Swap out the target
+                gotUse = BlockRange().TryGetUse(targetPlaceholder, &useOfTar);
+                assert(gotUse);
+                useOfTar.ReplaceWith(callTarget);
+                targetPlaceholder->SetUnusedValue();
+
+                LowerRange(validateFirst, validateLast);
+
+                // Insert the PHYSREG node that we must load right after validation.
+                BlockRange().InsertAfter(validate, regNode);
+                LowerNode(regNode);
+
+                // Finally move all GT_PUTARG_* nodes
+                MoveCFGCallArgs(call);
+                break;
             }
-#else
-            assert(!"Unexpected CFGCallKind::Dispatch for platform without dispatcher");
+        case CFGCallKind::Dispatch:
+            {
+#ifdef REG_DISPATCH_INDIRECT_CALL_ADDR
+                // Now insert the call target as an extra argument.
+                //
+                NewCallArg callTargetNewArg =
+                    NewCallArg::Primitive(callTarget).WellKnown(WellKnownArg::DispatchIndirectCallTarget);
+                CallArg* targetArg = call->gtArgs.PushBack(comp, callTargetNewArg);
+                targetArg->SetEarlyNode(nullptr);
+                targetArg->SetLateNode(callTarget);
+                call->gtArgs.PushLateBack(targetArg);
+
+                // Set up ABI information for this arg.
+                targetArg->AbiInfo.ArgType = callTarget->TypeGet();
+                targetArg->AbiInfo.SetRegNum(0, REG_DISPATCH_INDIRECT_CALL_ADDR);
+                targetArg->AbiInfo.NumRegs = 1;
+                targetArg->AbiInfo.SetByteSize(TARGET_POINTER_SIZE, TARGET_POINTER_SIZE, false, false);
+
+                // Lower the newly added args now that call is updated
+                LowerArg(call, targetArg, true /* late */);
+
+                // Finally update the call to be a helper call
+                call->gtCallType    = CT_HELPER;
+                call->gtCallMethHnd = Compiler::eeFindHelper(CORINFO_HELP_DISPATCH_INDIRECT_CALL);
+                call->gtFlags &= ~GTF_CALL_VIRT_KIND_MASK;
+#ifdef FEATURE_READYTORUN
+                call->gtEntryPoint.addr       = nullptr;
+                call->gtEntryPoint.accessType = IAT_VALUE;
 #endif
-            break;
-        }
+
+                // Now relower the call target
+                call->gtControlExpr = LowerDirectCall(call);
+
+                if (call->gtControlExpr != nullptr)
+                {
+                    LIR::Range dispatchControlExprRange = LIR::SeqTree(comp, call->gtControlExpr);
+
+                    ContainCheckRange(dispatchControlExprRange);
+                    BlockRange().InsertBefore(call, std::move(dispatchControlExprRange));
+                }
+#else
+                assert(!"Unexpected CFGCallKind::Dispatch for platform without dispatcher");
+#endif
+                break;
+            }
         default:
             unreached();
     }
@@ -4877,51 +4877,51 @@ void Lowering::LowerRetStruct(GenTreeUnOp* ret)
     switch (retVal->OperGet())
     {
         case GT_CNS_INT:
-        {
-            // When we promote LCL_VAR single fields into return, we could have all types of constants here.
-            if (varTypeUsesFloatReg(nativeReturnType))
             {
-                // ZeroObj assertion propagation can create INT zeros for DOUBLE returns.
-                assert((genTypeSize(retVal) == genTypeSize(nativeReturnType)) || retVal->IsIntegralConst(0));
-                int64_t value = retVal->AsIntCon()->IconValue();
-
-                if (nativeReturnType == TYP_FLOAT)
+                // When we promote LCL_VAR single fields into return, we could have all types of constants here.
+                if (varTypeUsesFloatReg(nativeReturnType))
                 {
-                    retVal->BashToConst(*reinterpret_cast<float*>(&value));
+                    // ZeroObj assertion propagation can create INT zeros for DOUBLE returns.
+                    assert((genTypeSize(retVal) == genTypeSize(nativeReturnType)) || retVal->IsIntegralConst(0));
+                    int64_t value = retVal->AsIntCon()->IconValue();
+
+                    if (nativeReturnType == TYP_FLOAT)
+                    {
+                        retVal->BashToConst(*reinterpret_cast<float*>(&value));
+                    }
+                    else
+                    {
+                        retVal->BashToConst(*reinterpret_cast<double*>(&value));
+                    }
                 }
                 else
                 {
-                    retVal->BashToConst(*reinterpret_cast<double*>(&value));
+                    assert(varTypeUsesIntReg(nativeReturnType));
                 }
-            }
-            else
-            {
-                assert(varTypeUsesIntReg(nativeReturnType));
-            }
-            break;
-        }
-
-        case GT_BLK:
-        case GT_IND:
-        {
-            // Spill to a local if sizes don't match so we can avoid the "load more than requested"
-            // problem, e.g. struct size is 5 and we emit "ldr x0, [x1]"
-            if (genTypeSize(nativeReturnType) > retVal->AsIndir()->Size())
-            {
-                LIR::Use retValUse(BlockRange(), &ret->gtOp1, ret);
-                unsigned tmpNum = comp->lvaGrabTemp(true DEBUGARG("mis-sized struct return"));
-                comp->lvaSetStruct(tmpNum, comp->info.compMethodInfo->args.retTypeClass, false);
-
-                ReplaceWithLclVar(retValUse, tmpNum);
-                LowerRetSingleRegStructLclVar(ret);
                 break;
             }
 
-            retVal->ChangeOper(GT_IND);
-            retVal->ChangeType(nativeReturnType);
-            LowerIndir(retVal->AsIndir());
-            break;
-        }
+        case GT_BLK:
+        case GT_IND:
+            {
+                // Spill to a local if sizes don't match so we can avoid the "load more than requested"
+                // problem, e.g. struct size is 5 and we emit "ldr x0, [x1]"
+                if (genTypeSize(nativeReturnType) > retVal->AsIndir()->Size())
+                {
+                    LIR::Use retValUse(BlockRange(), &ret->gtOp1, ret);
+                    unsigned tmpNum = comp->lvaGrabTemp(true DEBUGARG("mis-sized struct return"));
+                    comp->lvaSetStruct(tmpNum, comp->info.compMethodInfo->args.retTypeClass, false);
+
+                    ReplaceWithLclVar(retValUse, tmpNum);
+                    LowerRetSingleRegStructLclVar(ret);
+                    break;
+                }
+
+                retVal->ChangeOper(GT_IND);
+                retVal->ChangeType(nativeReturnType);
+                LowerIndir(retVal->AsIndir());
+                break;
+            }
 
         case GT_LCL_VAR:
             LowerRetSingleRegStructLclVar(ret);
@@ -5101,16 +5101,16 @@ void Lowering::LowerCallStruct(GenTreeCall* call)
 
 #ifdef FEATURE_HW_INTRINSICS
             case GT_HWINTRINSIC:
-            {
-                if (!varTypeUsesSameRegType(returnType, origType))
                 {
-                    GenTree* bitCast = comp->gtNewBitCastNode(origType, call);
-                    BlockRange().InsertAfter(call, bitCast);
-                    callUse.ReplaceWith(bitCast);
-                    ContainCheckBitCast(bitCast);
+                    if (!varTypeUsesSameRegType(returnType, origType))
+                    {
+                        GenTree* bitCast = comp->gtNewBitCastNode(origType, call);
+                        BlockRange().InsertAfter(call, bitCast);
+                        callUse.ReplaceWith(bitCast);
+                        ContainCheckBitCast(bitCast);
+                    }
+                    break;
                 }
-                break;
-            }
 #endif // FEATURE_HW_INTRINSICS
 
             default:
@@ -5278,25 +5278,25 @@ GenTree* Lowering::LowerDirectCall(GenTreeCall* call)
             break;
 
         case IAT_PVALUE:
-        {
-            // If we are using an indirection cell for a direct call then apply
-            // an optimization that loads the call target directly from the
-            // indirection cell, instead of duplicating the tree.
-            bool hasIndirectionCell = call->GetIndirectionCellArgKind() != WellKnownArg::None;
-
-            if (!hasIndirectionCell)
             {
-                // Non-virtual direct calls to addresses accessed by
-                // a single indirection.
-                GenTree* cellAddr = AddrGen(addr);
+                // If we are using an indirection cell for a direct call then apply
+                // an optimization that loads the call target directly from the
+                // indirection cell, instead of duplicating the tree.
+                bool hasIndirectionCell = call->GetIndirectionCellArgKind() != WellKnownArg::None;
+
+                if (!hasIndirectionCell)
+                {
+                    // Non-virtual direct calls to addresses accessed by
+                    // a single indirection.
+                    GenTree* cellAddr = AddrGen(addr);
 #ifdef DEBUG
-                cellAddr->AsIntCon()->gtTargetHandle = (size_t)call->gtCallMethHnd;
+                    cellAddr->AsIntCon()->gtTargetHandle = (size_t)call->gtCallMethHnd;
 #endif
-                GenTree* indir = Ind(cellAddr);
-                result         = indir;
+                    GenTree* indir = Ind(cellAddr);
+                    result         = indir;
+                }
+                break;
             }
-            break;
-        }
 
         case IAT_PPVALUE:
             // Non-virtual direct calls to addresses accessed by
@@ -5317,14 +5317,14 @@ GenTree* Lowering::LowerDirectCall(GenTreeCall* call)
             break;
 
         case IAT_RELPVALUE:
-        {
-            // Non-virtual direct calls to addresses accessed by
-            // a single relative indirection.
-            GenTree* cellAddr = AddrGen(addr);
-            GenTree* indir    = Ind(cellAddr);
-            result            = comp->gtNewOperNode(GT_ADD, TYP_I_IMPL, indir, AddrGen(addr));
-            break;
-        }
+            {
+                // Non-virtual direct calls to addresses accessed by
+                // a single relative indirection.
+                GenTree* cellAddr = AddrGen(addr);
+                GenTree* indir    = Ind(cellAddr);
+                result            = comp->gtNewOperNode(GT_ADD, TYP_I_IMPL, indir, AddrGen(addr));
+                break;
+            }
 
         default:
             noway_assert(!"Bad accessType");
@@ -7603,16 +7603,16 @@ void Lowering::CheckCallArg(GenTree* arg)
     switch (arg->OperGet())
     {
         case GT_FIELD_LIST:
-        {
-            GenTreeFieldList* list = arg->AsFieldList();
-            assert(list->isContained());
-
-            for (GenTreeFieldList::Use& use : list->Uses())
             {
-                assert(use.GetNode()->OperIsPutArg());
+                GenTreeFieldList* list = arg->AsFieldList();
+                assert(list->isContained());
+
+                for (GenTreeFieldList::Use& use : list->Uses())
+                {
+                    assert(use.GetNode()->OperIsPutArg());
+                }
             }
-        }
-        break;
+            break;
 
         default:
             assert(arg->OperIsPutArg());
@@ -7666,41 +7666,41 @@ void Lowering::CheckNode(Compiler* compiler, GenTree* node)
 
         case GT_LCL_VAR:
         case GT_STORE_LCL_VAR:
-        {
-            const LclVarDsc* varDsc = compiler->lvaGetDesc(node->AsLclVar());
+            {
+                const LclVarDsc* varDsc = compiler->lvaGetDesc(node->AsLclVar());
 #if defined(FEATURE_SIMD) && defined(TARGET_64BIT)
-            if (node->TypeIs(TYP_SIMD12))
-            {
-                assert(compiler->lvaIsFieldOfDependentlyPromotedStruct(varDsc) || (varDsc->lvSize() == 12));
-            }
+                if (node->TypeIs(TYP_SIMD12))
+                {
+                    assert(compiler->lvaIsFieldOfDependentlyPromotedStruct(varDsc) || (varDsc->lvSize() == 12));
+                }
 #endif // FEATURE_SIMD && TARGET_64BIT
-            if (varDsc->lvPromoted)
-            {
-                assert(varDsc->lvDoNotEnregister || varDsc->lvIsMultiRegRet);
+                if (varDsc->lvPromoted)
+                {
+                    assert(varDsc->lvDoNotEnregister || varDsc->lvIsMultiRegRet);
+                }
             }
-        }
-        break;
+            break;
 
         case GT_LCL_ADDR:
-        {
-            const GenTreeLclVarCommon* lclVarAddr = node->AsLclVarCommon();
-            const LclVarDsc*           varDsc     = compiler->lvaGetDesc(lclVarAddr);
-            if (((lclVarAddr->gtFlags & GTF_VAR_DEF) != 0) && varDsc->HasGCPtr())
             {
-                // Emitter does not correctly handle live updates for LCL_ADDR
-                // when they are not contained, for example, `STOREIND byref(GT_LCL_ADDR not-contained)`
-                // would generate:
-                // add     r1, sp, 48   // r1 contains address of a lclVar V01.
-                // str     r0, [r1]     // a gc ref becomes live in V01, but emitter would not report it.
-                // Make sure that we use uncontained address nodes only for variables
-                // that will be marked as mustInit and will be alive throughout the whole block even when tracked.
-                assert(lclVarAddr->isContained() || !varDsc->lvTracked || varTypeIsStruct(varDsc));
-                // TODO: support this assert for uses, see https://github.com/dotnet/runtime/issues/51900.
-            }
+                const GenTreeLclVarCommon* lclVarAddr = node->AsLclVarCommon();
+                const LclVarDsc*           varDsc     = compiler->lvaGetDesc(lclVarAddr);
+                if (((lclVarAddr->gtFlags & GTF_VAR_DEF) != 0) && varDsc->HasGCPtr())
+                {
+                    // Emitter does not correctly handle live updates for LCL_ADDR
+                    // when they are not contained, for example, `STOREIND byref(GT_LCL_ADDR not-contained)`
+                    // would generate:
+                    // add     r1, sp, 48   // r1 contains address of a lclVar V01.
+                    // str     r0, [r1]     // a gc ref becomes live in V01, but emitter would not report it.
+                    // Make sure that we use uncontained address nodes only for variables
+                    // that will be marked as mustInit and will be alive throughout the whole block even when tracked.
+                    assert(lclVarAddr->isContained() || !varDsc->lvTracked || varTypeIsStruct(varDsc));
+                    // TODO: support this assert for uses, see https://github.com/dotnet/runtime/issues/51900.
+                }
 
-            assert(varDsc->lvDoNotEnregister);
-            break;
-        }
+                assert(varDsc->lvDoNotEnregister);
+                break;
+            }
 
         case GT_PHI:
         case GT_PHI_ARG:
@@ -7709,11 +7709,11 @@ void Lowering::CheckNode(Compiler* compiler, GenTree* node)
 
         case GT_LCL_FLD:
         case GT_STORE_LCL_FLD:
-        {
-            const LclVarDsc* varDsc = compiler->lvaGetDesc(node->AsLclFld());
-            assert(varDsc->lvDoNotEnregister);
-        }
-        break;
+            {
+                const LclVarDsc* varDsc = compiler->lvaGetDesc(node->AsLclFld());
+                assert(varDsc->lvDoNotEnregister);
+            }
+            break;
 
         default:
             break;
@@ -7838,13 +7838,13 @@ bool Lowering::IndirsAreEquivalent(GenTree* candidate, GenTree* storeInd)
             return NodesAreEquivalentLeaves(pTreeA, pTreeB);
 
         case GT_LEA:
-        {
-            GenTreeAddrMode* gtAddr1 = pTreeA->AsAddrMode();
-            GenTreeAddrMode* gtAddr2 = pTreeB->AsAddrMode();
-            return NodesAreEquivalentLeaves(gtAddr1->Base(), gtAddr2->Base()) &&
-                   NodesAreEquivalentLeaves(gtAddr1->Index(), gtAddr2->Index()) &&
-                   (gtAddr1->gtScale == gtAddr2->gtScale) && (gtAddr1->Offset() == gtAddr2->Offset());
-        }
+            {
+                GenTreeAddrMode* gtAddr1 = pTreeA->AsAddrMode();
+                GenTreeAddrMode* gtAddr2 = pTreeB->AsAddrMode();
+                return NodesAreEquivalentLeaves(gtAddr1->Base(), gtAddr2->Base()) &&
+                       NodesAreEquivalentLeaves(gtAddr1->Index(), gtAddr2->Index()) &&
+                       (gtAddr1->gtScale == gtAddr2->gtScale) && (gtAddr1->Offset() == gtAddr2->Offset());
+            }
         default:
             // We don't handle anything that is not either a constant,
             // a local var or LEA.
@@ -8340,12 +8340,12 @@ void Lowering::LowerBlockStoreAsHelperCall(GenTreeBlk* blkNode)
 
 struct StoreCoalescingData
 {
-    var_types targetType;
-    GenTree*  baseAddr;
-    GenTree*  index;
-    GenTree*  value;
-    uint32_t  scale;
-    int       offset;
+        var_types targetType;
+        GenTree*  baseAddr;
+        GenTree*  index;
+        GenTree*  value;
+        uint32_t  scale;
+        int       offset;
 };
 
 //------------------------------------------------------------------------
@@ -8375,8 +8375,7 @@ static bool GetStoreCoalescingData(Compiler* comp, GenTreeStoreInd* ind, StoreCo
         return false;
     }
 
-    auto isNodeInvariant = [](Compiler* comp, GenTree* node, bool allowNull)
-    {
+    auto isNodeInvariant = [](Compiler* comp, GenTree* node, bool allowNull) {
         if (node == nullptr)
         {
             return allowNull;
@@ -9018,8 +9017,7 @@ bool Lowering::TryMakeIndirsAdjacent(GenTreeIndir* prevIndir, GenTreeIndir* indi
     GenTree* startDumpNode = BlockRange().GetTreeRange(prevIndir, &isClosed).FirstNode();
     GenTree* endDumpNode   = indir->gtNext;
 
-    auto dumpWithMarks = [=]()
-    {
+    auto dumpWithMarks = [=]() {
         if (!comp->verbose)
         {
             return;
@@ -9101,8 +9099,7 @@ bool Lowering::TryMakeIndirsAdjacent(GenTreeIndir* prevIndir, GenTreeIndir* indi
         }
 
         // Helper lambda to check if a single node interferes with 'indir'.
-        auto interferes = [=](GenTree* node)
-        {
+        auto interferes = [=](GenTree* node) {
             if (((node->gtFlags & GTF_ORDER_SIDEEFF) != 0) && node->OperSupportsOrderingSideEffect())
             {
                 // Cannot normally reorder GTF_ORDER_SIDEEFF and GTF_GLOB_REF,
@@ -9210,12 +9207,10 @@ bool Lowering::TryMakeIndirsAdjacent(GenTreeIndir* prevIndir, GenTreeIndir* indi
 void Lowering::MarkTree(GenTree* node)
 {
     node->gtLIRFlags |= LIR::Flags::Mark;
-    node->VisitOperands(
-        [=](GenTree* op)
-        {
-            MarkTree(op);
-            return GenTree::VisitResult::Continue;
-        });
+    node->VisitOperands([=](GenTree* op) {
+        MarkTree(op);
+        return GenTree::VisitResult::Continue;
+    });
 }
 
 //------------------------------------------------------------------------
@@ -9227,12 +9222,10 @@ void Lowering::MarkTree(GenTree* node)
 void Lowering::UnmarkTree(GenTree* node)
 {
     node->gtLIRFlags &= ~LIR::Flags::Mark;
-    node->VisitOperands(
-        [=](GenTree* op)
-        {
-            UnmarkTree(op);
-            return GenTree::VisitResult::Continue;
-        });
+    node->VisitOperands([=](GenTree* op) {
+        UnmarkTree(op);
+        return GenTree::VisitResult::Continue;
+    });
 }
 
 #endif // TARGET_ARM64

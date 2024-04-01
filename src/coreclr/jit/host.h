@@ -16,15 +16,15 @@ int jitprintf(const char* fmt, ...);
 class Compiler;
 class LogEnv
 {
-public:
-    LogEnv(ICorJitInfo* aCompHnd);
-    void setCompiler(Compiler* val)
-    {
-        const_cast<Compiler*&>(compiler) = val;
-    }
+    public:
+        LogEnv(ICorJitInfo* aCompHnd);
+        void setCompiler(Compiler* val)
+        {
+            const_cast<Compiler*&>(compiler) = val;
+        }
 
-    ICorJitInfo* const compHnd;
-    Compiler* const    compiler;
+        ICorJitInfo* const compHnd;
+        Compiler* const    compiler;
 };
 
 bool vlogf(unsigned level, const char* fmt, va_list args);

@@ -204,449 +204,452 @@ bool Compiler::TypeInstantiationComplexityExceeds(CORINFO_CLASS_HANDLE handle, i
 
 class SubstitutePlaceholdersAndDevirtualizeWalker : public GenTreeVisitor<SubstitutePlaceholdersAndDevirtualizeWalker>
 {
-    bool m_madeChanges = false;
+        bool m_madeChanges = false;
 
-public:
-    enum
-    {
-        DoPreOrder        = true,
-        DoPostOrder       = true,
-        UseExecutionOrder = true,
-    };
+    public:
+        enum {
+            DoPreOrder        = true,
+            DoPostOrder       = true,
+            UseExecutionOrder = true,
+        };
 
-    SubstitutePlaceholdersAndDevirtualizeWalker(Compiler* comp) : GenTreeVisitor(comp) {}
-
-    bool MadeChanges()
-    {
-        return m_madeChanges;
-    }
-
-    fgWalkResult PreOrderVisit(GenTree** use, GenTree* user)
-    {
-        GenTree* tree = *use;
-
-        // All the operations here and in the corresponding postorder
-        // callback (LateDevirtualization) are triggered by GT_CALL or
-        // GT_RET_EXPR trees, and these (should) have the call side
-        // effect flag.
-        //
-        // So bail out for any trees that don't have this flag.
-        if ((tree->gtFlags & GTF_CALL) == 0)
+        SubstitutePlaceholdersAndDevirtualizeWalker(Compiler* comp)
+            : GenTreeVisitor(comp)
         {
-            return fgWalkResult::WALK_SKIP_SUBTREES;
         }
 
-        if (tree->OperIs(GT_RET_EXPR))
+        bool MadeChanges()
         {
-            UpdateInlineReturnExpressionPlaceHolder(use, user);
+            return m_madeChanges;
         }
+
+        fgWalkResult PreOrderVisit(GenTree** use, GenTree* user)
+        {
+            GenTree* tree = *use;
+
+            // All the operations here and in the corresponding postorder
+            // callback (LateDevirtualization) are triggered by GT_CALL or
+            // GT_RET_EXPR trees, and these (should) have the call side
+            // effect flag.
+            //
+            // So bail out for any trees that don't have this flag.
+            if ((tree->gtFlags & GTF_CALL) == 0)
+            {
+                return fgWalkResult::WALK_SKIP_SUBTREES;
+            }
+
+            if (tree->OperIs(GT_RET_EXPR))
+            {
+                UpdateInlineReturnExpressionPlaceHolder(use, user);
+            }
 
 #if FEATURE_MULTIREG_RET
 #if defined(DEBUG)
 
-        // Make sure we don't have a tree like so: V05 = (, , , retExpr);
-        // Since we only look one level above for the parent for '=' and
-        // do not check if there is a series of COMMAs. See above.
-        // Importer and FlowGraph will not generate such a tree, so just
-        // leaving an assert in here. This can be fixed by looking ahead
-        // when we visit stores similar to AttachStructInlineeToStore.
-        //
-        if (tree->OperIsStore())
-        {
-            GenTree* value = tree->Data();
-
-            if (value->OperGet() == GT_COMMA)
+            // Make sure we don't have a tree like so: V05 = (, , , retExpr);
+            // Since we only look one level above for the parent for '=' and
+            // do not check if there is a series of COMMAs. See above.
+            // Importer and FlowGraph will not generate such a tree, so just
+            // leaving an assert in here. This can be fixed by looking ahead
+            // when we visit stores similar to AttachStructInlineeToStore.
+            //
+            if (tree->OperIsStore())
             {
-                GenTree* effectiveValue = value->gtEffectiveVal();
+                GenTree* value = tree->Data();
 
-                noway_assert(!varTypeIsStruct(effectiveValue) || (effectiveValue->OperGet() != GT_RET_EXPR) ||
-                             !effectiveValue->AsRetExpr()->gtInlineCandidate->HasMultiRegRetVal());
+                if (value->OperGet() == GT_COMMA)
+                {
+                    GenTree* effectiveValue = value->gtEffectiveVal();
+
+                    noway_assert(!varTypeIsStruct(effectiveValue) || (effectiveValue->OperGet() != GT_RET_EXPR) ||
+                                 !effectiveValue->AsRetExpr()->gtInlineCandidate->HasMultiRegRetVal());
+                }
             }
-        }
 
 #endif // defined(DEBUG)
 #endif // FEATURE_MULTIREG_RET
-        return fgWalkResult::WALK_CONTINUE;
-    }
+            return fgWalkResult::WALK_CONTINUE;
+        }
 
-    fgWalkResult PostOrderVisit(GenTree** use, GenTree* user)
-    {
-        LateDevirtualization(use, user);
-        return fgWalkResult::WALK_CONTINUE;
-    }
-
-private:
-    //------------------------------------------------------------------------
-    // UpdateInlineReturnExpressionPlaceHolder: replace an
-    // inline return expression placeholder if there is one.
-    //
-    // Arguments:
-    //    use -- edge for the tree that is a GT_RET_EXPR node
-    //    parent -- node containing the edge
-    //
-    // Returns:
-    //    fgWalkResult indicating the walk should continue; that
-    //    is we wish to fully explore the tree.
-    //
-    // Notes:
-    //    Looks for GT_RET_EXPR nodes that arose from tree splitting done
-    //    during importation for inline candidates, and replaces them.
-    //
-    //    For successful inlines, substitutes the return value expression
-    //    from the inline body for the GT_RET_EXPR.
-    //
-    //    For failed inlines, rejoins the original call into the tree from
-    //    whence it was split during importation.
-    //
-    //    The code doesn't actually know if the corresponding inline
-    //    succeeded or not; it relies on the fact that gtInlineCandidate
-    //    initially points back at the call and is modified in place to
-    //    the inlinee return expression if the inline is successful (see
-    //    tail end of fgInsertInlineeBlocks for the update of iciCall).
-    //
-    //    If the return type is a struct type and we're on a platform
-    //    where structs can be returned in multiple registers, ensure the
-    //    call has a suitable parent.
-    //
-    //    If the original call type and the substitution type are different
-    //    the functions makes necessary updates. It could happen if there was
-    //    an implicit conversion in the inlinee body.
-    //
-    void UpdateInlineReturnExpressionPlaceHolder(GenTree** use, GenTree* parent)
-    {
-        while ((*use)->OperIs(GT_RET_EXPR))
+        fgWalkResult PostOrderVisit(GenTree** use, GenTree* user)
         {
-            GenTree* tree = *use;
+            LateDevirtualization(use, user);
+            return fgWalkResult::WALK_CONTINUE;
+        }
 
-            // Skip through chains of GT_RET_EXPRs (say from nested inlines)
-            // to the actual tree to use.
-            //
-            BasicBlock* inlineeBB       = nullptr;
-            GenTree*    inlineCandidate = tree;
-            do
+    private:
+        //------------------------------------------------------------------------
+        // UpdateInlineReturnExpressionPlaceHolder: replace an
+        // inline return expression placeholder if there is one.
+        //
+        // Arguments:
+        //    use -- edge for the tree that is a GT_RET_EXPR node
+        //    parent -- node containing the edge
+        //
+        // Returns:
+        //    fgWalkResult indicating the walk should continue; that
+        //    is we wish to fully explore the tree.
+        //
+        // Notes:
+        //    Looks for GT_RET_EXPR nodes that arose from tree splitting done
+        //    during importation for inline candidates, and replaces them.
+        //
+        //    For successful inlines, substitutes the return value expression
+        //    from the inline body for the GT_RET_EXPR.
+        //
+        //    For failed inlines, rejoins the original call into the tree from
+        //    whence it was split during importation.
+        //
+        //    The code doesn't actually know if the corresponding inline
+        //    succeeded or not; it relies on the fact that gtInlineCandidate
+        //    initially points back at the call and is modified in place to
+        //    the inlinee return expression if the inline is successful (see
+        //    tail end of fgInsertInlineeBlocks for the update of iciCall).
+        //
+        //    If the return type is a struct type and we're on a platform
+        //    where structs can be returned in multiple registers, ensure the
+        //    call has a suitable parent.
+        //
+        //    If the original call type and the substitution type are different
+        //    the functions makes necessary updates. It could happen if there was
+        //    an implicit conversion in the inlinee body.
+        //
+        void UpdateInlineReturnExpressionPlaceHolder(GenTree** use, GenTree* parent)
+        {
+            while ((*use)->OperIs(GT_RET_EXPR))
             {
-                GenTreeRetExpr* retExpr = inlineCandidate->AsRetExpr();
-                inlineCandidate         = retExpr->gtSubstExpr;
-                inlineeBB               = retExpr->gtSubstBB;
-            } while (inlineCandidate->OperIs(GT_RET_EXPR));
+                GenTree* tree = *use;
 
-            // We might as well try and fold the return value. Eg returns of
-            // constant bools will have CASTS. This folding may uncover more
-            // GT_RET_EXPRs, so we loop around until we've got something distinct.
-            //
-            inlineCandidate   = m_compiler->gtFoldExpr(inlineCandidate);
-            var_types retType = tree->TypeGet();
-
-#ifdef DEBUG
-            if (m_compiler->verbose)
-            {
-                printf("\nReplacing the return expression placeholder ");
-                Compiler::printTreeID(tree);
-                printf(" with ");
-                Compiler::printTreeID(inlineCandidate);
-                printf("\n");
-                // Dump out the old return expression placeholder it will be overwritten by the ReplaceWith below
-                m_compiler->gtDispTree(tree);
-            }
-#endif // DEBUG
-
-            var_types newType = inlineCandidate->TypeGet();
-
-            // If we end up swapping type we may need to retype the tree:
-            if (retType != newType)
-            {
-                if ((retType == TYP_BYREF) && (tree->OperGet() == GT_IND))
+                // Skip through chains of GT_RET_EXPRs (say from nested inlines)
+                // to the actual tree to use.
+                //
+                BasicBlock* inlineeBB       = nullptr;
+                GenTree*    inlineCandidate = tree;
+                do
                 {
-                    // - in an RVA static if we've reinterpreted it as a byref;
-                    assert(newType == TYP_I_IMPL);
-                    JITDUMP("Updating type of the return GT_IND expression to TYP_BYREF\n");
-                    inlineCandidate->gtType = TYP_BYREF;
-                }
-            }
+                    GenTreeRetExpr* retExpr = inlineCandidate->AsRetExpr();
+                    inlineCandidate         = retExpr->gtSubstExpr;
+                    inlineeBB               = retExpr->gtSubstBB;
+                } while (inlineCandidate->OperIs(GT_RET_EXPR));
 
-            *use          = inlineCandidate;
-            m_madeChanges = true;
+                // We might as well try and fold the return value. Eg returns of
+                // constant bools will have CASTS. This folding may uncover more
+                // GT_RET_EXPRs, so we loop around until we've got something distinct.
+                //
+                inlineCandidate   = m_compiler->gtFoldExpr(inlineCandidate);
+                var_types retType = tree->TypeGet();
 
-            if (inlineeBB != nullptr)
-            {
-                // IR may potentially contain nodes that requires mandatory BB flags to be set.
-                // Propagate those flags from the containing BB.
-                m_compiler->compCurBB->CopyFlags(inlineeBB, BBF_COPY_PROPAGATE);
-            }
-
-#ifdef DEBUG
-            if (m_compiler->verbose)
-            {
-                printf("\nInserting the inline return expression\n");
-                m_compiler->gtDispTree(inlineCandidate);
-                printf("\n");
-            }
-#endif // DEBUG
-        }
-
-#if FEATURE_MULTIREG_RET
-        // If an inline was rejected and the call returns a struct, we may
-        // have deferred some work when importing call for cases where the
-        // struct is returned in multiple registers.
-        //
-        // See the bail-out clauses in impFixupCallStructReturn for inline
-        // candidates.
-        //
-        // Do the deferred work now.
-        if ((*use)->IsCall() && varTypeIsStruct(*use) && (*use)->AsCall()->HasMultiRegRetVal())
-        {
-            // See assert below, we only look one level above for a store parent.
-            if (parent->OperIsStore())
-            {
-                // The inlinee can only be the value.
-                assert(parent->Data() == *use);
-                AttachStructInlineeToStore(parent, (*use)->AsCall()->gtRetClsHnd);
-            }
-            else
-            {
-                // Just store the inlinee to a variable to keep it simple.
-                *use = StoreStructInlineeToVar(*use, (*use)->AsCall()->gtRetClsHnd);
-            }
-            m_madeChanges = true;
-        }
-#endif
-    }
-
-#if FEATURE_MULTIREG_RET
-    //------------------------------------------------------------------------
-    // AttachStructInlineeToStore: Update a "STORE(..., inlinee)" tree.
-    //
-    // Morphs inlinees that are multi-reg nodes into the (only) supported shape
-    // of "lcl = node()", either by marking the store local "lvIsMultiRegRet" or
-    // storing the node into a temp and using that as the new value.
-    //
-    // Arguments:
-    //    store     - The store with the inlinee as value
-    //    retClsHnd - The struct handle for the inlinee
-    //
-    void AttachStructInlineeToStore(GenTree* store, CORINFO_CLASS_HANDLE retClsHnd)
-    {
-        assert(store->OperIsStore());
-        GenTree* dst     = store;
-        GenTree* inlinee = store->Data();
-
-        // We need to force all assignments from multi-reg nodes into the "lcl = node()" form.
-        if (inlinee->IsMultiRegNode())
-        {
-            // Special case: we already have a local, the only thing to do is mark it appropriately. Except
-            // if it may turn into an indirection. TODO-Bug: this does not account for x86 varargs args.
-            if (store->OperIs(GT_STORE_LCL_VAR) && !m_compiler->lvaIsImplicitByRefLocal(store->AsLclVar()->GetLclNum()))
-            {
-                m_compiler->lvaGetDesc(store->AsLclVar())->lvIsMultiRegRet = true;
-            }
-            else
-            {
-                // Here, we store our node into a fresh temp and then use that temp as the new value.
-                store->Data() = StoreStructInlineeToVar(inlinee, retClsHnd);
-            }
-        }
-    }
-
-    //------------------------------------------------------------------------
-    // AssignStructInlineeToVar: Store the struct inlinee to a temp local.
-    //
-    // Arguments:
-    //    inlinee   - The inlinee of the RET_EXPR node
-    //    retClsHnd - The struct class handle of the type of the inlinee.
-    //
-    // Return Value:
-    //    Value representing the freshly defined temp.
-    //
-    GenTree* StoreStructInlineeToVar(GenTree* inlinee, CORINFO_CLASS_HANDLE retClsHnd)
-    {
-        assert(!inlinee->OperIs(GT_RET_EXPR));
-
-        unsigned   lclNum = m_compiler->lvaGrabTemp(false DEBUGARG("RetBuf for struct inline return candidates."));
-        LclVarDsc* varDsc = m_compiler->lvaGetDesc(lclNum);
-        m_compiler->lvaSetStruct(lclNum, retClsHnd, false);
-
-        // Sink the store below any COMMAs: this is required for multi-reg nodes.
-        GenTree* src       = inlinee;
-        GenTree* lastComma = nullptr;
-        while (src->OperIs(GT_COMMA))
-        {
-            lastComma = src;
-            src       = src->AsOp()->gtOp2;
-        }
-
-        // When storing a multi-register value to a local var, make sure the variable is marked as lvIsMultiRegRet.
-        if (src->IsMultiRegNode())
-        {
-            varDsc->lvIsMultiRegRet = true;
-        }
-
-        GenTree* store = m_compiler->gtNewStoreLclVarNode(lclNum, src);
-
-        // If inlinee was comma, new inlinee is (, , , lcl = inlinee).
-        if (inlinee->OperIs(GT_COMMA))
-        {
-            lastComma->AsOp()->gtOp2 = store;
-            store                    = inlinee;
-        }
-
-        GenTree* lcl = m_compiler->gtNewLclvNode(lclNum, varDsc->TypeGet());
-        return m_compiler->gtNewOperNode(GT_COMMA, lcl->TypeGet(), store, lcl);
-    }
-#endif // FEATURE_MULTIREG_RET
-
-    //------------------------------------------------------------------------
-    // LateDevirtualization: re-examine calls after inlining to see if we
-    //   can do more devirtualization
-    //
-    // Arguments:
-    //    pTree -- pointer to tree to examine for updates
-    //    parent -- parent node containing the pTree edge
-    //
-    // Returns:
-    //    fgWalkResult indicating the walk should continue; that
-    //    is we wish to fully explore the tree.
-    //
-    // Notes:
-    //    We used to check this opportunistically in the preorder callback for
-    //    calls where the `obj` was fed by a return, but we now re-examine
-    //    all calls.
-    //
-    //    Late devirtualization (and eventually, perhaps, other type-driven
-    //    opts like cast optimization) can happen now because inlining or other
-    //    optimizations may have provided more accurate types than we saw when
-    //    first importing the trees.
-    //
-    //    It would be nice to screen candidate sites based on the likelihood
-    //    that something has changed. Otherwise we'll waste some time retrying
-    //    an optimization that will just fail again.
-    void LateDevirtualization(GenTree** pTree, GenTree* parent)
-    {
-        GenTree* tree = *pTree;
-        // In some (rare) cases the parent node of tree will be smashed to a NOP during
-        // the preorder by AttachStructToInlineeArg.
-        //
-        // jit\Methodical\VT\callconv\_il_reljumper3 for x64 linux
-        //
-        // If so, just bail out here.
-        if (tree == nullptr)
-        {
-            assert((parent != nullptr) && parent->OperGet() == GT_NOP);
-            return;
-        }
-
-        if (tree->OperGet() == GT_CALL)
-        {
-            GenTreeCall* call          = tree->AsCall();
-            bool         tryLateDevirt = call->IsVirtual() && (call->gtCallType == CT_USER_FUNC);
-
-#ifdef DEBUG
-            tryLateDevirt = tryLateDevirt && (JitConfig.JitEnableLateDevirtualization() == 1);
-#endif // DEBUG
-
-            if (tryLateDevirt)
-            {
 #ifdef DEBUG
                 if (m_compiler->verbose)
                 {
-                    printf("**** Late devirt opportunity\n");
-                    m_compiler->gtDispTree(call);
+                    printf("\nReplacing the return expression placeholder ");
+                    Compiler::printTreeID(tree);
+                    printf(" with ");
+                    Compiler::printTreeID(inlineCandidate);
+                    printf("\n");
+                    // Dump out the old return expression placeholder it will be overwritten by the ReplaceWith below
+                    m_compiler->gtDispTree(tree);
                 }
 #endif // DEBUG
 
-                CORINFO_CONTEXT_HANDLE context                = nullptr;
-                CORINFO_METHOD_HANDLE  method                 = call->gtCallMethHnd;
-                unsigned               methodFlags            = 0;
-                const bool             isLateDevirtualization = true;
-                const bool             explicitTailCall       = call->IsTailPrefixedCall();
+                var_types newType = inlineCandidate->TypeGet();
 
-                if ((call->gtCallMoreFlags & GTF_CALL_M_HAS_LATE_DEVIRT_INFO) != 0)
+                // If we end up swapping type we may need to retype the tree:
+                if (retType != newType)
                 {
-                    context = call->gtLateDevirtualizationInfo->exactContextHnd;
-                    // Note: we might call this multiple times for the same trees.
-                    // If the devirtualization below succeeds, the call becomes
-                    // non-virtual and we won't get here again. If it does not
-                    // succeed we might get here again so we keep the late devirt
-                    // info.
-                }
-
-                CORINFO_CONTEXT_HANDLE contextInput = context;
-                m_compiler->impDevirtualizeCall(call, nullptr, &method, &methodFlags, &contextInput, &context,
-                                                isLateDevirtualization, explicitTailCall);
-                m_madeChanges = true;
-            }
-        }
-        else if (tree->OperIs(GT_STORE_LCL_VAR))
-        {
-            const unsigned lclNum = tree->AsLclVarCommon()->GetLclNum();
-            GenTree* const value  = tree->AsLclVarCommon()->Data();
-
-            // If we're storing to a ref typed local that has one definition,
-            // we may be able to sharpen the type for the local.
-            if (tree->TypeGet() == TYP_REF)
-            {
-                LclVarDsc* lcl = m_compiler->lvaGetDesc(lclNum);
-
-                if (lcl->lvSingleDef)
-                {
-                    bool                 isExact;
-                    bool                 isNonNull;
-                    CORINFO_CLASS_HANDLE newClass = m_compiler->gtGetClassHandle(value, &isExact, &isNonNull);
-
-                    if (newClass != NO_CLASS_HANDLE)
+                    if ((retType == TYP_BYREF) && (tree->OperGet() == GT_IND))
                     {
-                        m_compiler->lvaUpdateClass(lclNum, newClass, isExact);
-                        m_madeChanges = true;
+                        // - in an RVA static if we've reinterpreted it as a byref;
+                        assert(newType == TYP_I_IMPL);
+                        JITDUMP("Updating type of the return GT_IND expression to TYP_BYREF\n");
+                        inlineCandidate->gtType = TYP_BYREF;
                     }
                 }
-            }
 
-            // If we created a self-store (say because we are sharing return spill temps) we can remove it.
-            //
-            if (value->OperIs(GT_LCL_VAR) && (value->AsLclVar()->GetLclNum() == lclNum))
-            {
-                JITDUMP("... removing self-assignment\n");
-                DISPTREE(tree);
-                tree->gtBashToNOP();
-                m_madeChanges = true;
-            }
-        }
-        else if (tree->OperGet() == GT_JTRUE)
-        {
-            // See if this jtrue is now foldable.
-            BasicBlock* block    = m_compiler->compCurBB;
-            GenTree*    condTree = tree->AsOp()->gtOp1;
-            assert(tree == block->lastStmt()->GetRootNode());
-
-            if (condTree->OperGet() == GT_CNS_INT)
-            {
-                JITDUMP(" ... found foldable jtrue at [%06u] in " FMT_BB "\n", m_compiler->dspTreeID(tree),
-                        block->bbNum);
-
-                // We have a constant operand, and should have the all clear to optimize.
-                // Update side effects on the tree, assert there aren't any, and bash to nop.
-                m_compiler->gtUpdateNodeSideEffects(tree);
-                assert((tree->gtFlags & GTF_SIDE_EFFECT) == 0);
-                tree->gtBashToNOP();
+                *use          = inlineCandidate;
                 m_madeChanges = true;
 
-                if (condTree->IsIntegralConst(0))
+                if (inlineeBB != nullptr)
                 {
-                    m_compiler->fgRemoveRefPred(block->GetTrueEdge());
-                    block->SetKindAndTargetEdge(BBJ_ALWAYS, block->GetFalseEdge());
+                    // IR may potentially contain nodes that requires mandatory BB flags to be set.
+                    // Propagate those flags from the containing BB.
+                    m_compiler->compCurBB->CopyFlags(inlineeBB, BBF_COPY_PROPAGATE);
+                }
+
+#ifdef DEBUG
+                if (m_compiler->verbose)
+                {
+                    printf("\nInserting the inline return expression\n");
+                    m_compiler->gtDispTree(inlineCandidate);
+                    printf("\n");
+                }
+#endif // DEBUG
+            }
+
+#if FEATURE_MULTIREG_RET
+            // If an inline was rejected and the call returns a struct, we may
+            // have deferred some work when importing call for cases where the
+            // struct is returned in multiple registers.
+            //
+            // See the bail-out clauses in impFixupCallStructReturn for inline
+            // candidates.
+            //
+            // Do the deferred work now.
+            if ((*use)->IsCall() && varTypeIsStruct(*use) && (*use)->AsCall()->HasMultiRegRetVal())
+            {
+                // See assert below, we only look one level above for a store parent.
+                if (parent->OperIsStore())
+                {
+                    // The inlinee can only be the value.
+                    assert(parent->Data() == *use);
+                    AttachStructInlineeToStore(parent, (*use)->AsCall()->gtRetClsHnd);
                 }
                 else
                 {
-                    m_compiler->fgRemoveRefPred(block->GetFalseEdge());
-                    block->SetKindAndTargetEdge(BBJ_ALWAYS, block->GetTrueEdge());
+                    // Just store the inlinee to a variable to keep it simple.
+                    *use = StoreStructInlineeToVar(*use, (*use)->AsCall()->gtRetClsHnd);
+                }
+                m_madeChanges = true;
+            }
+#endif
+        }
+
+#if FEATURE_MULTIREG_RET
+        //------------------------------------------------------------------------
+        // AttachStructInlineeToStore: Update a "STORE(..., inlinee)" tree.
+        //
+        // Morphs inlinees that are multi-reg nodes into the (only) supported shape
+        // of "lcl = node()", either by marking the store local "lvIsMultiRegRet" or
+        // storing the node into a temp and using that as the new value.
+        //
+        // Arguments:
+        //    store     - The store with the inlinee as value
+        //    retClsHnd - The struct handle for the inlinee
+        //
+        void AttachStructInlineeToStore(GenTree* store, CORINFO_CLASS_HANDLE retClsHnd)
+        {
+            assert(store->OperIsStore());
+            GenTree* dst     = store;
+            GenTree* inlinee = store->Data();
+
+            // We need to force all assignments from multi-reg nodes into the "lcl = node()" form.
+            if (inlinee->IsMultiRegNode())
+            {
+                // Special case: we already have a local, the only thing to do is mark it appropriately. Except
+                // if it may turn into an indirection. TODO-Bug: this does not account for x86 varargs args.
+                if (store->OperIs(GT_STORE_LCL_VAR) &&
+                    !m_compiler->lvaIsImplicitByRefLocal(store->AsLclVar()->GetLclNum()))
+                {
+                    m_compiler->lvaGetDesc(store->AsLclVar())->lvIsMultiRegRet = true;
+                }
+                else
+                {
+                    // Here, we store our node into a fresh temp and then use that temp as the new value.
+                    store->Data() = StoreStructInlineeToVar(inlinee, retClsHnd);
                 }
             }
         }
-        else
+
+        //------------------------------------------------------------------------
+        // AssignStructInlineeToVar: Store the struct inlinee to a temp local.
+        //
+        // Arguments:
+        //    inlinee   - The inlinee of the RET_EXPR node
+        //    retClsHnd - The struct class handle of the type of the inlinee.
+        //
+        // Return Value:
+        //    Value representing the freshly defined temp.
+        //
+        GenTree* StoreStructInlineeToVar(GenTree* inlinee, CORINFO_CLASS_HANDLE retClsHnd)
         {
-            *pTree        = m_compiler->gtFoldExpr(tree);
-            m_madeChanges = true;
+            assert(!inlinee->OperIs(GT_RET_EXPR));
+
+            unsigned   lclNum = m_compiler->lvaGrabTemp(false DEBUGARG("RetBuf for struct inline return candidates."));
+            LclVarDsc* varDsc = m_compiler->lvaGetDesc(lclNum);
+            m_compiler->lvaSetStruct(lclNum, retClsHnd, false);
+
+            // Sink the store below any COMMAs: this is required for multi-reg nodes.
+            GenTree* src       = inlinee;
+            GenTree* lastComma = nullptr;
+            while (src->OperIs(GT_COMMA))
+            {
+                lastComma = src;
+                src       = src->AsOp()->gtOp2;
+            }
+
+            // When storing a multi-register value to a local var, make sure the variable is marked as lvIsMultiRegRet.
+            if (src->IsMultiRegNode())
+            {
+                varDsc->lvIsMultiRegRet = true;
+            }
+
+            GenTree* store = m_compiler->gtNewStoreLclVarNode(lclNum, src);
+
+            // If inlinee was comma, new inlinee is (, , , lcl = inlinee).
+            if (inlinee->OperIs(GT_COMMA))
+            {
+                lastComma->AsOp()->gtOp2 = store;
+                store                    = inlinee;
+            }
+
+            GenTree* lcl = m_compiler->gtNewLclvNode(lclNum, varDsc->TypeGet());
+            return m_compiler->gtNewOperNode(GT_COMMA, lcl->TypeGet(), store, lcl);
         }
-    }
+#endif // FEATURE_MULTIREG_RET
+
+        //------------------------------------------------------------------------
+        // LateDevirtualization: re-examine calls after inlining to see if we
+        //   can do more devirtualization
+        //
+        // Arguments:
+        //    pTree -- pointer to tree to examine for updates
+        //    parent -- parent node containing the pTree edge
+        //
+        // Returns:
+        //    fgWalkResult indicating the walk should continue; that
+        //    is we wish to fully explore the tree.
+        //
+        // Notes:
+        //    We used to check this opportunistically in the preorder callback for
+        //    calls where the `obj` was fed by a return, but we now re-examine
+        //    all calls.
+        //
+        //    Late devirtualization (and eventually, perhaps, other type-driven
+        //    opts like cast optimization) can happen now because inlining or other
+        //    optimizations may have provided more accurate types than we saw when
+        //    first importing the trees.
+        //
+        //    It would be nice to screen candidate sites based on the likelihood
+        //    that something has changed. Otherwise we'll waste some time retrying
+        //    an optimization that will just fail again.
+        void LateDevirtualization(GenTree** pTree, GenTree* parent)
+        {
+            GenTree* tree = *pTree;
+            // In some (rare) cases the parent node of tree will be smashed to a NOP during
+            // the preorder by AttachStructToInlineeArg.
+            //
+            // jit\Methodical\VT\callconv\_il_reljumper3 for x64 linux
+            //
+            // If so, just bail out here.
+            if (tree == nullptr)
+            {
+                assert((parent != nullptr) && parent->OperGet() == GT_NOP);
+                return;
+            }
+
+            if (tree->OperGet() == GT_CALL)
+            {
+                GenTreeCall* call          = tree->AsCall();
+                bool         tryLateDevirt = call->IsVirtual() && (call->gtCallType == CT_USER_FUNC);
+
+#ifdef DEBUG
+                tryLateDevirt = tryLateDevirt && (JitConfig.JitEnableLateDevirtualization() == 1);
+#endif // DEBUG
+
+                if (tryLateDevirt)
+                {
+#ifdef DEBUG
+                    if (m_compiler->verbose)
+                    {
+                        printf("**** Late devirt opportunity\n");
+                        m_compiler->gtDispTree(call);
+                    }
+#endif // DEBUG
+
+                    CORINFO_CONTEXT_HANDLE context                = nullptr;
+                    CORINFO_METHOD_HANDLE  method                 = call->gtCallMethHnd;
+                    unsigned               methodFlags            = 0;
+                    const bool             isLateDevirtualization = true;
+                    const bool             explicitTailCall       = call->IsTailPrefixedCall();
+
+                    if ((call->gtCallMoreFlags & GTF_CALL_M_HAS_LATE_DEVIRT_INFO) != 0)
+                    {
+                        context = call->gtLateDevirtualizationInfo->exactContextHnd;
+                        // Note: we might call this multiple times for the same trees.
+                        // If the devirtualization below succeeds, the call becomes
+                        // non-virtual and we won't get here again. If it does not
+                        // succeed we might get here again so we keep the late devirt
+                        // info.
+                    }
+
+                    CORINFO_CONTEXT_HANDLE contextInput = context;
+                    m_compiler->impDevirtualizeCall(call, nullptr, &method, &methodFlags, &contextInput, &context,
+                                                    isLateDevirtualization, explicitTailCall);
+                    m_madeChanges = true;
+                }
+            }
+            else if (tree->OperIs(GT_STORE_LCL_VAR))
+            {
+                const unsigned lclNum = tree->AsLclVarCommon()->GetLclNum();
+                GenTree* const value  = tree->AsLclVarCommon()->Data();
+
+                // If we're storing to a ref typed local that has one definition,
+                // we may be able to sharpen the type for the local.
+                if (tree->TypeGet() == TYP_REF)
+                {
+                    LclVarDsc* lcl = m_compiler->lvaGetDesc(lclNum);
+
+                    if (lcl->lvSingleDef)
+                    {
+                        bool                 isExact;
+                        bool                 isNonNull;
+                        CORINFO_CLASS_HANDLE newClass = m_compiler->gtGetClassHandle(value, &isExact, &isNonNull);
+
+                        if (newClass != NO_CLASS_HANDLE)
+                        {
+                            m_compiler->lvaUpdateClass(lclNum, newClass, isExact);
+                            m_madeChanges = true;
+                        }
+                    }
+                }
+
+                // If we created a self-store (say because we are sharing return spill temps) we can remove it.
+                //
+                if (value->OperIs(GT_LCL_VAR) && (value->AsLclVar()->GetLclNum() == lclNum))
+                {
+                    JITDUMP("... removing self-assignment\n");
+                    DISPTREE(tree);
+                    tree->gtBashToNOP();
+                    m_madeChanges = true;
+                }
+            }
+            else if (tree->OperGet() == GT_JTRUE)
+            {
+                // See if this jtrue is now foldable.
+                BasicBlock* block    = m_compiler->compCurBB;
+                GenTree*    condTree = tree->AsOp()->gtOp1;
+                assert(tree == block->lastStmt()->GetRootNode());
+
+                if (condTree->OperGet() == GT_CNS_INT)
+                {
+                    JITDUMP(" ... found foldable jtrue at [%06u] in " FMT_BB "\n", m_compiler->dspTreeID(tree),
+                            block->bbNum);
+
+                    // We have a constant operand, and should have the all clear to optimize.
+                    // Update side effects on the tree, assert there aren't any, and bash to nop.
+                    m_compiler->gtUpdateNodeSideEffects(tree);
+                    assert((tree->gtFlags & GTF_SIDE_EFFECT) == 0);
+                    tree->gtBashToNOP();
+                    m_madeChanges = true;
+
+                    if (condTree->IsIntegralConst(0))
+                    {
+                        m_compiler->fgRemoveRefPred(block->GetTrueEdge());
+                        block->SetKindAndTargetEdge(BBJ_ALWAYS, block->GetFalseEdge());
+                    }
+                    else
+                    {
+                        m_compiler->fgRemoveRefPred(block->GetFalseEdge());
+                        block->SetKindAndTargetEdge(BBJ_ALWAYS, block->GetTrueEdge());
+                    }
+                }
+            }
+            else
+            {
+                *pTree        = m_compiler->gtFoldExpr(tree);
+                m_madeChanges = true;
+            }
+        }
 };
 
 //------------------------------------------------------------------------
@@ -1158,11 +1161,11 @@ void Compiler::fgInvokeInlineeCompiler(GenTreeCall* call, InlineResult* inlineRe
     // Set the trap to catch all errors (including recoverable ones from the EE)
     struct Param
     {
-        Compiler*             pThis;
-        GenTree*              call;
-        CORINFO_METHOD_HANDLE fncHandle;
-        InlineCandidateInfo*  inlineCandidateInfo;
-        InlineInfo*           inlineInfo;
+            Compiler*             pThis;
+            GenTree*              call;
+            CORINFO_METHOD_HANDLE fncHandle;
+            InlineCandidateInfo*  inlineCandidateInfo;
+            InlineInfo*           inlineInfo;
     } param;
     memset(&param, 0, sizeof(param));
 
@@ -1172,8 +1175,7 @@ void Compiler::fgInvokeInlineeCompiler(GenTreeCall* call, InlineResult* inlineRe
     param.inlineCandidateInfo = inlineCandidateInfo;
     param.inlineInfo          = &inlineInfo;
     bool success              = eeRunWithErrorTrap<Param>(
-        [](Param* pParam)
-        {
+        [](Param* pParam) {
             // Init the local var info of the inlinee
             pParam->pThis->impInlineInitVars(pParam->inlineInfo);
 

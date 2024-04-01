@@ -49,8 +49,8 @@ typedef unsigned __int64 code_t;
 
 struct CnsVal
 {
-    ssize_t cnsVal;
-    bool    cnsReloc;
+        ssize_t cnsVal;
+        bool    cnsReloc;
 };
 
 UNATIVE_OFFSET emitInsSize(instrDesc* id, code_t code, bool includeRexPrefixSize);
@@ -241,13 +241,13 @@ bool HasKMaskRegisterDest(instruction ins) const
         case INS_vgatherqps:
         case INS_vgatherdpd:
         case INS_vgatherqpd:
-        {
-            return true;
-        }
+            {
+                return true;
+            }
         default:
-        {
-            return false;
-        }
+            {
+                return false;
+            }
     }
 }
 
@@ -562,8 +562,12 @@ bool emitVerifyEncodable(instruction ins, emitAttr size, regNumber reg1, regNumb
 bool emitInsCanOnlyWriteSSE2OrAVXReg(instrDesc* id);
 
 #if FEATURE_FIXED_OUT_ARGS
-void emitAdjustStackDepthPushPop(instruction ins) {}
-void emitAdjustStackDepth(instruction ins, ssize_t val) {}
+void emitAdjustStackDepthPushPop(instruction ins)
+{
+}
+void emitAdjustStackDepth(instruction ins, ssize_t val)
+{
+}
 #else  // !FEATURE_FIXED_OUT_ARGS
 void emitAdjustStackDepthPushPop(instruction ins);
 void emitAdjustStackDepth(instruction ins, ssize_t val);
@@ -889,8 +893,7 @@ void emitIns_SIMD_R_R_R_S_I(instruction ins,
                             int         ival);
 #endif // FEATURE_HW_INTRINSICS
 
-enum EmitCallType
-{
+enum EmitCallType {
     EC_FUNC_TOKEN, //   Direct call to a helper/static/nonvirtual/global method (call addr with RIP-relative encoding)
     EC_FUNC_TOKEN_INDIR, // Indirect call to a helper/static/nonvirtual/global method (call [addr]/call [rip+addr])
     EC_INDIR_R,          // Indirect call via register (call rax)

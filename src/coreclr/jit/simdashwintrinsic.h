@@ -4,8 +4,7 @@
 #ifndef _SIMD_AS_HWINTRINSIC_H_
 #define _SIMD_AS_HWINTRINSIC_H_
 
-enum class SimdAsHWIntrinsicClassId
-{
+enum class SimdAsHWIntrinsicClassId {
     Unknown,
     Plane,
     Quaternion,
@@ -16,8 +15,7 @@ enum class SimdAsHWIntrinsicClassId
     VectorT,
 };
 
-enum class SimdAsHWIntrinsicFlag : unsigned int
-{
+enum class SimdAsHWIntrinsicFlag : unsigned int {
     None = 0,
 
     // Indicates compFloatingPointUsed does not need to be set.
@@ -63,99 +61,99 @@ inline SimdAsHWIntrinsicFlag operator^(SimdAsHWIntrinsicFlag lhs, SimdAsHWIntrin
 
 struct SimdAsHWIntrinsicInfo
 {
-    NamedIntrinsic           id;
-    const char*              name;
-    SimdAsHWIntrinsicClassId classId;
-    int                      numArgs;
-    NamedIntrinsic           hwIntrinsic[10];
-    SimdAsHWIntrinsicFlag    flags;
+        NamedIntrinsic           id;
+        const char*              name;
+        SimdAsHWIntrinsicClassId classId;
+        int                      numArgs;
+        NamedIntrinsic           hwIntrinsic[10];
+        SimdAsHWIntrinsicFlag    flags;
 
-    static const SimdAsHWIntrinsicInfo& lookup(NamedIntrinsic id);
+        static const SimdAsHWIntrinsicInfo& lookup(NamedIntrinsic id);
 
-    static NamedIntrinsic lookupId(Compiler*         comp,
-                                   CORINFO_SIG_INFO* sig,
-                                   const char*       className,
-                                   const char*       methodName,
-                                   const char*       enclosingClassName);
+        static NamedIntrinsic lookupId(Compiler*         comp,
+                                       CORINFO_SIG_INFO* sig,
+                                       const char*       className,
+                                       const char*       methodName,
+                                       const char*       enclosingClassName);
 
-    static SimdAsHWIntrinsicClassId lookupClassId(Compiler*   comp,
-                                                  const char* className,
-                                                  const char* enclosingClassName);
+        static SimdAsHWIntrinsicClassId lookupClassId(Compiler*   comp,
+                                                      const char* className,
+                                                      const char* enclosingClassName);
 
-    // Member lookup
+        // Member lookup
 
-    static NamedIntrinsic lookupId(NamedIntrinsic id)
-    {
-        return lookup(id).id;
-    }
-
-    static const char* lookupName(NamedIntrinsic id)
-    {
-        return lookup(id).name;
-    }
-
-    static SimdAsHWIntrinsicClassId lookupClassId(NamedIntrinsic id)
-    {
-        return lookup(id).classId;
-    }
-
-    static int lookupNumArgs(NamedIntrinsic id)
-    {
-        return lookup(id).numArgs;
-    }
-
-    static NamedIntrinsic lookupHWIntrinsic(NamedIntrinsic id, var_types type)
-    {
-        if ((type < TYP_BYTE) || (type > TYP_DOUBLE))
+        static NamedIntrinsic lookupId(NamedIntrinsic id)
         {
-            assert(!"Unexpected type");
-            return NI_Illegal;
+            return lookup(id).id;
         }
-        return lookup(id).hwIntrinsic[type - TYP_BYTE];
-    }
 
-    static SimdAsHWIntrinsicFlag lookupFlags(NamedIntrinsic id)
-    {
-        return lookup(id).flags;
-    }
+        static const char* lookupName(NamedIntrinsic id)
+        {
+            return lookup(id).name;
+        }
 
-    // Flags lookup
+        static SimdAsHWIntrinsicClassId lookupClassId(NamedIntrinsic id)
+        {
+            return lookup(id).classId;
+        }
 
-    static bool IsFloatingPointUsed(NamedIntrinsic id)
-    {
-        SimdAsHWIntrinsicFlag flags = lookupFlags(id);
-        return (flags & SimdAsHWIntrinsicFlag::NoFloatingPointUsed) == SimdAsHWIntrinsicFlag::None;
-    }
+        static int lookupNumArgs(NamedIntrinsic id)
+        {
+            return lookup(id).numArgs;
+        }
 
-    static bool IsInstanceMethod(NamedIntrinsic id)
-    {
-        SimdAsHWIntrinsicFlag flags = lookupFlags(id);
-        return (flags & SimdAsHWIntrinsicFlag::InstanceMethod) == SimdAsHWIntrinsicFlag::InstanceMethod;
-    }
+        static NamedIntrinsic lookupHWIntrinsic(NamedIntrinsic id, var_types type)
+        {
+            if ((type < TYP_BYTE) || (type > TYP_DOUBLE))
+            {
+                assert(!"Unexpected type");
+                return NI_Illegal;
+            }
+            return lookup(id).hwIntrinsic[type - TYP_BYTE];
+        }
 
-    static bool BaseTypeFromThisArg(NamedIntrinsic id)
-    {
-        SimdAsHWIntrinsicFlag flags = lookupFlags(id);
-        return (flags & SimdAsHWIntrinsicFlag::BaseTypeFromThisArg) == SimdAsHWIntrinsicFlag::BaseTypeFromThisArg;
-    }
+        static SimdAsHWIntrinsicFlag lookupFlags(NamedIntrinsic id)
+        {
+            return lookup(id).flags;
+        }
 
-    static bool KeepBaseTypeFromRet(NamedIntrinsic id)
-    {
-        SimdAsHWIntrinsicFlag flags = lookupFlags(id);
-        return (flags & SimdAsHWIntrinsicFlag::KeepBaseTypeFromRet) == SimdAsHWIntrinsicFlag::KeepBaseTypeFromRet;
-    }
+        // Flags lookup
 
-    static bool SpillSideEffectsOp1(NamedIntrinsic id)
-    {
-        SimdAsHWIntrinsicFlag flags = lookupFlags(id);
-        return (flags & SimdAsHWIntrinsicFlag::SpillSideEffectsOp1) == SimdAsHWIntrinsicFlag::SpillSideEffectsOp1;
-    }
+        static bool IsFloatingPointUsed(NamedIntrinsic id)
+        {
+            SimdAsHWIntrinsicFlag flags = lookupFlags(id);
+            return (flags & SimdAsHWIntrinsicFlag::NoFloatingPointUsed) == SimdAsHWIntrinsicFlag::None;
+        }
 
-    static bool SpillSideEffectsOp2(NamedIntrinsic id)
-    {
-        SimdAsHWIntrinsicFlag flags = lookupFlags(id);
-        return (flags & SimdAsHWIntrinsicFlag::SpillSideEffectsOp2) == SimdAsHWIntrinsicFlag::SpillSideEffectsOp2;
-    }
+        static bool IsInstanceMethod(NamedIntrinsic id)
+        {
+            SimdAsHWIntrinsicFlag flags = lookupFlags(id);
+            return (flags & SimdAsHWIntrinsicFlag::InstanceMethod) == SimdAsHWIntrinsicFlag::InstanceMethod;
+        }
+
+        static bool BaseTypeFromThisArg(NamedIntrinsic id)
+        {
+            SimdAsHWIntrinsicFlag flags = lookupFlags(id);
+            return (flags & SimdAsHWIntrinsicFlag::BaseTypeFromThisArg) == SimdAsHWIntrinsicFlag::BaseTypeFromThisArg;
+        }
+
+        static bool KeepBaseTypeFromRet(NamedIntrinsic id)
+        {
+            SimdAsHWIntrinsicFlag flags = lookupFlags(id);
+            return (flags & SimdAsHWIntrinsicFlag::KeepBaseTypeFromRet) == SimdAsHWIntrinsicFlag::KeepBaseTypeFromRet;
+        }
+
+        static bool SpillSideEffectsOp1(NamedIntrinsic id)
+        {
+            SimdAsHWIntrinsicFlag flags = lookupFlags(id);
+            return (flags & SimdAsHWIntrinsicFlag::SpillSideEffectsOp1) == SimdAsHWIntrinsicFlag::SpillSideEffectsOp1;
+        }
+
+        static bool SpillSideEffectsOp2(NamedIntrinsic id)
+        {
+            SimdAsHWIntrinsicFlag flags = lookupFlags(id);
+            return (flags & SimdAsHWIntrinsicFlag::SpillSideEffectsOp2) == SimdAsHWIntrinsicFlag::SpillSideEffectsOp2;
+        }
 };
 
 #endif // _SIMD_AS_HWINTRINSIC_H_

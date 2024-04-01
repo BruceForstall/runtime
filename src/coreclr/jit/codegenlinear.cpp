@@ -156,8 +156,9 @@ void CodeGen::genCodeForBBlist()
 
     genMarkLabelsForCodegen();
 
-    assert(!compiler->fgFirstBBScratch || compiler->fgFirstBB == compiler->fgFirstBBScratch); // compiler->fgFirstBBScratch
-                                                                                              // has to be first.
+    assert(!compiler->fgFirstBBScratch ||
+           compiler->fgFirstBB == compiler->fgFirstBBScratch); // compiler->fgFirstBBScratch
+                                                               // has to be first.
 
     /* Initialize structures used in the block list iteration */
     genInitialize();
@@ -644,8 +645,7 @@ void CodeGen::genCodeForBBlist()
 #endif // TARGET_AMD64
 
 #if FEATURE_LOOP_ALIGN
-        auto SetLoopAlignBackEdge = [=](const BasicBlock* block, const BasicBlock* target)
-        {
+        auto SetLoopAlignBackEdge = [=](const BasicBlock* block, const BasicBlock* target) {
             // This is the last place where we operate on blocks and after this, we operate
             // on IG. Hence, if we know that the destination of "block" is the first block
             // of a loop and that loop needs alignment (it has BBF_LOOP_ALIGN), then "block"
@@ -738,7 +738,7 @@ void CodeGen::genCodeForBBlist()
                 genReserveFuncletEpilog(block);
                 break;
 
-#else // !FEATURE_EH_FUNCLETS
+#else  // !FEATURE_EH_FUNCLETS
 
             case BBJ_EHCATCHRET:
                 noway_assert(!"Unexpected BBJ_EHCATCHRET"); // not used on x86
@@ -756,29 +756,29 @@ void CodeGen::genCodeForBBlist()
                 break;
 
             case BBJ_ALWAYS:
-            {
-                // If this block jumps to the next one, we might be able to skip emitting the jump
-                if (block->CanRemoveJumpToNext(compiler))
                 {
-#ifdef TARGET_AMD64
-                    if (emitNopBeforeEHRegion)
+                    // If this block jumps to the next one, we might be able to skip emitting the jump
+                    if (block->CanRemoveJumpToNext(compiler))
                     {
-                        instGen(INS_nop);
-                    }
+#ifdef TARGET_AMD64
+                        if (emitNopBeforeEHRegion)
+                        {
+                            instGen(INS_nop);
+                        }
 #endif // TARGET_AMD64
 
-                    removedJmp = true;
-                    break;
-                }
+                        removedJmp = true;
+                        break;
+                    }
 #ifdef TARGET_XARCH
-                // Do not remove a jump between hot and cold regions.
-                bool isRemovableJmpCandidate = !compiler->fgInDifferentRegions(block, block->GetTarget());
+                    // Do not remove a jump between hot and cold regions.
+                    bool isRemovableJmpCandidate = !compiler->fgInDifferentRegions(block, block->GetTarget());
 
-                inst_JMP(EJ_jmp, block->GetTarget(), isRemovableJmpCandidate);
+                    inst_JMP(EJ_jmp, block->GetTarget(), isRemovableJmpCandidate);
 #else
-                inst_JMP(EJ_jmp, block->GetTarget());
+                    inst_JMP(EJ_jmp, block->GetTarget());
 #endif // TARGET_XARCH
-            }
+                }
 
 #if FEATURE_LOOP_ALIGN
                 SetLoopAlignBackEdge(block, block->GetTarget());
@@ -2556,7 +2556,7 @@ CodeGen::GenIntCastDesc::GenIntCastDesc(GenTreeCast* cast)
                 m_extendKind    = varTypeIsSmall(srcLoadType) ? LOAD_SIGN_EXTEND_SMALL_INT : LOAD_SIGN_EXTEND_INT;
                 m_extendSrcSize = genTypeSize(srcLoadType);
                 break;
-#endif // TARGET_64BIT
+#endif                 // TARGET_64BIT
 
             case COPY: // long -> long, small type/int/long -> int.
                 m_extendKind    = LOAD_SOURCE;

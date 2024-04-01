@@ -152,52 +152,52 @@ void ObjectAllocator::MarkEscapingVarsAndBuildConnGraph()
 {
     class BuildConnGraphVisitor final : public GenTreeVisitor<BuildConnGraphVisitor>
     {
-        ObjectAllocator* m_allocator;
+            ObjectAllocator* m_allocator;
 
-    public:
-        enum
-        {
-            DoPreOrder    = true,
-            DoLclVarsOnly = true,
-            ComputeStack  = true,
-        };
+        public:
+            enum {
+                DoPreOrder    = true,
+                DoLclVarsOnly = true,
+                ComputeStack  = true,
+            };
 
-        BuildConnGraphVisitor(ObjectAllocator* allocator)
-            : GenTreeVisitor<BuildConnGraphVisitor>(allocator->comp), m_allocator(allocator)
-        {
-        }
-
-        Compiler::fgWalkResult PreOrderVisit(GenTree** use, GenTree* user)
-        {
-            GenTree* tree       = *use;
-            unsigned lclNum     = tree->AsLclVarCommon()->GetLclNum();
-            bool     lclEscapes = true;
-
-            if (tree->OperIsLocalStore())
+            BuildConnGraphVisitor(ObjectAllocator* allocator)
+                : GenTreeVisitor<BuildConnGraphVisitor>(allocator->comp)
+                , m_allocator(allocator)
             {
-                lclEscapes = false;
             }
-            else if (tree->OperIs(GT_LCL_VAR) && tree->TypeIs(TYP_REF, TYP_BYREF, TYP_I_IMPL))
-            {
-                assert(tree == m_ancestors.Top());
 
-                if (!m_allocator->CanLclVarEscapeViaParentStack(&m_ancestors, lclNum))
+            Compiler::fgWalkResult PreOrderVisit(GenTree** use, GenTree* user)
+            {
+                GenTree* tree       = *use;
+                unsigned lclNum     = tree->AsLclVarCommon()->GetLclNum();
+                bool     lclEscapes = true;
+
+                if (tree->OperIsLocalStore())
                 {
                     lclEscapes = false;
                 }
-            }
-
-            if (lclEscapes)
-            {
-                if (!m_allocator->CanLclVarEscape(lclNum))
+                else if (tree->OperIs(GT_LCL_VAR) && tree->TypeIs(TYP_REF, TYP_BYREF, TYP_I_IMPL))
                 {
-                    JITDUMP("V%02u first escapes via [%06u]\n", lclNum, m_compiler->dspTreeID(tree));
-                }
-                m_allocator->MarkLclVarAsEscaping(lclNum);
-            }
+                    assert(tree == m_ancestors.Top());
 
-            return Compiler::fgWalkResult::WALK_CONTINUE;
-        }
+                    if (!m_allocator->CanLclVarEscapeViaParentStack(&m_ancestors, lclNum))
+                    {
+                        lclEscapes = false;
+                    }
+                }
+
+                if (lclEscapes)
+                {
+                    if (!m_allocator->CanLclVarEscape(lclNum))
+                    {
+                        JITDUMP("V%02u first escapes via [%06u]\n", lclNum, m_compiler->dspTreeID(tree));
+                    }
+                    m_allocator->MarkLclVarAsEscaping(lclNum);
+                }
+
+                return Compiler::fgWalkResult::WALK_CONTINUE;
+            }
     };
 
     for (unsigned int lclNum = 0; lclNum < comp->lvaCount; ++lclNum)
@@ -588,15 +588,15 @@ bool ObjectAllocator::CanLclVarEscapeViaParentStack(ArrayStack<GenTree*>* parent
             // Update the connection graph if we are storing to a local.
             // For all other stores we mark the local as escaping.
             case GT_STORE_LCL_VAR:
-            {
-                // Add an edge to the connection graph.
-                const unsigned int dstLclNum = parent->AsLclVar()->GetLclNum();
-                const unsigned int srcLclNum = lclNum;
+                {
+                    // Add an edge to the connection graph.
+                    const unsigned int dstLclNum = parent->AsLclVar()->GetLclNum();
+                    const unsigned int srcLclNum = lclNum;
 
-                AddConnGraphEdge(dstLclNum, srcLclNum);
-                canLclVarEscapeViaParentStack = false;
-            }
-            break;
+                    AddConnGraphEdge(dstLclNum, srcLclNum);
+                    canLclVarEscapeViaParentStack = false;
+                }
+                break;
 
             case GT_EQ:
             case GT_NE:
@@ -633,20 +633,20 @@ bool ObjectAllocator::CanLclVarEscapeViaParentStack(ArrayStack<GenTree*>* parent
                 break;
 
             case GT_CALL:
-            {
-                GenTreeCall* asCall = parent->AsCall();
-
-                if (asCall->gtCallType == CT_HELPER)
                 {
-                    // TODO-ObjectStackAllocation: Special-case helpers here that
-                    // 1. Don't make objects escape.
-                    // 2. Protect objects as interior (GCPROTECT_BEGININTERIOR() instead of GCPROTECT_BEGIN()).
-                    // 3. Don't check that the object is in the heap in ValidateInner.
+                    GenTreeCall* asCall = parent->AsCall();
 
-                    canLclVarEscapeViaParentStack = true;
+                    if (asCall->gtCallType == CT_HELPER)
+                    {
+                        // TODO-ObjectStackAllocation: Special-case helpers here that
+                        // 1. Don't make objects escape.
+                        // 2. Protect objects as interior (GCPROTECT_BEGININTERIOR() instead of GCPROTECT_BEGIN()).
+                        // 3. Don't check that the object is in the heap in ValidateInner.
+
+                        canLclVarEscapeViaParentStack = true;
+                    }
+                    break;
                 }
-                break;
-            }
 
             default:
                 break;
@@ -755,64 +755,64 @@ void ObjectAllocator::RewriteUses()
 {
     class RewriteUsesVisitor final : public GenTreeVisitor<RewriteUsesVisitor>
     {
-        ObjectAllocator* m_allocator;
+            ObjectAllocator* m_allocator;
 
-    public:
-        enum
-        {
-            DoPreOrder    = true,
-            DoLclVarsOnly = true,
-            ComputeStack  = true,
-        };
+        public:
+            enum {
+                DoPreOrder    = true,
+                DoLclVarsOnly = true,
+                ComputeStack  = true,
+            };
 
-        RewriteUsesVisitor(ObjectAllocator* allocator)
-            : GenTreeVisitor<RewriteUsesVisitor>(allocator->comp), m_allocator(allocator)
-        {
-        }
-
-        Compiler::fgWalkResult PreOrderVisit(GenTree** use, GenTree* user)
-        {
-            GenTree* tree = *use;
-            assert(tree->OperIsAnyLocal());
-
-            const unsigned int lclNum    = tree->AsLclVarCommon()->GetLclNum();
-            unsigned int       newLclNum = BAD_VAR_NUM;
-            LclVarDsc*         lclVarDsc = m_compiler->lvaGetDesc(lclNum);
-
-            if ((lclNum < BitVecTraits::GetSize(&m_allocator->m_bitVecTraits)) &&
-                m_allocator->MayLclVarPointToStack(lclNum))
+            RewriteUsesVisitor(ObjectAllocator* allocator)
+                : GenTreeVisitor<RewriteUsesVisitor>(allocator->comp)
+                , m_allocator(allocator)
             {
-                // Analysis does not handle indirect access to pointer locals.
-                assert(tree->OperIsScalarLocal());
-
-                var_types newType;
-                if (m_allocator->m_HeapLocalToStackLocalMap.TryGetValue(lclNum, &newLclNum))
-                {
-                    assert(tree->OperIs(GT_LCL_VAR)); // Must be a use.
-                    newType = TYP_I_IMPL;
-                    tree    = m_compiler->gtNewLclVarAddrNode(newLclNum);
-                    *use    = tree;
-                }
-                else
-                {
-                    newType = m_allocator->DoesLclVarPointToStack(lclNum) ? TYP_I_IMPL : TYP_BYREF;
-                    if (tree->TypeGet() == TYP_REF)
-                    {
-                        tree->ChangeType(newType);
-                    }
-                }
-
-                if (lclVarDsc->lvType != newType)
-                {
-                    JITDUMP("changing the type of V%02u from %s to %s\n", lclNum, varTypeName(lclVarDsc->lvType),
-                            varTypeName(newType));
-                    lclVarDsc->lvType = newType;
-                }
-                m_allocator->UpdateAncestorTypes(tree, &m_ancestors, newType);
             }
 
-            return Compiler::fgWalkResult::WALK_CONTINUE;
-        }
+            Compiler::fgWalkResult PreOrderVisit(GenTree** use, GenTree* user)
+            {
+                GenTree* tree = *use;
+                assert(tree->OperIsAnyLocal());
+
+                const unsigned int lclNum    = tree->AsLclVarCommon()->GetLclNum();
+                unsigned int       newLclNum = BAD_VAR_NUM;
+                LclVarDsc*         lclVarDsc = m_compiler->lvaGetDesc(lclNum);
+
+                if ((lclNum < BitVecTraits::GetSize(&m_allocator->m_bitVecTraits)) &&
+                    m_allocator->MayLclVarPointToStack(lclNum))
+                {
+                    // Analysis does not handle indirect access to pointer locals.
+                    assert(tree->OperIsScalarLocal());
+
+                    var_types newType;
+                    if (m_allocator->m_HeapLocalToStackLocalMap.TryGetValue(lclNum, &newLclNum))
+                    {
+                        assert(tree->OperIs(GT_LCL_VAR)); // Must be a use.
+                        newType = TYP_I_IMPL;
+                        tree    = m_compiler->gtNewLclVarAddrNode(newLclNum);
+                        *use    = tree;
+                    }
+                    else
+                    {
+                        newType = m_allocator->DoesLclVarPointToStack(lclNum) ? TYP_I_IMPL : TYP_BYREF;
+                        if (tree->TypeGet() == TYP_REF)
+                        {
+                            tree->ChangeType(newType);
+                        }
+                    }
+
+                    if (lclVarDsc->lvType != newType)
+                    {
+                        JITDUMP("changing the type of V%02u from %s to %s\n", lclNum, varTypeName(lclVarDsc->lvType),
+                                varTypeName(newType));
+                        lclVarDsc->lvType = newType;
+                    }
+                    m_allocator->UpdateAncestorTypes(tree, &m_ancestors, newType);
+                }
+
+                return Compiler::fgWalkResult::WALK_CONTINUE;
+            }
     };
 
     for (BasicBlock* const block : comp->Blocks())

@@ -7,8 +7,7 @@
 /*****************************************************************************/
 #include "error.h"
 
-enum var_types_classification
-{
+enum var_types_classification {
     VTF_ANY = 0x0000,
     VTF_INT = 0x0001,
     VTF_UNS = 0x0002, // type is unsigned
@@ -20,8 +19,7 @@ enum var_types_classification
     VTF_VEC = 0x0080, // is a vector type
 };
 
-enum var_types_register
-{
+enum var_types_register {
     VTR_UNKNOWN = 0,
     VTR_INT     = 1,
     VTR_FLOAT   = 2,
@@ -56,8 +54,7 @@ const extern BYTE varTypeClassification[TYP_COUNT];
 const extern BYTE varTypeRegister[TYP_COUNT];
 
 // make any class with a TypeGet member also have a function TypeGet() that does the same thing
-template <class T>
-inline var_types TypeGet(T* t)
+template <class T> inline var_types TypeGet(T* t)
 {
     return t->TypeGet();
 }
@@ -71,8 +68,7 @@ inline var_types TypeGet(var_types v)
     return v;
 }
 
-template <class T>
-inline bool varTypeIsSIMD(T vt)
+template <class T> inline bool varTypeIsSIMD(T vt)
 {
 #ifdef FEATURE_SIMD
     return ((varTypeClassification[TypeGet(vt)] & VTF_VEC) != 0);
@@ -82,8 +78,7 @@ inline bool varTypeIsSIMD(T vt)
 #endif
 }
 
-template <class T>
-inline bool varTypeIsMask(T vt)
+template <class T> inline bool varTypeIsMask(T vt)
 {
 #if defined(FEATURE_MASKED_HW_INTRINSICS)
     return (TypeGet(vt) == TYP_MASK);
@@ -92,40 +87,34 @@ inline bool varTypeIsMask(T vt)
 #endif
 }
 
-template <class T>
-inline bool varTypeIsSIMDOrMask(T vt)
+template <class T> inline bool varTypeIsSIMDOrMask(T vt)
 {
     return varTypeIsSIMD(vt) || varTypeIsMask(vt);
 }
 
-template <class T>
-inline bool varTypeIsIntegral(T vt)
+template <class T> inline bool varTypeIsIntegral(T vt)
 {
     return ((varTypeClassification[TypeGet(vt)] & (VTF_INT)) != 0);
 }
 
-template <class T>
-inline bool varTypeIsIntegralOrI(T vt)
+template <class T> inline bool varTypeIsIntegralOrI(T vt)
 {
     return ((varTypeClassification[TypeGet(vt)] & (VTF_INT | VTF_I)) != 0);
 }
 
-template <class T>
-inline bool varTypeIsUnsigned(T vt)
+template <class T> inline bool varTypeIsUnsigned(T vt)
 {
     return ((varTypeClassification[TypeGet(vt)] & (VTF_UNS)) != 0);
 }
 
-template <class T>
-inline bool varTypeIsSigned(T vt)
+template <class T> inline bool varTypeIsSigned(T vt)
 {
     return varTypeIsIntegralOrI(vt) && !varTypeIsUnsigned(vt);
 }
 
 // If "vt" represents an unsigned integral type, returns the corresponding signed integral type,
 // otherwise returns the original type.
-template <class T>
-inline var_types varTypeToSigned(T vt)
+template <class T> inline var_types varTypeToSigned(T vt)
 {
     var_types type = TypeGet(vt);
     if (varTypeIsUnsigned(type))
@@ -150,8 +139,7 @@ inline var_types varTypeToSigned(T vt)
 
 // If "vt" represents a signed integral type, returns the corresponding unsigned integral type,
 // otherwise returns the original type.
-template <class T>
-inline var_types varTypeToUnsigned(T vt)
+template <class T> inline var_types varTypeToUnsigned(T vt)
 {
     // Force signed types into corresponding unsigned type.
     var_types type = TypeGet(vt);
@@ -170,56 +158,47 @@ inline var_types varTypeToUnsigned(T vt)
     }
 }
 
-template <class T>
-inline bool varTypeIsFloating(T vt)
+template <class T> inline bool varTypeIsFloating(T vt)
 {
     return ((varTypeClassification[TypeGet(vt)] & (VTF_FLT)) != 0);
 }
 
-template <class T>
-inline bool varTypeIsArithmetic(T vt)
+template <class T> inline bool varTypeIsArithmetic(T vt)
 {
     return ((varTypeClassification[TypeGet(vt)] & (VTF_INT | VTF_FLT)) != 0);
 }
 
-template <class T>
-inline bool varTypeIsGC(T vt)
+template <class T> inline bool varTypeIsGC(T vt)
 {
     return ((varTypeClassification[TypeGet(vt)] & (VTF_GCR | VTF_BYR)) != 0);
 }
 
-template <class T>
-inline bool varTypeIsI(T vt)
+template <class T> inline bool varTypeIsI(T vt)
 {
     return ((varTypeClassification[TypeGet(vt)] & VTF_I) != 0);
 }
 
-template <class T>
-inline bool varTypeIsEnregisterable(T vt)
+template <class T> inline bool varTypeIsEnregisterable(T vt)
 {
     return (TypeGet(vt) != TYP_STRUCT);
 }
 
-template <class T>
-inline bool varTypeIsByte(T vt)
+template <class T> inline bool varTypeIsByte(T vt)
 {
     return (TypeGet(vt) == TYP_BYTE) || (TypeGet(vt) == TYP_UBYTE);
 }
 
-template <class T>
-inline bool varTypeIsShort(T vt)
+template <class T> inline bool varTypeIsShort(T vt)
 {
     return (TypeGet(vt) == TYP_SHORT) || (TypeGet(vt) == TYP_USHORT);
 }
 
-template <class T>
-inline bool varTypeIsSmall(T vt)
+template <class T> inline bool varTypeIsSmall(T vt)
 {
     return (TypeGet(vt) >= TYP_BYTE) && (TypeGet(vt) <= TYP_USHORT);
 }
 
-template <class T>
-inline bool varTypeIsIntOrI(T vt)
+template <class T> inline bool varTypeIsIntOrI(T vt)
 {
     return ((TypeGet(vt) == TYP_INT)
 #ifdef TARGET_64BIT
@@ -228,32 +207,27 @@ inline bool varTypeIsIntOrI(T vt)
     );
 }
 
-template <class T>
-inline bool genActualTypeIsInt(T vt)
+template <class T> inline bool genActualTypeIsInt(T vt)
 {
     return ((TypeGet(vt) >= TYP_BYTE) && (TypeGet(vt) <= TYP_UINT));
 }
 
-template <class T>
-inline bool genActualTypeIsIntOrI(T vt)
+template <class T> inline bool genActualTypeIsIntOrI(T vt)
 {
     return ((TypeGet(vt) >= TYP_BYTE) && (TypeGet(vt) <= TYP_U_IMPL));
 }
 
-template <class T>
-inline bool varTypeIsLong(T vt)
+template <class T> inline bool varTypeIsLong(T vt)
 {
     return (TypeGet(vt) >= TYP_LONG) && (TypeGet(vt) <= TYP_ULONG);
 }
 
-template <class T>
-inline bool varTypeIsInt(T vt)
+template <class T> inline bool varTypeIsInt(T vt)
 {
     return (TypeGet(vt) >= TYP_INT) && (TypeGet(vt) <= TYP_UINT);
 }
 
-template <class T>
-inline bool varTypeIsMultiReg(T vt)
+template <class T> inline bool varTypeIsMultiReg(T vt)
 {
 #ifdef TARGET_64BIT
     return false;
@@ -262,14 +236,12 @@ inline bool varTypeIsMultiReg(T vt)
 #endif
 }
 
-template <class T>
-inline bool varTypeIsSingleReg(T vt)
+template <class T> inline bool varTypeIsSingleReg(T vt)
 {
     return !varTypeIsMultiReg(vt);
 }
 
-template <class T>
-inline bool varTypeIsComposite(T vt)
+template <class T> inline bool varTypeIsComposite(T vt)
 {
     return (!varTypeIsArithmetic(TypeGet(vt)) && TypeGet(vt) != TYP_VOID);
 }
@@ -281,8 +253,7 @@ inline bool varTypeIsComposite(T vt)
 // On 32-bit systems longs are split into an upper and lower half, and they are
 // handled as if they are structs with two integer fields.
 
-template <class T>
-inline bool varTypeIsPromotable(T vt)
+template <class T> inline bool varTypeIsPromotable(T vt)
 {
 #ifndef TARGET_64BIT
     if (varTypeIsLong(vt))
@@ -294,32 +265,27 @@ inline bool varTypeIsPromotable(T vt)
     return varTypeIsStruct(vt);
 }
 
-template <class T>
-inline bool varTypeIsStruct(T vt)
+template <class T> inline bool varTypeIsStruct(T vt)
 {
     return ((varTypeClassification[TypeGet(vt)] & VTF_S) != 0);
 }
 
-template <class T, class U>
-inline bool varTypeUsesSameRegType(T vt, U vu)
+template <class T, class U> inline bool varTypeUsesSameRegType(T vt, U vu)
 {
     return varTypeRegister[TypeGet(vt)] == varTypeRegister[TypeGet(vu)];
 }
 
-template <class T>
-inline bool varTypeUsesIntReg(T vt)
+template <class T> inline bool varTypeUsesIntReg(T vt)
 {
     return varTypeRegister[TypeGet(vt)] == VTR_INT;
 }
 
-template <class T>
-inline bool varTypeUsesFloatReg(T vt)
+template <class T> inline bool varTypeUsesFloatReg(T vt)
 {
     return varTypeRegister[TypeGet(vt)] == VTR_FLOAT;
 }
 
-template <class T>
-inline bool varTypeUsesMaskReg(T vt)
+template <class T> inline bool varTypeUsesMaskReg(T vt)
 {
     // The technically correct check is:
     //     return varTypeRegister[TypeGet(vt)] == VTR_MASK;
@@ -336,8 +302,7 @@ inline bool varTypeUsesMaskReg(T vt)
 #endif
 }
 
-template <class T>
-inline bool varTypeUsesFloatArgReg(T vt)
+template <class T> inline bool varTypeUsesFloatArgReg(T vt)
 {
 #ifdef TARGET_ARM64
     // Arm64 passes SIMD types in floating point registers.
@@ -364,8 +329,7 @@ inline bool varTypeUsesFloatArgReg(T vt)
 //    The only valid values are TYP_UNDEF, for which this returns false,
 //    TYP_FLOAT, TYP_DOUBLE, or (ARM64-only) TYP_SIMD*.
 //
-template <class T>
-inline bool varTypeIsValidHfaType(T vt)
+template <class T> inline bool varTypeIsValidHfaType(T vt)
 {
     if (GlobalJitOptions::compFeatureHfa)
     {

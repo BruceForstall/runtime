@@ -23,10 +23,10 @@ XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
 //
 struct OptTestInfo
 {
-    Statement* testStmt; // Last statement of the basic block
-    GenTree*   testTree; // The root node of the testStmt (GT_JTRUE or GT_RETURN).
-    GenTree*   compTree; // The compare node (i.e. GT_EQ or GT_NE node) of the testTree
-    bool       isBool;   // If the compTree is boolean expression
+        Statement* testStmt; // Last statement of the basic block
+        GenTree*   testTree; // The root node of the testStmt (GT_JTRUE or GT_RETURN).
+        GenTree*   compTree; // The compare node (i.e. GT_EQ or GT_NE node) of the testTree
+        bool       isBool;   // If the compTree is boolean expression
 };
 
 //-----------------------------------------------------------------------------
@@ -34,50 +34,50 @@ struct OptTestInfo
 //
 class OptBoolsDsc
 {
-public:
-    OptBoolsDsc(BasicBlock* b1, BasicBlock* b2, Compiler* comp)
-    {
-        m_b1   = b1;
-        m_b2   = b2;
-        m_b3   = nullptr;
-        m_comp = comp;
-    }
+    public:
+        OptBoolsDsc(BasicBlock* b1, BasicBlock* b2, Compiler* comp)
+        {
+            m_b1   = b1;
+            m_b2   = b2;
+            m_b3   = nullptr;
+            m_comp = comp;
+        }
 
-private:
-    BasicBlock* m_b1; // The first basic block with the BBJ_COND conditional jump type
-    BasicBlock* m_b2; // The next basic block of m_b1. Either BBJ_COND or BBJ_RETURN type
-    BasicBlock* m_b3; // m_b1's target block. Null if m_b2 is not a return block.
+    private:
+        BasicBlock* m_b1;        // The first basic block with the BBJ_COND conditional jump type
+        BasicBlock* m_b2;        // The next basic block of m_b1. Either BBJ_COND or BBJ_RETURN type
+        BasicBlock* m_b3;        // m_b1's target block. Null if m_b2 is not a return block.
 
-    Compiler* m_comp; // The pointer to the Compiler instance
+        Compiler* m_comp;        // The pointer to the Compiler instance
 
-    OptTestInfo m_testInfo1; // The first test info
-    OptTestInfo m_testInfo2; // The second test info
-    GenTree*    m_t3;        // The root node of the first statement of m_b3
+        OptTestInfo m_testInfo1; // The first test info
+        OptTestInfo m_testInfo2; // The second test info
+        GenTree*    m_t3;        // The root node of the first statement of m_b3
 
-    GenTree* m_c1; // The first operand of m_testInfo1.compTree
-    GenTree* m_c2; // The first operand of m_testInfo2.compTree
+        GenTree* m_c1;           // The first operand of m_testInfo1.compTree
+        GenTree* m_c2;           // The first operand of m_testInfo2.compTree
 
-    bool m_sameTarget; // if m_b1 and m_b2 jumps to the same destination
+        bool m_sameTarget;       // if m_b1 and m_b2 jumps to the same destination
 
-    genTreeOps m_foldOp;   // The fold operator (e.g., GT_AND or GT_OR)
-    var_types  m_foldType; // The type of the folded tree
-    genTreeOps m_cmpOp;    // The comparison operator (e.g., GT_EQ or GT_NE)
+        genTreeOps m_foldOp;     // The fold operator (e.g., GT_AND or GT_OR)
+        var_types  m_foldType;   // The type of the folded tree
+        genTreeOps m_cmpOp;      // The comparison operator (e.g., GT_EQ or GT_NE)
 
-public:
-    bool optOptimizeBoolsCondBlock();
-    bool optOptimizeCompareChainCondBlock();
-    bool optOptimizeRangeTests();
-    bool optOptimizeBoolsReturnBlock(BasicBlock* b3);
+    public:
+        bool optOptimizeBoolsCondBlock();
+        bool optOptimizeCompareChainCondBlock();
+        bool optOptimizeRangeTests();
+        bool optOptimizeBoolsReturnBlock(BasicBlock* b3);
 #ifdef DEBUG
-    void optOptimizeBoolsGcStress();
+        void optOptimizeBoolsGcStress();
 #endif
 
-private:
-    Statement* optOptimizeBoolsChkBlkCond();
-    GenTree*   optIsBoolComp(OptTestInfo* pOptTest);
-    bool       optOptimizeBoolsChkTypeCostCond();
-    void       optOptimizeBoolsUpdateTrees();
-    bool       FindCompareChain(GenTree* condition, bool* isTestCondition);
+    private:
+        Statement* optOptimizeBoolsChkBlkCond();
+        GenTree*   optIsBoolComp(OptTestInfo* pOptTest);
+        bool       optOptimizeBoolsChkTypeCostCond();
+        void       optOptimizeBoolsUpdateTrees();
+        bool       FindCompareChain(GenTree* condition, bool* isTestCondition);
 };
 
 //-----------------------------------------------------------------------------
@@ -439,8 +439,7 @@ static bool GetIntersection(var_types  type,
     }
 
     // Convert to a canonical form with GT_GE or GT_LE (inclusive).
-    auto normalize = [](genTreeOps* cmp, ssize_t* cns)
-    {
+    auto normalize = [](genTreeOps* cmp, ssize_t* cns) {
         if (*cmp == GT_GT)
         {
             // "X > cns" -> "X >= cns + 1"

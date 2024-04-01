@@ -4,8 +4,7 @@
 #ifndef REGALLOC_H_
 #define REGALLOC_H_
 
-enum FrameType
-{
+enum FrameType {
     FT_NOT_SET,
     FT_ESP_FRAME,
     FT_EBP_FRAME,
@@ -15,8 +14,7 @@ enum FrameType
 };
 
 #if DOUBLE_ALIGN
-enum CanDoubleAlign
-{
+enum CanDoubleAlign {
     CANT_DOUBLE_ALIGN,
     CAN_DOUBLE_ALIGN,
     MUST_DOUBLE_ALIGN,

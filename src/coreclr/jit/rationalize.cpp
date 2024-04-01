@@ -262,57 +262,57 @@ Compiler::fgWalkResult Rationalizer::RewriteNode(GenTree** useEdge, Compiler::Ge
             break;
 
         case GT_COMMA:
-        {
-            GenTree*           op1         = node->gtGetOp1();
-            bool               isClosed    = false;
-            unsigned           sideEffects = 0;
-            LIR::ReadOnlyRange lhsRange    = BlockRange().GetTreeRange(op1, &isClosed, &sideEffects);
-
-            if ((sideEffects & GTF_ALL_EFFECT) == 0)
             {
-                // The LHS has no side effects. Remove it.
-                // All transformations on pure trees keep their operands in LIR
-                // and should not violate tree order.
-                assert(isClosed);
-
-                BlockRange().Delete(comp, m_block, std::move(lhsRange));
-            }
-            else if (op1->IsValue())
-            {
-                op1->SetUnusedValue();
-            }
-
-            BlockRange().Remove(node);
-
-            GenTree* replacement = node->gtGetOp2();
-            if (!use.IsDummyUse())
-            {
-                use.ReplaceWith(replacement);
-                node = replacement;
-            }
-            else
-            {
-                // This is a top-level comma. If the RHS has no side effects we can remove
-                // it as well.
+                GenTree*           op1         = node->gtGetOp1();
                 bool               isClosed    = false;
                 unsigned           sideEffects = 0;
-                LIR::ReadOnlyRange rhsRange    = BlockRange().GetTreeRange(replacement, &isClosed, &sideEffects);
+                LIR::ReadOnlyRange lhsRange    = BlockRange().GetTreeRange(op1, &isClosed, &sideEffects);
 
                 if ((sideEffects & GTF_ALL_EFFECT) == 0)
                 {
-                    // All transformations on pure trees keep their operands in
-                    // LIR and should not violate tree order.
+                    // The LHS has no side effects. Remove it.
+                    // All transformations on pure trees keep their operands in LIR
+                    // and should not violate tree order.
                     assert(isClosed);
 
-                    BlockRange().Delete(comp, m_block, std::move(rhsRange));
+                    BlockRange().Delete(comp, m_block, std::move(lhsRange));
+                }
+                else if (op1->IsValue())
+                {
+                    op1->SetUnusedValue();
+                }
+
+                BlockRange().Remove(node);
+
+                GenTree* replacement = node->gtGetOp2();
+                if (!use.IsDummyUse())
+                {
+                    use.ReplaceWith(replacement);
+                    node = replacement;
                 }
                 else
                 {
-                    node = replacement;
+                    // This is a top-level comma. If the RHS has no side effects we can remove
+                    // it as well.
+                    bool               isClosed    = false;
+                    unsigned           sideEffects = 0;
+                    LIR::ReadOnlyRange rhsRange    = BlockRange().GetTreeRange(replacement, &isClosed, &sideEffects);
+
+                    if ((sideEffects & GTF_ALL_EFFECT) == 0)
+                    {
+                        // All transformations on pure trees keep their operands in
+                        // LIR and should not violate tree order.
+                        assert(isClosed);
+
+                        BlockRange().Delete(comp, m_block, std::move(rhsRange));
+                    }
+                    else
+                    {
+                        node = replacement;
+                    }
                 }
             }
-        }
-        break;
+            break;
 
         case GT_INTRINSIC:
             // Non-target intrinsics should have already been rewritten back into user calls.
@@ -371,50 +371,50 @@ PhaseStatus Rationalizer::DoPhase()
 {
     class RationalizeVisitor final : public GenTreeVisitor<RationalizeVisitor>
     {
-        Rationalizer& m_rationalizer;
+            Rationalizer& m_rationalizer;
 
-    public:
-        enum
-        {
-            ComputeStack      = true,
-            DoPreOrder        = true,
-            DoPostOrder       = true,
-            UseExecutionOrder = true,
-        };
+        public:
+            enum {
+                ComputeStack      = true,
+                DoPreOrder        = true,
+                DoPostOrder       = true,
+                UseExecutionOrder = true,
+            };
 
-        RationalizeVisitor(Rationalizer& rationalizer)
-            : GenTreeVisitor<RationalizeVisitor>(rationalizer.comp), m_rationalizer(rationalizer)
-        {
-        }
-
-        // Rewrite intrinsics that are not supported by the target back into user calls.
-        // This needs to be done before the transition to LIR because it relies on the use
-        // of fgMorphArgs, which is designed to operate on HIR. Once this is done for a
-        // particular statement, link that statement's nodes into the current basic block.
-        fgWalkResult PreOrderVisit(GenTree** use, GenTree* user)
-        {
-            GenTree* const node = *use;
-            if (node->OperGet() == GT_INTRINSIC &&
-                m_rationalizer.comp->IsIntrinsicImplementedByUserCall(node->AsIntrinsic()->gtIntrinsicName))
+            RationalizeVisitor(Rationalizer& rationalizer)
+                : GenTreeVisitor<RationalizeVisitor>(rationalizer.comp)
+                , m_rationalizer(rationalizer)
             {
-                m_rationalizer.RewriteIntrinsicAsUserCall(use, this->m_ancestors);
             }
+
+            // Rewrite intrinsics that are not supported by the target back into user calls.
+            // This needs to be done before the transition to LIR because it relies on the use
+            // of fgMorphArgs, which is designed to operate on HIR. Once this is done for a
+            // particular statement, link that statement's nodes into the current basic block.
+            fgWalkResult PreOrderVisit(GenTree** use, GenTree* user)
+            {
+                GenTree* const node = *use;
+                if (node->OperGet() == GT_INTRINSIC &&
+                    m_rationalizer.comp->IsIntrinsicImplementedByUserCall(node->AsIntrinsic()->gtIntrinsicName))
+                {
+                    m_rationalizer.RewriteIntrinsicAsUserCall(use, this->m_ancestors);
+                }
 
 #ifdef TARGET_ARM64
-            if (node->OperIs(GT_SUB))
-            {
-                m_rationalizer.RewriteSubLshDiv(use);
-            }
+                if (node->OperIs(GT_SUB))
+                {
+                    m_rationalizer.RewriteSubLshDiv(use);
+                }
 #endif
 
-            return Compiler::WALK_CONTINUE;
-        }
+                return Compiler::WALK_CONTINUE;
+            }
 
-        // Rewrite HIR nodes into LIR nodes.
-        fgWalkResult PostOrderVisit(GenTree** use, GenTree* user)
-        {
-            return m_rationalizer.RewriteNode(use, this->m_ancestors);
-        }
+            // Rewrite HIR nodes into LIR nodes.
+            fgWalkResult PostOrderVisit(GenTree** use, GenTree* user)
+            {
+                return m_rationalizer.RewriteNode(use, this->m_ancestors);
+            }
     };
 
     DBEXEC(TRUE, SanityCheck());

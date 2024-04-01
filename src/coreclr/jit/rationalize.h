@@ -9,52 +9,55 @@
 
 class Rationalizer final : public Phase
 {
-private:
-    BasicBlock* m_block;
-    Statement*  m_statement;
+    private:
+        BasicBlock* m_block;
+        Statement*  m_statement;
 
-public:
-    Rationalizer(Compiler* comp);
+    public:
+        Rationalizer(Compiler* comp);
 
 #ifdef DEBUG
-    static void ValidateStatement(Statement* stmt, BasicBlock* block);
+        static void ValidateStatement(Statement* stmt, BasicBlock* block);
 
-    // general purpose sanity checking of de facto standard GenTree
-    void SanityCheck();
+        // general purpose sanity checking of de facto standard GenTree
+        void SanityCheck();
 
-    // sanity checking of rationalized IR
-    void SanityCheckRational();
+        // sanity checking of rationalized IR
+        void SanityCheckRational();
 
 #endif // DEBUG
 
-    virtual PhaseStatus DoPhase() override;
+        virtual PhaseStatus DoPhase() override;
 
-private:
-    inline LIR::Range& BlockRange() const
-    {
-        return LIR::AsRange(m_block);
-    }
+    private:
+        inline LIR::Range& BlockRange() const
+        {
+            return LIR::AsRange(m_block);
+        }
 
-    // Intrinsic related transformations
-    void RewriteNodeAsCall(GenTree**             use,
-                           ArrayStack<GenTree*>& parents,
-                           CORINFO_METHOD_HANDLE callHnd,
+        // Intrinsic related transformations
+        void RewriteNodeAsCall(GenTree**             use,
+                               ArrayStack<GenTree*>& parents,
+                               CORINFO_METHOD_HANDLE callHnd,
 #ifdef FEATURE_READYTORUN
-                           CORINFO_CONST_LOOKUP entryPoint,
+                               CORINFO_CONST_LOOKUP entryPoint,
 #endif
-                           GenTree* arg1 = nullptr,
-                           GenTree* arg2 = nullptr);
+                               GenTree* arg1 = nullptr,
+                               GenTree* arg2 = nullptr);
 
-    void RewriteIntrinsicAsUserCall(GenTree** use, Compiler::GenTreeStack& parents);
+        void RewriteIntrinsicAsUserCall(GenTree** use, Compiler::GenTreeStack& parents);
 
 #ifdef TARGET_ARM64
-    void RewriteSubLshDiv(GenTree** use);
+        void RewriteSubLshDiv(GenTree** use);
 #endif
 
-    // Root visitor
-    Compiler::fgWalkResult RewriteNode(GenTree** useEdge, Compiler::GenTreeStack& parents);
+        // Root visitor
+        Compiler::fgWalkResult RewriteNode(GenTree** useEdge, Compiler::GenTreeStack& parents);
 };
 
-inline Rationalizer::Rationalizer(Compiler* _comp) : Phase(_comp, PHASE_RATIONALIZE) {}
+inline Rationalizer::Rationalizer(Compiler* _comp)
+    : Phase(_comp, PHASE_RATIONALIZE)
+{
+}
 
 #endif

@@ -15,8 +15,8 @@ typedef unsigned int code_t;
 
 struct CnsVal
 {
-    ssize_t cnsVal;
-    bool    cnsReloc;
+        ssize_t cnsVal;
+        bool    cnsReloc;
 };
 
 #ifdef DEBUG
@@ -298,8 +298,7 @@ void emitIns_R_AI(instruction  ins,
                   regNumber    reg,
                   ssize_t disp DEBUGARG(size_t targetHandle = 0) DEBUGARG(GenTreeFlags gtFlags = GTF_EMPTY));
 
-enum EmitCallType
-{
+enum EmitCallType {
 
     // I have included here, but commented out, all the values used by the x86 emitter.
     // However, RISCV64 has a much reduced instruction set, and so the RISCV64 emitter only
@@ -341,4 +340,4 @@ unsigned emitOutputCall(const insGroup* ig, BYTE* dst, instrDesc* id, code_t cod
 
 unsigned get_curTotalCodeSize(); // bytes of code
 
-#endif // TARGET_RISCV64
+#endif                           // TARGET_RISCV64

@@ -30,8 +30,7 @@
 //
 void Compiler::optBlockCopyPropPopStacks(BasicBlock* block, LclNumToLiveDefsMap* curSsaName)
 {
-    auto popDef = [=](unsigned defLclNum, unsigned defSsaNum)
-    {
+    auto popDef = [=](unsigned defLclNum, unsigned defSsaNum) {
         CopyPropSsaDefStack* stack = nullptr;
         if ((defSsaNum != SsaConfig::RESERVED_SSA_NUM) && curSsaName->Lookup(defLclNum, &stack))
         {
@@ -301,8 +300,7 @@ void Compiler::optCopyPropPushDef(GenTree* defNode, GenTreeLclVarCommon* lclNode
         return;
     }
 
-    auto pushDef = [=](unsigned defLclNum, unsigned defSsaNum)
-    {
+    auto pushDef = [=](unsigned defLclNum, unsigned defSsaNum) {
         // The default is "not available".
         LclSsaVarDsc* ssaDef = nullptr;
 
@@ -458,49 +456,51 @@ PhaseStatus Compiler::optVnCopyProp()
 
     class CopyPropDomTreeVisitor : public DomTreeVisitor<CopyPropDomTreeVisitor>
     {
-        // The map from lclNum to its recently live definitions as a stack.
-        LclNumToLiveDefsMap m_curSsaName;
-        bool                m_madeChanges = false;
+            // The map from lclNum to its recently live definitions as a stack.
+            LclNumToLiveDefsMap m_curSsaName;
+            bool                m_madeChanges = false;
 
-    public:
-        CopyPropDomTreeVisitor(Compiler* compiler)
-            : DomTreeVisitor(compiler), m_curSsaName(compiler->getAllocator(CMK_CopyProp)), m_madeChanges(false)
-        {
-        }
+        public:
+            CopyPropDomTreeVisitor(Compiler* compiler)
+                : DomTreeVisitor(compiler)
+                , m_curSsaName(compiler->getAllocator(CMK_CopyProp))
+                , m_madeChanges(false)
+            {
+            }
 
-        bool MadeChanges() const
-        {
-            return m_madeChanges;
-        }
+            bool MadeChanges() const
+            {
+                return m_madeChanges;
+            }
 
-        void PreOrderVisit(BasicBlock* block)
-        {
-            // TODO-Cleanup: Move this function from Compiler to this class.
-            m_madeChanges |= m_compiler->optBlockCopyProp(block, &m_curSsaName);
-        }
+            void PreOrderVisit(BasicBlock* block)
+            {
+                // TODO-Cleanup: Move this function from Compiler to this class.
+                m_madeChanges |= m_compiler->optBlockCopyProp(block, &m_curSsaName);
+            }
 
-        void PostOrderVisit(BasicBlock* block)
-        {
-            // TODO-Cleanup: Move this function from Compiler to this class.
-            m_compiler->optBlockCopyPropPopStacks(block, &m_curSsaName);
-        }
+            void PostOrderVisit(BasicBlock* block)
+            {
+                // TODO-Cleanup: Move this function from Compiler to this class.
+                m_compiler->optBlockCopyPropPopStacks(block, &m_curSsaName);
+            }
 
-        void PropagateCopies()
-        {
-            WalkTree(m_compiler->m_domTree);
+            void PropagateCopies()
+            {
+                WalkTree(m_compiler->m_domTree);
 
 #ifdef DEBUG
-            // Verify the definitions remaining are only those we pushed for parameters.
-            for (LclNumToLiveDefsMap::Node* const iter : LclNumToLiveDefsMap::KeyValueIteration(&m_curSsaName))
-            {
-                unsigned lclNum = iter->GetKey();
-                assert(m_compiler->lvaGetDesc(lclNum)->lvIsParam || (lclNum == m_compiler->info.compThisArg));
+                // Verify the definitions remaining are only those we pushed for parameters.
+                for (LclNumToLiveDefsMap::Node* const iter : LclNumToLiveDefsMap::KeyValueIteration(&m_curSsaName))
+                {
+                    unsigned lclNum = iter->GetKey();
+                    assert(m_compiler->lvaGetDesc(lclNum)->lvIsParam || (lclNum == m_compiler->info.compThisArg));
 
-                CopyPropSsaDefStack* defStack = iter->GetValue();
-                assert(defStack->Height() == 1);
-            }
+                    CopyPropSsaDefStack* defStack = iter->GetValue();
+                    assert(defStack->Height() == 1);
+                }
 #endif // DEBUG
-        }
+            }
     };
 
     CopyPropDomTreeVisitor visitor(this);

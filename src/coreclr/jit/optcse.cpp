@@ -196,35 +196,38 @@ void Compiler::optCSE_GetMaskData(GenTree* tree, optCSE_MaskData* pMaskData)
 {
     class MaskDataWalker : public GenTreeVisitor<MaskDataWalker>
     {
-        optCSE_MaskData* m_maskData;
+            optCSE_MaskData* m_maskData;
 
-    public:
-        enum
-        {
-            DoPreOrder = true,
-        };
+        public:
+            enum {
+                DoPreOrder = true,
+            };
 
-        MaskDataWalker(Compiler* comp, optCSE_MaskData* maskData) : GenTreeVisitor(comp), m_maskData(maskData) {}
-
-        fgWalkResult PreOrderVisit(GenTree** use, GenTree* user)
-        {
-            GenTree* tree = *use;
-            if (IS_CSE_INDEX(tree->gtCSEnum))
+            MaskDataWalker(Compiler* comp, optCSE_MaskData* maskData)
+                : GenTreeVisitor(comp)
+                , m_maskData(maskData)
             {
-                unsigned cseIndex = GET_CSE_INDEX(tree->gtCSEnum);
-                // Note that we DO NOT use getCSEAvailBit() here, for the CSE_defMask/CSE_useMask
-                unsigned cseBit = genCSEnum2bit(cseIndex);
-                if (IS_CSE_DEF(tree->gtCSEnum))
-                {
-                    BitVecOps::AddElemD(m_compiler->cseMaskTraits, m_maskData->CSE_defMask, cseBit);
-                }
-                else
-                {
-                    BitVecOps::AddElemD(m_compiler->cseMaskTraits, m_maskData->CSE_useMask, cseBit);
-                }
             }
-            return fgWalkResult::WALK_CONTINUE;
-        }
+
+            fgWalkResult PreOrderVisit(GenTree** use, GenTree* user)
+            {
+                GenTree* tree = *use;
+                if (IS_CSE_INDEX(tree->gtCSEnum))
+                {
+                    unsigned cseIndex = GET_CSE_INDEX(tree->gtCSEnum);
+                    // Note that we DO NOT use getCSEAvailBit() here, for the CSE_defMask/CSE_useMask
+                    unsigned cseBit = genCSEnum2bit(cseIndex);
+                    if (IS_CSE_DEF(tree->gtCSEnum))
+                    {
+                        BitVecOps::AddElemD(m_compiler->cseMaskTraits, m_maskData->CSE_defMask, cseBit);
+                    }
+                    else
+                    {
+                        BitVecOps::AddElemD(m_compiler->cseMaskTraits, m_maskData->CSE_useMask, cseBit);
+                    }
+                }
+                return fgWalkResult::WALK_CONTINUE;
+            }
     };
 
     pMaskData->CSE_defMask = BitVecOps::MakeEmpty(cseMaskTraits);
@@ -372,58 +375,58 @@ void CSEdsc::ComputeNumLocals(Compiler* compiler)
     //
     class LocalCountingVisitor final : public GenTreeVisitor<LocalCountingVisitor>
     {
-        struct LocalInfo
-        {
-            unsigned m_lclNum;
-            unsigned m_occurrences;
-        };
-        enum
-        {
-            MAX_LOCALS = 8
-        };
-        LocalInfo m_locals[MAX_LOCALS];
-
-    public:
-        unsigned short m_count;
-        unsigned short m_occurrences;
-
-        enum
-        {
-            DoPreOrder    = true,
-            DoLclVarsOnly = true,
-        };
-
-        LocalCountingVisitor(Compiler* compiler)
-            : GenTreeVisitor<LocalCountingVisitor>(compiler), m_count(0), m_occurrences(0)
-        {
-        }
-
-        Compiler::fgWalkResult PreOrderVisit(GenTree** use, GenTree* user)
-        {
-            GenTree* tree   = *use;
-            unsigned lclNum = tree->AsLclVarCommon()->GetLclNum();
-
-            m_occurrences++;
-            for (unsigned i = 0; i < m_count; i++)
+            struct LocalInfo
             {
-                if (m_locals[i].m_lclNum == lclNum)
+                    unsigned m_lclNum;
+                    unsigned m_occurrences;
+            };
+            enum {
+                MAX_LOCALS = 8
+            };
+            LocalInfo m_locals[MAX_LOCALS];
+
+        public:
+            unsigned short m_count;
+            unsigned short m_occurrences;
+
+            enum {
+                DoPreOrder    = true,
+                DoLclVarsOnly = true,
+            };
+
+            LocalCountingVisitor(Compiler* compiler)
+                : GenTreeVisitor<LocalCountingVisitor>(compiler)
+                , m_count(0)
+                , m_occurrences(0)
+            {
+            }
+
+            Compiler::fgWalkResult PreOrderVisit(GenTree** use, GenTree* user)
+            {
+                GenTree* tree   = *use;
+                unsigned lclNum = tree->AsLclVarCommon()->GetLclNum();
+
+                m_occurrences++;
+                for (unsigned i = 0; i < m_count; i++)
                 {
-                    m_locals[i].m_occurrences++;
-                    return Compiler::fgWalkResult::WALK_CONTINUE;
+                    if (m_locals[i].m_lclNum == lclNum)
+                    {
+                        m_locals[i].m_occurrences++;
+                        return Compiler::fgWalkResult::WALK_CONTINUE;
+                    }
                 }
+
+                if (m_count >= MAX_LOCALS)
+                {
+                    return Compiler::fgWalkResult::WALK_ABORT;
+                }
+
+                m_locals[m_count].m_lclNum      = lclNum;
+                m_locals[m_count].m_occurrences = 1;
+                m_count++;
+
+                return Compiler::fgWalkResult::WALK_CONTINUE;
             }
-
-            if (m_count >= MAX_LOCALS)
-            {
-                return Compiler::fgWalkResult::WALK_ABORT;
-            }
-
-            m_locals[m_count].m_lclNum      = lclNum;
-            m_locals[m_count].m_occurrences = 1;
-            m_count++;
-
-            return Compiler::fgWalkResult::WALK_CONTINUE;
-        }
     };
 
     LocalCountingVisitor lcv(compiler);
@@ -1180,20 +1183,24 @@ void Compiler::optValnumCSE_InitDataFlow()
  */
 class CSE_DataFlow
 {
-    Compiler* m_comp;
-    EXPSET_TP m_preMergeOut;
+        Compiler* m_comp;
+        EXPSET_TP m_preMergeOut;
 
-public:
-    CSE_DataFlow(Compiler* pCompiler) : m_comp(pCompiler), m_preMergeOut(BitVecOps::UninitVal()) {}
+    public:
+        CSE_DataFlow(Compiler* pCompiler)
+            : m_comp(pCompiler)
+            , m_preMergeOut(BitVecOps::UninitVal())
+        {
+        }
 
-    // At the start of the merge function of the dataflow equations, initialize premerge state (to detect changes.)
-    void StartMerge(BasicBlock* block)
-    {
-        // Record the initial value of block->bbCseOut in m_preMergeOut.
-        // It is used in EndMerge() to control the termination of the DataFlow algorithm.
-        // Note that the first time we visit a block, the value of bbCseOut is MakeFull()
-        //
-        BitVecOps::Assign(m_comp->cseLivenessTraits, m_preMergeOut, block->bbCseOut);
+        // At the start of the merge function of the dataflow equations, initialize premerge state (to detect changes.)
+        void StartMerge(BasicBlock* block)
+        {
+            // Record the initial value of block->bbCseOut in m_preMergeOut.
+            // It is used in EndMerge() to control the termination of the DataFlow algorithm.
+            // Note that the first time we visit a block, the value of bbCseOut is MakeFull()
+            //
+            BitVecOps::Assign(m_comp->cseLivenessTraits, m_preMergeOut, block->bbCseOut);
 
 #if 0
 #ifdef DEBUG
@@ -1204,11 +1211,11 @@ public:
         }
 #endif // DEBUG
 #endif // 0
-    }
+        }
 
-    // Merge: perform the merging of each of the predecessor's liveness values (since this is a forward analysis)
-    void Merge(BasicBlock* block, BasicBlock* predBlock, unsigned dupCount)
-    {
+        // Merge: perform the merging of each of the predecessor's liveness values (since this is a forward analysis)
+        void Merge(BasicBlock* block, BasicBlock* predBlock, unsigned dupCount)
+        {
 #if 0
 #ifdef DEBUG
         if (m_comp->verbose)
@@ -1220,7 +1227,7 @@ public:
 #endif // DEBUG
 #endif // 0
 
-        BitVecOps::IntersectionD(m_comp->cseLivenessTraits, block->bbCseIn, predBlock->bbCseOut);
+            BitVecOps::IntersectionD(m_comp->cseLivenessTraits, block->bbCseIn, predBlock->bbCseOut);
 
 #if 0
 #ifdef DEBUG
@@ -1230,71 +1237,71 @@ public:
         }
 #endif // DEBUG
 #endif // 0
-    }
-
-    //------------------------------------------------------------------------
-    // MergeHandler: Merge CSE values into the first exception handler/filter block.
-    //
-    // Arguments:
-    //   block         - the block that is the start of a handler or filter;
-    //   firstTryBlock - the first block of the try for "block" handler;
-    //   lastTryBlock  - the last block of the try for "block" handler;.
-    //
-    // Notes:
-    //   We can jump to the handler from any instruction in the try region.
-    //   It means we can propagate only CSE that are valid for the whole try region.
-    void MergeHandler(BasicBlock* block, BasicBlock* firstTryBlock, BasicBlock* lastTryBlock)
-    {
-        // TODO CQ: add CSE for handler blocks, CSE_INTO_HANDLERS should be defined.
-    }
-
-    // At the end of the merge store results of the dataflow equations, in a postmerge state.
-    // We also handle the case where calls conditionally kill CSE availability.
-    //
-    bool EndMerge(BasicBlock* block)
-    {
-        // If this block is marked BBF_NO_CSE_IN (because of RBO), kill all CSEs.
-        //
-        if (block->HasFlag(BBF_NO_CSE_IN))
-        {
-            BitVecOps::ClearD(m_comp->cseLivenessTraits, block->bbCseIn);
         }
 
-        // We can skip the calls kill step when our block doesn't have a callsite
-        // or we don't have any available CSEs in our bbCseIn
+        //------------------------------------------------------------------------
+        // MergeHandler: Merge CSE values into the first exception handler/filter block.
         //
-        if (!block->HasFlag(BBF_HAS_CALL) || BitVecOps::IsEmpty(m_comp->cseLivenessTraits, block->bbCseIn))
+        // Arguments:
+        //   block         - the block that is the start of a handler or filter;
+        //   firstTryBlock - the first block of the try for "block" handler;
+        //   lastTryBlock  - the last block of the try for "block" handler;.
+        //
+        // Notes:
+        //   We can jump to the handler from any instruction in the try region.
+        //   It means we can propagate only CSE that are valid for the whole try region.
+        void MergeHandler(BasicBlock* block, BasicBlock* firstTryBlock, BasicBlock* lastTryBlock)
         {
-            // No callsite in 'block' or 'block->bbCseIn was empty, so we can use bbCseIn directly
-            //
-            BitVecOps::DataFlowD(m_comp->cseLivenessTraits, block->bbCseOut, block->bbCseGen, block->bbCseIn);
-        }
-        else
-        {
-            // We will create a temporary BitVec to pass to DataFlowD()
-            //
-            EXPSET_TP cseIn_withCallsKill = BitVecOps::UninitVal();
-
-            // cseIn_withCallsKill is set to (bbCseIn AND cseCallKillsMask)
-            //
-            BitVecOps::Assign(m_comp->cseLivenessTraits, cseIn_withCallsKill, block->bbCseIn);
-            BitVecOps::IntersectionD(m_comp->cseLivenessTraits, cseIn_withCallsKill, m_comp->cseCallKillsMask);
-
-            // Call DataFlowD with the modified BitVec: (bbCseIn AND cseCallKillsMask)
-            //
-            BitVecOps::DataFlowD(m_comp->cseLivenessTraits, block->bbCseOut, block->bbCseGen, cseIn_withCallsKill);
+            // TODO CQ: add CSE for handler blocks, CSE_INTO_HANDLERS should be defined.
         }
 
-        // The bool 'notDone' is our terminating condition.
-        // If it is 'true' then the initial value of m_preMergeOut was different than the final value that
-        // we computed for bbCseOut.  When it is true we will visit every the successor of 'block'
+        // At the end of the merge store results of the dataflow equations, in a postmerge state.
+        // We also handle the case where calls conditionally kill CSE availability.
         //
-        // This is also why we need to allocate an extra bit in our cseLivenessTraits BitVecs.
-        // We always need to visit our successor blocks once, thus we require that the first time
-        // we visit a block we have a bit set in m_preMergeOut that won't be set when we compute
-        // the new value of bbCseOut.
-        //
-        bool notDone = !BitVecOps::Equal(m_comp->cseLivenessTraits, block->bbCseOut, m_preMergeOut);
+        bool EndMerge(BasicBlock* block)
+        {
+            // If this block is marked BBF_NO_CSE_IN (because of RBO), kill all CSEs.
+            //
+            if (block->HasFlag(BBF_NO_CSE_IN))
+            {
+                BitVecOps::ClearD(m_comp->cseLivenessTraits, block->bbCseIn);
+            }
+
+            // We can skip the calls kill step when our block doesn't have a callsite
+            // or we don't have any available CSEs in our bbCseIn
+            //
+            if (!block->HasFlag(BBF_HAS_CALL) || BitVecOps::IsEmpty(m_comp->cseLivenessTraits, block->bbCseIn))
+            {
+                // No callsite in 'block' or 'block->bbCseIn was empty, so we can use bbCseIn directly
+                //
+                BitVecOps::DataFlowD(m_comp->cseLivenessTraits, block->bbCseOut, block->bbCseGen, block->bbCseIn);
+            }
+            else
+            {
+                // We will create a temporary BitVec to pass to DataFlowD()
+                //
+                EXPSET_TP cseIn_withCallsKill = BitVecOps::UninitVal();
+
+                // cseIn_withCallsKill is set to (bbCseIn AND cseCallKillsMask)
+                //
+                BitVecOps::Assign(m_comp->cseLivenessTraits, cseIn_withCallsKill, block->bbCseIn);
+                BitVecOps::IntersectionD(m_comp->cseLivenessTraits, cseIn_withCallsKill, m_comp->cseCallKillsMask);
+
+                // Call DataFlowD with the modified BitVec: (bbCseIn AND cseCallKillsMask)
+                //
+                BitVecOps::DataFlowD(m_comp->cseLivenessTraits, block->bbCseOut, block->bbCseGen, cseIn_withCallsKill);
+            }
+
+            // The bool 'notDone' is our terminating condition.
+            // If it is 'true' then the initial value of m_preMergeOut was different than the final value that
+            // we computed for bbCseOut.  When it is true we will visit every the successor of 'block'
+            //
+            // This is also why we need to allocate an extra bit in our cseLivenessTraits BitVecs.
+            // We always need to visit our successor blocks once, thus we require that the first time
+            // we visit a block we have a bit set in m_preMergeOut that won't be set when we compute
+            // the new value of bbCseOut.
+            //
+            bool notDone = !BitVecOps::Equal(m_comp->cseLivenessTraits, block->bbCseOut, m_preMergeOut);
 
 #if 0
 #ifdef DEBUG
@@ -1315,8 +1322,8 @@ public:
 #endif // DEBUG
 #endif // 0
 
-        return notDone;
-    }
+            return notDone;
+        }
 };
 
 /*****************************************************************************
@@ -1738,7 +1745,8 @@ void Compiler::optValnumCSE_Availability()
 // Notes:
 //  This creates the basic CSE heuristic. It never does any CSEs.
 //
-CSE_HeuristicCommon::CSE_HeuristicCommon(Compiler* pCompiler) : m_pCompiler(pCompiler)
+CSE_HeuristicCommon::CSE_HeuristicCommon(Compiler* pCompiler)
+    : m_pCompiler(pCompiler)
 {
     m_addCSEcount  = 0; /* Count of the number of LclVars for CSEs that we added */
     sortTab        = nullptr;
@@ -1842,37 +1850,37 @@ bool CSE_HeuristicCommon::CanConsiderTree(GenTree* tree, bool isReturn)
     switch (oper)
     {
         case GT_CALL:
-        {
-            GenTreeCall* const call = tree->AsCall();
-
-            // Don't mark calls to allocation helpers as CSE candidates.
-            // Marking them as CSE candidates usually blocks CSEs rather than enables them.
-            // A typical case is:
-            // [1] GT_IND(x) = GT_CALL ALLOC_HELPER
-            // ...
-            // [2] y = GT_IND(x)
-            // ...
-            // [3] z = GT_IND(x)
-            // If we mark CALL ALLOC_HELPER as a CSE candidate, we later discover
-            // that it can't be a CSE def because GT_INDs in [2] and [3] can cause
-            // more exceptions (NullRef) so we abandon this CSE.
-            // If we don't mark CALL ALLOC_HELPER as a CSE candidate, we are able
-            // to use GT_IND(x) in [2] as a CSE def.
-            if ((call->gtCallType == CT_HELPER) &&
-                Compiler::s_helperCallProperties.IsAllocator(m_pCompiler->eeGetHelperNum(call->gtCallMethHnd)))
             {
-                return false;
-            }
+                GenTreeCall* const call = tree->AsCall();
 
-            // If we have a simple helper call with no other persistent side-effects
-            // then we allow this tree to be a CSE candidate
-            //
-            if (m_pCompiler->gtTreeHasSideEffects(tree, GTF_PERSISTENT_SIDE_EFFECTS | GTF_IS_IN_CSE))
-            {
-                return false;
+                // Don't mark calls to allocation helpers as CSE candidates.
+                // Marking them as CSE candidates usually blocks CSEs rather than enables them.
+                // A typical case is:
+                // [1] GT_IND(x) = GT_CALL ALLOC_HELPER
+                // ...
+                // [2] y = GT_IND(x)
+                // ...
+                // [3] z = GT_IND(x)
+                // If we mark CALL ALLOC_HELPER as a CSE candidate, we later discover
+                // that it can't be a CSE def because GT_INDs in [2] and [3] can cause
+                // more exceptions (NullRef) so we abandon this CSE.
+                // If we don't mark CALL ALLOC_HELPER as a CSE candidate, we are able
+                // to use GT_IND(x) in [2] as a CSE def.
+                if ((call->gtCallType == CT_HELPER) &&
+                    Compiler::s_helperCallProperties.IsAllocator(m_pCompiler->eeGetHelperNum(call->gtCallMethHnd)))
+                {
+                    return false;
+                }
+
+                // If we have a simple helper call with no other persistent side-effects
+                // then we allow this tree to be a CSE candidate
+                //
+                if (m_pCompiler->gtTreeHasSideEffects(tree, GTF_PERSISTENT_SIDE_EFFECTS | GTF_IS_IN_CSE))
+                {
+                    return false;
+                }
             }
-        }
-        break;
+            break;
 
         case GT_IND:
             // TODO-CQ: Review this...
@@ -1947,49 +1955,49 @@ bool CSE_HeuristicCommon::CanConsiderTree(GenTree* tree, bool isReturn)
 
 #ifdef FEATURE_HW_INTRINSICS
         case GT_HWINTRINSIC:
-        {
-            GenTreeHWIntrinsic* hwIntrinsicNode = tree->AsHWIntrinsic();
-            assert(hwIntrinsicNode != nullptr);
-            HWIntrinsicCategory category = HWIntrinsicInfo::lookupCategory(hwIntrinsicNode->GetHWIntrinsicId());
-
-            switch (category)
             {
+                GenTreeHWIntrinsic* hwIntrinsicNode = tree->AsHWIntrinsic();
+                assert(hwIntrinsicNode != nullptr);
+                HWIntrinsicCategory category = HWIntrinsicInfo::lookupCategory(hwIntrinsicNode->GetHWIntrinsicId());
+
+                switch (category)
+                {
 #ifdef TARGET_XARCH
-                case HW_Category_SimpleSIMD:
-                case HW_Category_IMM:
-                case HW_Category_Scalar:
-                case HW_Category_SIMDScalar:
-                case HW_Category_Helper:
-                    break;
+                    case HW_Category_SimpleSIMD:
+                    case HW_Category_IMM:
+                    case HW_Category_Scalar:
+                    case HW_Category_SIMDScalar:
+                    case HW_Category_Helper:
+                        break;
 #elif defined(TARGET_ARM64)
-                case HW_Category_SIMD:
-                case HW_Category_SIMDByIndexedElement:
-                case HW_Category_ShiftLeftByImmediate:
-                case HW_Category_ShiftRightByImmediate:
-                case HW_Category_Scalar:
-                case HW_Category_Helper:
-                    break;
+                    case HW_Category_SIMD:
+                    case HW_Category_SIMDByIndexedElement:
+                    case HW_Category_ShiftLeftByImmediate:
+                    case HW_Category_ShiftRightByImmediate:
+                    case HW_Category_Scalar:
+                    case HW_Category_Helper:
+                        break;
 #endif
 
-                case HW_Category_MemoryLoad:
-                case HW_Category_MemoryStore:
-                case HW_Category_Special:
-                default:
-                    return false;
-            }
+                    case HW_Category_MemoryLoad:
+                    case HW_Category_MemoryStore:
+                    case HW_Category_Special:
+                    default:
+                        return false;
+                }
 
-            if (hwIntrinsicNode->OperIsMemoryStore())
-            {
-                // NI_BMI2_MultiplyNoFlags, etc...
-                return false;
+                if (hwIntrinsicNode->OperIsMemoryStore())
+                {
+                    // NI_BMI2_MultiplyNoFlags, etc...
+                    return false;
+                }
+                if (hwIntrinsicNode->OperIsMemoryLoad())
+                {
+                    // NI_AVX2_BroadcastScalarToVector128, NI_AVX2_GatherVector128, etc...
+                    return false;
+                }
             }
-            if (hwIntrinsicNode->OperIsMemoryLoad())
-            {
-                // NI_AVX2_BroadcastScalarToVector128, NI_AVX2_GatherVector128, etc...
-                return false;
-            }
-        }
-        break;
+            break;
 
 #endif // FEATURE_HW_INTRINSICS
 
@@ -2070,7 +2078,8 @@ void CSE_HeuristicCommon::DumpMetrics()
 //  This creates the random CSE heuristic. It does CSEs randomly, with some
 //  predetermined likelihood (set by config or by stress).
 //
-CSE_HeuristicRandom::CSE_HeuristicRandom(Compiler* pCompiler) : CSE_HeuristicCommon(pCompiler)
+CSE_HeuristicRandom::CSE_HeuristicRandom(Compiler* pCompiler)
+    : CSE_HeuristicCommon(pCompiler)
 {
     m_cseRNG.Init(m_pCompiler->info.compMethodHash() ^ JitConfig.JitRandomCSE());
 }
@@ -2196,7 +2205,10 @@ void CSE_HeuristicRandom::ConsiderCandidates()
 //  This creates the replay CSE heuristic. It does CSEs specifed by
 //  the ArrayConfig parsing of JitReplayCSE.
 //
-CSE_HeuristicReplay::CSE_HeuristicReplay(Compiler* pCompiler) : CSE_HeuristicCommon(pCompiler) {}
+CSE_HeuristicReplay::CSE_HeuristicReplay(Compiler* pCompiler)
+    : CSE_HeuristicCommon(pCompiler)
+{
+}
 
 //------------------------------------------------------------------------
 // Announce: describe heuristic in jit dump
@@ -2286,7 +2298,8 @@ double CSE_HeuristicParameterized::s_defaultParameters[CSE_HeuristicParameterize
 // Arguments;
 //  pCompiler - compiler instance
 //
-CSE_HeuristicParameterized::CSE_HeuristicParameterized(Compiler* pCompiler) : CSE_HeuristicCommon(pCompiler)
+CSE_HeuristicParameterized::CSE_HeuristicParameterized(Compiler* pCompiler)
+    : CSE_HeuristicCommon(pCompiler)
 {
     // Default parameter values...
     //
@@ -2980,7 +2993,10 @@ void CSE_HeuristicParameterized::DumpChoices(ArrayStack<Choice>& choices, CSEdsc
 //      Uses parameters from JitRLCSE to drive a deterministic greedy policy
 //
 CSE_HeuristicRL::CSE_HeuristicRL(Compiler* pCompiler)
-    : CSE_HeuristicParameterized(pCompiler), m_alpha(0.0), m_updateParameters(false), m_greedy(false)
+    : CSE_HeuristicParameterized(pCompiler)
+    , m_alpha(0.0)
+    , m_updateParameters(false)
+    , m_greedy(false)
 {
     // Set up the random state
     //
@@ -3650,7 +3666,8 @@ CSE_HeuristicRL::Choice* CSE_HeuristicRL::FindChoice(CSEdsc* dsc, ArrayStack<Cho
 // Notes:
 //  This creates the standard CSE heuristic.
 //
-CSE_Heuristic::CSE_Heuristic(Compiler* pCompiler) : CSE_HeuristicCommon(pCompiler)
+CSE_Heuristic::CSE_Heuristic(Compiler* pCompiler)
+    : CSE_HeuristicCommon(pCompiler)
 {
     aggressiveRefCnt = 0;
     moderateRefCnt   = 0;
@@ -3715,7 +3732,7 @@ void CSE_Heuristic::Initialize()
         {
             continue;
         }
-#endif // FEATURE_FIXED_OUT_ARGS
+#endif                                          // FEATURE_FIXED_OUT_ARGS
 
         bool onStack = (regAvailEstimate == 0); // true when it is likely that this LclVar will have a stack home
 
@@ -4169,7 +4186,7 @@ bool CSE_Heuristic::PromotionCheck(CSE_Candidate* candidate)
                 cse_def_cost = 3; // mov [EBP-1C],reg
                 cse_use_cost = 2; //     [EBP-1C]
 
-#else // TARGET_ARM
+#else                             // TARGET_ARM
 
                 cse_def_cost = 2; // str reg,[sp+0x9c]
                 cse_use_cost = 2; // ldr reg,[sp+0x9c]
@@ -4183,7 +4200,7 @@ bool CSE_Heuristic::PromotionCheck(CSE_Candidate* candidate)
             cse_def_cost += 2;
             cse_use_cost += 1;
         }
-#endif // TARGET_AMD64
+#endif   // TARGET_AMD64
     }
     else // not SMALL_CODE ...
     {
@@ -4320,7 +4337,7 @@ bool CSE_Heuristic::PromotionCheck(CSE_Candidate* candidate)
 
             if (cseRefCnt < moderateRefCnt) // If Conservative CSE promotion
             {
-                extra_yes_cost *= 2; // full cost if we are being Conservative
+                extra_yes_cost *= 2;        // full cost if we are being Conservative
             }
         }
 

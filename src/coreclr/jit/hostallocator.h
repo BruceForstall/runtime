@@ -5,37 +5,38 @@
 
 class HostAllocator final
 {
-private:
-    HostAllocator() {}
-
-public:
-    template <typename T>
-    T* allocate(size_t count)
-    {
-        ClrSafeInt<size_t> safeElemSize(sizeof(T));
-        ClrSafeInt<size_t> safeCount(count);
-        ClrSafeInt<size_t> size = safeElemSize * safeCount;
-        if (size.IsOverflow())
+    private:
+        HostAllocator()
         {
-            return nullptr;
         }
 
-        return static_cast<T*>(allocateHostMemory(size.Value()));
-    }
+    public:
+        template <typename T> T* allocate(size_t count)
+        {
+            ClrSafeInt<size_t> safeElemSize(sizeof(T));
+            ClrSafeInt<size_t> safeCount(count);
+            ClrSafeInt<size_t> size = safeElemSize * safeCount;
+            if (size.IsOverflow())
+            {
+                return nullptr;
+            }
 
-    void deallocate(void* p)
-    {
-        freeHostMemory(p);
-    }
+            return static_cast<T*>(allocateHostMemory(size.Value()));
+        }
 
-    static HostAllocator getHostAllocator()
-    {
-        return HostAllocator();
-    }
+        void deallocate(void* p)
+        {
+            freeHostMemory(p);
+        }
 
-private:
-    void* allocateHostMemory(size_t size);
-    void  freeHostMemory(void* p);
+        static HostAllocator getHostAllocator()
+        {
+            return HostAllocator();
+        }
+
+    private:
+        void* allocateHostMemory(size_t size);
+        void  freeHostMemory(void* p);
 };
 
 // Global operator new overloads that work with HostAllocator

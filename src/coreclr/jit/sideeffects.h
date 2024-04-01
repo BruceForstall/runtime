@@ -13,27 +13,27 @@
 //
 class LclVarSet final
 {
-    union
-    {
-        hashBv*  m_bitVector;
-        unsigned m_lclNum;
-    };
+        union
+        {
+                hashBv*  m_bitVector;
+                unsigned m_lclNum;
+        };
 
-    bool m_hasAnyLcl;
-    bool m_hasBitVector;
+        bool m_hasAnyLcl;
+        bool m_hasBitVector;
 
-public:
-    LclVarSet();
+    public:
+        LclVarSet();
 
-    inline bool IsEmpty() const
-    {
-        return !m_hasAnyLcl || !m_hasBitVector || !m_bitVector->anySet();
-    }
+        inline bool IsEmpty() const
+        {
+            return !m_hasAnyLcl || !m_hasBitVector || !m_bitVector->anySet();
+        }
 
-    void Add(Compiler* compiler, unsigned lclNum);
-    bool Intersects(const LclVarSet& other) const;
-    bool Contains(unsigned lclNum) const;
-    void Clear();
+        void Add(Compiler* compiler, unsigned lclNum);
+        bool Intersects(const LclVarSet& other) const;
+        bool Contains(unsigned lclNum) const;
+        void Clear();
 };
 
 //------------------------------------------------------------------------
@@ -47,112 +47,111 @@ public:
 //
 class AliasSet final
 {
-    LclVarSet m_lclVarReads;
-    LclVarSet m_lclVarWrites;
+        LclVarSet m_lclVarReads;
+        LclVarSet m_lclVarWrites;
 
-    bool m_readsAddressableLocation;
-    bool m_writesAddressableLocation;
-
-public:
-    //------------------------------------------------------------------------
-    // AliasSet::NodeInfo:
-    //    Represents basic alias information for a single IR node.
-    //
-    class NodeInfo final
-    {
-        enum : unsigned
-        {
-            ALIAS_NONE                        = 0x0,
-            ALIAS_READS_ADDRESSABLE_LOCATION  = 0x1,
-            ALIAS_WRITES_ADDRESSABLE_LOCATION = 0x2,
-            ALIAS_READS_LCL_VAR               = 0x4,
-            ALIAS_WRITES_LCL_VAR              = 0x8
-        };
-
-        Compiler* m_compiler;
-        GenTree*  m_node;
-        unsigned  m_flags;
-        unsigned  m_lclNum;
-        unsigned  m_lclOffs;
+        bool m_readsAddressableLocation;
+        bool m_writesAddressableLocation;
 
     public:
-        NodeInfo(Compiler* compiler, GenTree* node);
-
-        inline Compiler* TheCompiler() const
+        //------------------------------------------------------------------------
+        // AliasSet::NodeInfo:
+        //    Represents basic alias information for a single IR node.
+        //
+        class NodeInfo final
         {
-            return m_compiler;
-        }
+                enum : unsigned {
+                    ALIAS_NONE                        = 0x0,
+                    ALIAS_READS_ADDRESSABLE_LOCATION  = 0x1,
+                    ALIAS_WRITES_ADDRESSABLE_LOCATION = 0x2,
+                    ALIAS_READS_LCL_VAR               = 0x4,
+                    ALIAS_WRITES_LCL_VAR              = 0x8
+                };
 
-        inline GenTree* Node() const
-        {
-            return m_node;
-        }
+                Compiler* m_compiler;
+                GenTree*  m_node;
+                unsigned  m_flags;
+                unsigned  m_lclNum;
+                unsigned  m_lclOffs;
 
-        inline bool ReadsAddressableLocation() const
-        {
-            return (m_flags & ALIAS_READS_ADDRESSABLE_LOCATION) != 0;
-        }
+            public:
+                NodeInfo(Compiler* compiler, GenTree* node);
 
-        inline bool WritesAddressableLocation() const
-        {
-            return (m_flags & ALIAS_WRITES_ADDRESSABLE_LOCATION) != 0;
-        }
+                inline Compiler* TheCompiler() const
+                {
+                    return m_compiler;
+                }
 
-        inline bool IsLclVarRead() const
-        {
-            return (m_flags & ALIAS_READS_LCL_VAR) != 0;
-        }
+                inline GenTree* Node() const
+                {
+                    return m_node;
+                }
 
-        inline bool IsLclVarWrite() const
-        {
-            return (m_flags & ALIAS_WRITES_LCL_VAR) != 0;
-        }
+                inline bool ReadsAddressableLocation() const
+                {
+                    return (m_flags & ALIAS_READS_ADDRESSABLE_LOCATION) != 0;
+                }
 
-        inline unsigned LclNum() const
-        {
-            assert(IsLclVarRead() || IsLclVarWrite());
-            return m_lclNum;
-        }
+                inline bool WritesAddressableLocation() const
+                {
+                    return (m_flags & ALIAS_WRITES_ADDRESSABLE_LOCATION) != 0;
+                }
 
-        inline unsigned LclOffs() const
-        {
-            assert(IsLclVarRead() || IsLclVarWrite());
-            return m_lclOffs;
-        }
+                inline bool IsLclVarRead() const
+                {
+                    return (m_flags & ALIAS_READS_LCL_VAR) != 0;
+                }
+
+                inline bool IsLclVarWrite() const
+                {
+                    return (m_flags & ALIAS_WRITES_LCL_VAR) != 0;
+                }
+
+                inline unsigned LclNum() const
+                {
+                    assert(IsLclVarRead() || IsLclVarWrite());
+                    return m_lclNum;
+                }
+
+                inline unsigned LclOffs() const
+                {
+                    assert(IsLclVarRead() || IsLclVarWrite());
+                    return m_lclOffs;
+                }
+
+                inline bool WritesAnyLocation() const
+                {
+                    if ((m_flags & ALIAS_WRITES_ADDRESSABLE_LOCATION) != 0)
+                    {
+                        return true;
+                    }
+
+                    if ((m_flags & ALIAS_WRITES_LCL_VAR) != 0)
+                    {
+                        // Stores to 'lvLiveInOutOfHndlr' locals cannot be reordered with
+                        // exception-throwing nodes so we conservatively consider them
+                        // globally visible.
+
+                        LclVarDsc* const varDsc = m_compiler->lvaGetDesc(LclNum());
+                        return varDsc->lvLiveInOutOfHndlr != 0;
+                    }
+
+                    return false;
+                }
+        };
+
+        AliasSet();
 
         inline bool WritesAnyLocation() const
         {
-            if ((m_flags & ALIAS_WRITES_ADDRESSABLE_LOCATION) != 0)
-            {
-                return true;
-            }
-
-            if ((m_flags & ALIAS_WRITES_LCL_VAR) != 0)
-            {
-                // Stores to 'lvLiveInOutOfHndlr' locals cannot be reordered with
-                // exception-throwing nodes so we conservatively consider them
-                // globally visible.
-
-                LclVarDsc* const varDsc = m_compiler->lvaGetDesc(LclNum());
-                return varDsc->lvLiveInOutOfHndlr != 0;
-            }
-
-            return false;
+            return m_writesAddressableLocation || !m_lclVarWrites.IsEmpty();
         }
-    };
 
-    AliasSet();
-
-    inline bool WritesAnyLocation() const
-    {
-        return m_writesAddressableLocation || !m_lclVarWrites.IsEmpty();
-    }
-
-    void AddNode(Compiler* compiler, GenTree* node);
-    bool InterferesWith(const AliasSet& other) const;
-    bool InterferesWith(const NodeInfo& node) const;
-    bool WritesLocal(unsigned lclNum) const;
-    void Clear();
+        void AddNode(Compiler* compiler, GenTree* node);
+        bool InterferesWith(const AliasSet& other) const;
+        bool InterferesWith(const NodeInfo& node) const;
+        bool WritesLocal(unsigned lclNum) const;
+        void Clear();
 };
 
 //------------------------------------------------------------------------
@@ -168,25 +167,25 @@ public:
 //
 class SideEffectSet final
 {
-    unsigned m_sideEffectFlags; // A mask of GTF_* flags that represents exceptional and barrier side effects.
-    AliasSet m_aliasSet;        // An AliasSet that represents read and write side effects.
+        unsigned m_sideEffectFlags; // A mask of GTF_* flags that represents exceptional and barrier side effects.
+        AliasSet m_aliasSet;        // An AliasSet that represents read and write side effects.
 
-    template <typename TOtherAliasInfo>
-    bool InterferesWith(unsigned otherSideEffectFlags, const TOtherAliasInfo& otherAliasInfo, bool strict) const;
+        template <typename TOtherAliasInfo>
+        bool InterferesWith(unsigned otherSideEffectFlags, const TOtherAliasInfo& otherAliasInfo, bool strict) const;
 
-public:
-    SideEffectSet();
-    SideEffectSet(Compiler* compiler, GenTree* node);
+    public:
+        SideEffectSet();
+        SideEffectSet(Compiler* compiler, GenTree* node);
 
-    void AddNode(Compiler* compiler, GenTree* node);
-    bool InterferesWith(const SideEffectSet& other, bool strict) const;
-    bool InterferesWith(Compiler* compiler, GenTree* node, bool strict) const;
-    void Clear();
+        void AddNode(Compiler* compiler, GenTree* node);
+        bool InterferesWith(const SideEffectSet& other, bool strict) const;
+        bool InterferesWith(Compiler* compiler, GenTree* node, bool strict) const;
+        void Clear();
 
-    bool WritesLocal(unsigned lclNum) const
-    {
-        return m_aliasSet.WritesLocal(lclNum);
-    }
+        bool WritesLocal(unsigned lclNum) const
+        {
+            return m_aliasSet.WritesLocal(lclNum);
+        }
 };
 
 #endif // _SIDEEFFECTS_H_

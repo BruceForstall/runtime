@@ -1144,7 +1144,7 @@ void CodeGen::genCaptureFuncletPrologEpilogInfo()
                compiler->lvaGetCallerSPRelativeOffset(compiler->lvaPSPSym)); // same offset used in main function and
                                                                              // funclet!
     }
-#endif // DEBUG
+#endif                                                                       // DEBUG
 }
 
 void CodeGen::genFnEpilog(BasicBlock* block)
@@ -1252,18 +1252,18 @@ void CodeGen::genFnEpilog(BasicBlock* block)
                     break;
 
                 case IAT_RELPVALUE:
-                {
-                    // Load the address into a register, load relative indirect and call through a register
-                    // We have to use R12 since we assume the argument registers are in use
-                    // LR is used as helper register right before it is restored from stack, thus,
-                    // all relative address calculations are performed before LR is restored.
-                    callType   = emitter::EC_INDIR_R;
-                    indCallReg = REG_T2;
-                    addr       = NULL;
+                    {
+                        // Load the address into a register, load relative indirect and call through a register
+                        // We have to use R12 since we assume the argument registers are in use
+                        // LR is used as helper register right before it is restored from stack, thus,
+                        // all relative address calculations are performed before LR is restored.
+                        callType   = emitter::EC_INDIR_R;
+                        indCallReg = REG_T2;
+                        addr       = NULL;
 
-                    regSet.verifyRegUsed(indCallReg);
-                    break;
-                }
+                        regSet.verifyRegUsed(indCallReg);
+                        break;
+                    }
 
                 case IAT_PPVALUE:
                 default:
@@ -1564,62 +1564,62 @@ void CodeGen::genSetRegToConst(regNumber targetReg, var_types targetType, GenTre
     switch (tree->gtOper)
     {
         case GT_CNS_INT:
-        {
-            // relocatable values tend to come down as a CNS_INT of native int type
-            // so the line between these two opcodes is kind of blurry
-            GenTreeIntCon* con    = tree->AsIntCon();
-            ssize_t        cnsVal = con->IconValue();
-
-            emitAttr attr = emitActualTypeSize(targetType);
-            // TODO-RISCV64-CQ: Currently we cannot do this for all handles because of
-            // https://github.com/dotnet/runtime/issues/60712
-            if (con->ImmedValNeedsReloc(compiler))
             {
-                attr = EA_SET_FLG(attr, EA_CNS_RELOC_FLG);
-            }
+                // relocatable values tend to come down as a CNS_INT of native int type
+                // so the line between these two opcodes is kind of blurry
+                GenTreeIntCon* con    = tree->AsIntCon();
+                ssize_t        cnsVal = con->IconValue();
 
-            if (targetType == TYP_BYREF)
-            {
-                attr = EA_SET_FLG(attr, EA_BYREF_FLG);
-            }
+                emitAttr attr = emitActualTypeSize(targetType);
+                // TODO-RISCV64-CQ: Currently we cannot do this for all handles because of
+                // https://github.com/dotnet/runtime/issues/60712
+                if (con->ImmedValNeedsReloc(compiler))
+                {
+                    attr = EA_SET_FLG(attr, EA_CNS_RELOC_FLG);
+                }
 
-            instGen_Set_Reg_To_Imm(attr, targetReg, cnsVal,
-                                   INS_FLAGS_DONT_CARE DEBUGARG(con->gtTargetHandle) DEBUGARG(con->gtFlags));
-            regSet.verifyRegUsed(targetReg);
-        }
-        break;
+                if (targetType == TYP_BYREF)
+                {
+                    attr = EA_SET_FLG(attr, EA_BYREF_FLG);
+                }
+
+                instGen_Set_Reg_To_Imm(attr, targetReg, cnsVal,
+                                       INS_FLAGS_DONT_CARE DEBUGARG(con->gtTargetHandle) DEBUGARG(con->gtFlags));
+                regSet.verifyRegUsed(targetReg);
+            }
+            break;
 
         case GT_CNS_DBL:
-        {
-            emitter* emit       = GetEmitter();
-            emitAttr size       = emitActualTypeSize(tree);
-            double   constValue = tree->AsDblCon()->DconValue();
-
-            // Make sure we use "fmv.w.x reg, zero" only for positive zero (0.0)
-            // and not for negative zero (-0.0)
-            if (FloatingPointUtils::isPositiveZero(constValue))
             {
-                // A faster/smaller way to generate 0.0
-                // We will just zero out the entire vector register for both float and double
-                emit->emitIns_R_R(size == EA_4BYTE ? INS_fmv_w_x : INS_fmv_d_x, size, targetReg, REG_R0);
+                emitter* emit       = GetEmitter();
+                emitAttr size       = emitActualTypeSize(tree);
+                double   constValue = tree->AsDblCon()->DconValue();
+
+                // Make sure we use "fmv.w.x reg, zero" only for positive zero (0.0)
+                // and not for negative zero (-0.0)
+                if (FloatingPointUtils::isPositiveZero(constValue))
+                {
+                    // A faster/smaller way to generate 0.0
+                    // We will just zero out the entire vector register for both float and double
+                    emit->emitIns_R_R(size == EA_4BYTE ? INS_fmv_w_x : INS_fmv_d_x, size, targetReg, REG_R0);
+                }
+                else
+                {
+                    // Get a temp integer register to compute long address.
+                    // regNumber addrReg = tree->GetSingleTempReg();
+
+                    // We must load the FP constant from the constant pool
+                    // Emit a data section constant for the float or double constant.
+                    CORINFO_FIELD_HANDLE hnd = emit->emitFltOrDblConst(constValue, size);
+
+                    // Load the FP constant.
+                    assert(emit->isFloatReg(targetReg));
+
+                    // Compute the address of the FP constant and load the data.
+                    emit->emitIns_R_C(size == EA_4BYTE ? INS_flw : INS_fld, size, targetReg, REG_NA, hnd, 0);
+                }
             }
-            else
-            {
-                // Get a temp integer register to compute long address.
-                // regNumber addrReg = tree->GetSingleTempReg();
-
-                // We must load the FP constant from the constant pool
-                // Emit a data section constant for the float or double constant.
-                CORINFO_FIELD_HANDLE hnd = emit->emitFltOrDblConst(constValue, size);
-
-                // Load the FP constant.
-                assert(emit->isFloatReg(targetReg));
-
-                // Compute the address of the FP constant and load the data.
-                emit->emitIns_R_C(size == EA_4BYTE ? INS_flw : INS_fld, size, targetReg, REG_NA, hnd, 0);
-            }
-        }
-        break;
+            break;
 
         default:
             unreached();
@@ -4061,25 +4061,25 @@ void CodeGen::genCodeForJumpCompare(GenTreeOpCC* tree)
             switch (cmpSize)
             {
                 case EA_4BYTE:
-                {
-                    regNumber tmpRegOp1 = rsGetRsvdReg();
-                    assert(regOp1 != tmpRegOp1);
-                    if (cond.IsUnsigned())
                     {
-                        imm = static_cast<uint32_t>(imm);
-
+                        regNumber tmpRegOp1 = rsGetRsvdReg();
                         assert(regOp1 != tmpRegOp1);
-                        emit->emitIns_R_R_I(INS_slli, EA_8BYTE, tmpRegOp1, regOp1, 32);
-                        emit->emitIns_R_R_I(INS_srli, EA_8BYTE, tmpRegOp1, tmpRegOp1, 32);
+                        if (cond.IsUnsigned())
+                        {
+                            imm = static_cast<uint32_t>(imm);
+
+                            assert(regOp1 != tmpRegOp1);
+                            emit->emitIns_R_R_I(INS_slli, EA_8BYTE, tmpRegOp1, regOp1, 32);
+                            emit->emitIns_R_R_I(INS_srli, EA_8BYTE, tmpRegOp1, tmpRegOp1, 32);
+                        }
+                        else
+                        {
+                            imm = static_cast<int32_t>(imm);
+                            emit->emitIns_R_R_I(INS_addiw, EA_8BYTE, tmpRegOp1, regOp1, 0);
+                        }
+                        regOp1 = tmpRegOp1;
+                        break;
                     }
-                    else
-                    {
-                        imm = static_cast<int32_t>(imm);
-                        emit->emitIns_R_R_I(INS_addiw, EA_8BYTE, tmpRegOp1, regOp1, 0);
-                    }
-                    regOp1 = tmpRegOp1;
-                    break;
-                }
                 case EA_8BYTE:
                     break;
                 default:
@@ -4986,13 +4986,13 @@ void CodeGen::genCodeForTreeNode(GenTree* treeNode)
             break;
 
         case GT_MEMORYBARRIER:
-        {
-            CodeGen::BarrierKind barrierKind =
-                treeNode->gtFlags & GTF_MEMORYBARRIER_LOAD ? BARRIER_LOAD_ONLY : BARRIER_FULL;
+            {
+                CodeGen::BarrierKind barrierKind =
+                    treeNode->gtFlags & GTF_MEMORYBARRIER_LOAD ? BARRIER_LOAD_ONLY : BARRIER_FULL;
 
-            instGen_MemoryBarrier(barrierKind);
-            break;
-        }
+                instGen_MemoryBarrier(barrierKind);
+                break;
+            }
 
         case GT_XCHG:
         case GT_XADD:
@@ -5085,17 +5085,17 @@ void CodeGen::genCodeForTreeNode(GenTree* treeNode)
             break;
 
         default:
-        {
+            {
 #ifdef DEBUG
-            char message[256];
-            _snprintf_s(message, ArrLen(message), _TRUNCATE, "NYI: Unimplemented node type %s",
-                        GenTree::OpName(treeNode->OperGet()));
-            NYIRAW(message);
+                char message[256];
+                _snprintf_s(message, ArrLen(message), _TRUNCATE, "NYI: Unimplemented node type %s",
+                            GenTree::OpName(treeNode->OperGet()));
+                NYIRAW(message);
 #else
-            NYI_RISCV64("some node type in genCodeForTreeNode-----unimplemented/unused on RISCV64 yet----");
+                NYI_RISCV64("some node type in genCodeForTreeNode-----unimplemented/unused on RISCV64 yet----");
 #endif
-        }
-        break;
+            }
+            break;
     }
 }
 
@@ -5325,9 +5325,9 @@ void CodeGen::genPutArgStk(GenTreePutArgStk* treeNode)
         argOffsetOut += EA_SIZE_IN_BYTES(storeAttr);
         assert(argOffsetOut <= argOffsetMax); // We can't write beyond the outgoing arg area
     }
-    else // We have some kind of a struct argument
+    else                                      // We have some kind of a struct argument
     {
-        assert(source->isContained()); // We expect that this node was marked as contained in Lower
+        assert(source->isContained());        // We expect that this node was marked as contained in Lower
 
         if (source->OperGet() == GT_FIELD_LIST)
         {
@@ -6940,90 +6940,90 @@ void CodeGen::genIntCastOverflowCheck(GenTreeCast* cast, const GenIntCastDesc& d
     switch (desc.CheckKind())
     {
         case GenIntCastDesc::CHECK_POSITIVE:
-        {
-            genJumpToThrowHlpBlk_la(SCK_OVERFLOW, INS_blt, reg, nullptr, REG_R0);
-        }
-        break;
+            {
+                genJumpToThrowHlpBlk_la(SCK_OVERFLOW, INS_blt, reg, nullptr, REG_R0);
+            }
+            break;
 
         case GenIntCastDesc::CHECK_UINT_RANGE:
-        {
-            regNumber tempReg = cast->GetSingleTempReg();
-            // We need to check if the value is not greater than 0xFFFFFFFF
-            // if the upper 32 bits are zero.
-            ssize_t imm = -1;
-            GetEmitter()->emitIns_R_R_I(INS_addi, EA_8BYTE, tempReg, REG_R0, imm);
+            {
+                regNumber tempReg = cast->GetSingleTempReg();
+                // We need to check if the value is not greater than 0xFFFFFFFF
+                // if the upper 32 bits are zero.
+                ssize_t imm = -1;
+                GetEmitter()->emitIns_R_R_I(INS_addi, EA_8BYTE, tempReg, REG_R0, imm);
 
-            GetEmitter()->emitIns_R_R_I(INS_slli, EA_8BYTE, tempReg, tempReg, 32);
-            GetEmitter()->emitIns_R_R_R(INS_and, EA_8BYTE, tempReg, reg, tempReg);
-            genJumpToThrowHlpBlk_la(SCK_OVERFLOW, INS_bne, tempReg);
-        }
-        break;
+                GetEmitter()->emitIns_R_R_I(INS_slli, EA_8BYTE, tempReg, tempReg, 32);
+                GetEmitter()->emitIns_R_R_R(INS_and, EA_8BYTE, tempReg, reg, tempReg);
+                genJumpToThrowHlpBlk_la(SCK_OVERFLOW, INS_bne, tempReg);
+            }
+            break;
 
         case GenIntCastDesc::CHECK_POSITIVE_INT_RANGE:
-        {
-            regNumber tempReg = cast->GetSingleTempReg();
-            // We need to check if the value is not greater than 0x7FFFFFFF
-            // if the upper 33 bits are zero.
-            // instGen_Set_Reg_To_Imm(EA_8BYTE, tempReg, 0xFFFFFFFF80000000LL);
-            ssize_t imm = -1;
-            GetEmitter()->emitIns_R_R_I(INS_addi, EA_8BYTE, tempReg, REG_R0, imm);
+            {
+                regNumber tempReg = cast->GetSingleTempReg();
+                // We need to check if the value is not greater than 0x7FFFFFFF
+                // if the upper 33 bits are zero.
+                // instGen_Set_Reg_To_Imm(EA_8BYTE, tempReg, 0xFFFFFFFF80000000LL);
+                ssize_t imm = -1;
+                GetEmitter()->emitIns_R_R_I(INS_addi, EA_8BYTE, tempReg, REG_R0, imm);
 
-            GetEmitter()->emitIns_R_R_I(INS_slli, EA_8BYTE, tempReg, tempReg, 31);
+                GetEmitter()->emitIns_R_R_I(INS_slli, EA_8BYTE, tempReg, tempReg, 31);
 
-            GetEmitter()->emitIns_R_R_R(INS_and, EA_8BYTE, tempReg, reg, tempReg);
-            genJumpToThrowHlpBlk_la(SCK_OVERFLOW, INS_bne, tempReg);
-        }
-        break;
+                GetEmitter()->emitIns_R_R_R(INS_and, EA_8BYTE, tempReg, reg, tempReg);
+                genJumpToThrowHlpBlk_la(SCK_OVERFLOW, INS_bne, tempReg);
+            }
+            break;
 
         case GenIntCastDesc::CHECK_INT_RANGE:
-        {
-            const regNumber tempReg = cast->GetSingleTempReg();
-            assert(tempReg != reg);
-            GetEmitter()->emitLoadImmediate(EA_8BYTE, tempReg, INT32_MAX);
-            genJumpToThrowHlpBlk_la(SCK_OVERFLOW, INS_blt, tempReg, nullptr, reg);
+            {
+                const regNumber tempReg = cast->GetSingleTempReg();
+                assert(tempReg != reg);
+                GetEmitter()->emitLoadImmediate(EA_8BYTE, tempReg, INT32_MAX);
+                genJumpToThrowHlpBlk_la(SCK_OVERFLOW, INS_blt, tempReg, nullptr, reg);
 
-            GetEmitter()->emitLoadImmediate(EA_8BYTE, tempReg, INT32_MIN);
-            genJumpToThrowHlpBlk_la(SCK_OVERFLOW, INS_blt, reg, nullptr, tempReg);
-        }
-        break;
+                GetEmitter()->emitLoadImmediate(EA_8BYTE, tempReg, INT32_MIN);
+                genJumpToThrowHlpBlk_la(SCK_OVERFLOW, INS_blt, reg, nullptr, tempReg);
+            }
+            break;
 
         default:
-        {
-            assert(desc.CheckKind() == GenIntCastDesc::CHECK_SMALL_INT_RANGE);
-            const int       castMaxValue = desc.CheckSmallIntMax();
-            const int       castMinValue = desc.CheckSmallIntMin();
-            const regNumber tempReg      = cast->GetSingleTempReg();
-            instruction     ins;
+            {
+                assert(desc.CheckKind() == GenIntCastDesc::CHECK_SMALL_INT_RANGE);
+                const int       castMaxValue = desc.CheckSmallIntMax();
+                const int       castMinValue = desc.CheckSmallIntMin();
+                const regNumber tempReg      = cast->GetSingleTempReg();
+                instruction     ins;
 
-            if (castMaxValue > 2047)
-            {
-                assert((castMaxValue == 32767) || (castMaxValue == 65535));
-                GetEmitter()->emitLoadImmediate(EA_ATTR(desc.CheckSrcSize()), tempReg, castMaxValue + 1);
-                ins = castMinValue == 0 ? INS_bgeu : INS_bge;
-                genJumpToThrowHlpBlk_la(SCK_OVERFLOW, ins, reg, nullptr, tempReg);
-            }
-            else
-            {
-                GetEmitter()->emitIns_R_R_I(INS_addiw, EA_ATTR(desc.CheckSrcSize()), tempReg, REG_R0, castMaxValue);
-                ins = castMinValue == 0 ? INS_bltu : INS_blt;
-                genJumpToThrowHlpBlk_la(SCK_OVERFLOW, ins, tempReg, nullptr, reg);
-            }
-
-            if (castMinValue != 0)
-            {
-                if (emitter::isValidSimm12(castMinValue))
+                if (castMaxValue > 2047)
                 {
-                    GetEmitter()->emitIns_R_R_I(INS_slti, EA_ATTR(desc.CheckSrcSize()), tempReg, reg, castMinValue);
+                    assert((castMaxValue == 32767) || (castMaxValue == 65535));
+                    GetEmitter()->emitLoadImmediate(EA_ATTR(desc.CheckSrcSize()), tempReg, castMaxValue + 1);
+                    ins = castMinValue == 0 ? INS_bgeu : INS_bge;
+                    genJumpToThrowHlpBlk_la(SCK_OVERFLOW, ins, reg, nullptr, tempReg);
                 }
                 else
                 {
-                    GetEmitter()->emitLoadImmediate(EA_8BYTE, tempReg, castMinValue);
-                    GetEmitter()->emitIns_R_R_R(INS_slt, EA_ATTR(desc.CheckSrcSize()), tempReg, reg, tempReg);
+                    GetEmitter()->emitIns_R_R_I(INS_addiw, EA_ATTR(desc.CheckSrcSize()), tempReg, REG_R0, castMaxValue);
+                    ins = castMinValue == 0 ? INS_bltu : INS_blt;
+                    genJumpToThrowHlpBlk_la(SCK_OVERFLOW, ins, tempReg, nullptr, reg);
                 }
-                genJumpToThrowHlpBlk_la(SCK_OVERFLOW, INS_bne, tempReg);
+
+                if (castMinValue != 0)
+                {
+                    if (emitter::isValidSimm12(castMinValue))
+                    {
+                        GetEmitter()->emitIns_R_R_I(INS_slti, EA_ATTR(desc.CheckSrcSize()), tempReg, reg, castMinValue);
+                    }
+                    else
+                    {
+                        GetEmitter()->emitLoadImmediate(EA_8BYTE, tempReg, castMinValue);
+                        GetEmitter()->emitIns_R_R_R(INS_slt, EA_ATTR(desc.CheckSrcSize()), tempReg, reg, tempReg);
+                    }
+                    genJumpToThrowHlpBlk_la(SCK_OVERFLOW, INS_bne, tempReg);
+                }
             }
-        }
-        break;
+            break;
     }
 }
 

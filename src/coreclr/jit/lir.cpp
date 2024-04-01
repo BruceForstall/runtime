@@ -9,7 +9,12 @@
 #pragma hdrstop
 #endif
 
-LIR::Use::Use() : m_range(nullptr), m_edge(nullptr), m_user(nullptr) {}
+LIR::Use::Use()
+    : m_range(nullptr)
+    , m_edge(nullptr)
+    , m_user(nullptr)
+{
+}
 
 LIR::Use::Use(const Use& other)
 {
@@ -28,7 +33,10 @@ LIR::Use::Use(const Use& other)
 //
 // Return Value:
 //
-LIR::Use::Use(Range& range, GenTree** edge, GenTree* user) : m_range(&range), m_edge(edge), m_user(user)
+LIR::Use::Use(Range& range, GenTree** edge, GenTree* user)
+    : m_range(&range)
+    , m_edge(edge)
+    , m_user(user)
 {
     AssertIsValid();
 }
@@ -278,9 +286,15 @@ unsigned LIR::Use::ReplaceWithLclVar(Compiler* compiler, unsigned lclNum, GenTre
     return lclNum;
 }
 
-LIR::ReadOnlyRange::ReadOnlyRange() : m_firstNode(nullptr), m_lastNode(nullptr) {}
+LIR::ReadOnlyRange::ReadOnlyRange()
+    : m_firstNode(nullptr)
+    , m_lastNode(nullptr)
+{
+}
 
-LIR::ReadOnlyRange::ReadOnlyRange(ReadOnlyRange&& other) : m_firstNode(other.m_firstNode), m_lastNode(other.m_lastNode)
+LIR::ReadOnlyRange::ReadOnlyRange(ReadOnlyRange&& other)
+    : m_firstNode(other.m_firstNode)
+    , m_lastNode(other.m_lastNode)
 {
 #ifdef DEBUG
     other.m_firstNode = nullptr;
@@ -297,7 +311,9 @@ LIR::ReadOnlyRange::ReadOnlyRange(ReadOnlyRange&& other) : m_firstNode(other.m_f
 //    firstNode - The first node in the range.
 //    lastNode  - The last node in the range.
 //
-LIR::ReadOnlyRange::ReadOnlyRange(GenTree* firstNode, GenTree* lastNode) : m_firstNode(firstNode), m_lastNode(lastNode)
+LIR::ReadOnlyRange::ReadOnlyRange(GenTree* firstNode, GenTree* lastNode)
+    : m_firstNode(firstNode)
+    , m_lastNode(lastNode)
 {
     assert((m_firstNode == nullptr) == (m_lastNode == nullptr));
     assert((m_firstNode == m_lastNode) || (Contains(m_lastNode)));
@@ -422,9 +438,15 @@ bool LIR::ReadOnlyRange::Contains(GenTree* node) const
 
 #endif
 
-LIR::Range::Range() : ReadOnlyRange() {}
+LIR::Range::Range()
+    : ReadOnlyRange()
+{
+}
 
-LIR::Range::Range(Range&& other) : ReadOnlyRange(std::move(other)) {}
+LIR::Range::Range(Range&& other)
+    : ReadOnlyRange(std::move(other))
+{
+}
 
 //------------------------------------------------------------------------
 // LIR::Range::Range: Creates a `Range` value given the first and last
@@ -434,7 +456,10 @@ LIR::Range::Range(Range&& other) : ReadOnlyRange(std::move(other)) {}
 //    firstNode - The first node in the range.
 //    lastNode  - The last node in the range.
 //
-LIR::Range::Range(GenTree* firstNode, GenTree* lastNode) : ReadOnlyRange(firstNode, lastNode) {}
+LIR::Range::Range(GenTree* firstNode, GenTree* lastNode)
+    : ReadOnlyRange(firstNode, lastNode)
+{
+}
 
 //------------------------------------------------------------------------
 // LIR::Range::FirstNonCatchArgNode: Returns the first node after all catch arg nodes in this range.
@@ -915,16 +940,14 @@ void LIR::Range::Remove(GenTree* node, bool markOperandsUnused)
 
     if (markOperandsUnused)
     {
-        node->VisitOperands(
-            [](GenTree* operand) -> GenTree::VisitResult
+        node->VisitOperands([](GenTree* operand) -> GenTree::VisitResult {
+            // The operand of JTRUE does not produce a value (just sets the flags).
+            if (operand->IsValue())
             {
-                // The operand of JTRUE does not produce a value (just sets the flags).
-                if (operand->IsValue())
-                {
-                    operand->SetUnusedValue();
-                }
-                return GenTree::VisitResult::Continue;
-            });
+                operand->SetUnusedValue();
+            }
+            return GenTree::VisitResult::Continue;
+        });
     }
 
     GenTree* prev = node->gtPrev;
@@ -1210,13 +1233,11 @@ LIR::ReadOnlyRange LIR::Range::GetMarkedRange(unsigned  markCount,
             }
 
             // Mark the node's operands
-            firstNode->VisitOperands(
-                [&markCount](GenTree* operand) -> GenTree::VisitResult
-                {
-                    operand->gtLIRFlags |= LIR::Flags::Mark;
-                    markCount++;
-                    return GenTree::VisitResult::Continue;
-                });
+            firstNode->VisitOperands([&markCount](GenTree* operand) -> GenTree::VisitResult {
+                operand->gtLIRFlags |= LIR::Flags::Mark;
+                markCount++;
+                return GenTree::VisitResult::Continue;
+            });
 
             if (markFlagsOperands && firstNode->OperConsumesFlags())
             {
@@ -1360,13 +1381,11 @@ LIR::ReadOnlyRange LIR::Range::GetRangeOfOperandTrees(GenTree* root, bool* isClo
 
     // Mark the root node's operands
     unsigned markCount = 0;
-    root->VisitOperands(
-        [&markCount](GenTree* operand) -> GenTree::VisitResult
-        {
-            operand->gtLIRFlags |= LIR::Flags::Mark;
-            markCount++;
-            return GenTree::VisitResult::Continue;
-        });
+    root->VisitOperands([&markCount](GenTree* operand) -> GenTree::VisitResult {
+        operand->gtLIRFlags |= LIR::Flags::Mark;
+        markCount++;
+        return GenTree::VisitResult::Continue;
+    });
 
     if (markCount == 0)
     {
@@ -1389,187 +1408,187 @@ LIR::ReadOnlyRange LIR::Range::GetRangeOfOperandTrees(GenTree* root, bool* isClo
 // the lclVar node).
 class CheckLclVarSemanticsHelper
 {
-public:
-    //------------------------------------------------------------------------
-    // CheckLclVarSemanticsHelper constructor: Init arguments for the helper.
-    //
-    // This needs unusedDefs because unused lclVar reads may otherwise appear as outstanding reads
-    // and produce false indications that a write to a lclVar occurs while outstanding reads of that lclVar
-    // exist.
-    //
-    // Arguments:
-    //    compiler - A compiler context.
-    //    range - a range to do the check.
-    //    unusedDefs - map of defs that do no have users.
-    //
-    CheckLclVarSemanticsHelper(Compiler*                            compiler,
-                               const LIR::Range*                    range,
-                               SmallHashTable<GenTree*, bool, 32U>& unusedDefs)
-        : compiler(compiler)
-        , range(range)
-        , unusedDefs(unusedDefs)
-        , unusedLclVarReads(compiler->getAllocator(CMK_DebugOnly))
-        , lclVarReadsMapsCache(compiler->getAllocator(CMK_DebugOnly))
-    {
-    }
-
-    //------------------------------------------------------------------------
-    // Check: do the check.
-    // Return Value:
-    //    'true' if the Local variables semantics for the specified range is legal.
-    bool Check()
-    {
-        for (GenTree* node : *range)
+    public:
+        //------------------------------------------------------------------------
+        // CheckLclVarSemanticsHelper constructor: Init arguments for the helper.
+        //
+        // This needs unusedDefs because unused lclVar reads may otherwise appear as outstanding reads
+        // and produce false indications that a write to a lclVar occurs while outstanding reads of that lclVar
+        // exist.
+        //
+        // Arguments:
+        //    compiler - A compiler context.
+        //    range - a range to do the check.
+        //    unusedDefs - map of defs that do no have users.
+        //
+        CheckLclVarSemanticsHelper(Compiler*                            compiler,
+                                   const LIR::Range*                    range,
+                                   SmallHashTable<GenTree*, bool, 32U>& unusedDefs)
+            : compiler(compiler)
+            , range(range)
+            , unusedDefs(unusedDefs)
+            , unusedLclVarReads(compiler->getAllocator(CMK_DebugOnly))
+            , lclVarReadsMapsCache(compiler->getAllocator(CMK_DebugOnly))
         {
-            if (!node->isContained()) // a contained node reads operands in the parent.
-            {
-                UseNodeOperands(node);
-            }
+        }
 
-            AliasSet::NodeInfo nodeInfo(compiler, node);
-            if (nodeInfo.IsLclVarRead() && node->IsValue() && !unusedDefs.Contains(node))
+        //------------------------------------------------------------------------
+        // Check: do the check.
+        // Return Value:
+        //    'true' if the Local variables semantics for the specified range is legal.
+        bool Check()
+        {
+            for (GenTree* node : *range)
             {
-                PushLclVarRead(nodeInfo);
-            }
-
-            if (nodeInfo.IsLclVarWrite())
-            {
-                // If this node is a lclVar write, it must not alias a lclVar with an outstanding read
-                SmallHashTable<GenTree*, GenTree*>* reads;
-                if (unusedLclVarReads.TryGetValue(nodeInfo.LclNum(), &reads))
+                if (!node->isContained()) // a contained node reads operands in the parent.
                 {
-                    for (auto read : *reads)
+                    UseNodeOperands(node);
+                }
+
+                AliasSet::NodeInfo nodeInfo(compiler, node);
+                if (nodeInfo.IsLclVarRead() && node->IsValue() && !unusedDefs.Contains(node))
+                {
+                    PushLclVarRead(nodeInfo);
+                }
+
+                if (nodeInfo.IsLclVarWrite())
+                {
+                    // If this node is a lclVar write, it must not alias a lclVar with an outstanding read
+                    SmallHashTable<GenTree*, GenTree*>* reads;
+                    if (unusedLclVarReads.TryGetValue(nodeInfo.LclNum(), &reads))
                     {
-                        GenTree*           readNode = read.Key();
-                        AliasSet::NodeInfo readInfo(compiler, readNode);
-                        assert(readInfo.IsLclVarRead() && readInfo.LclNum() == nodeInfo.LclNum());
-
-                        unsigned readStart  = readInfo.LclOffs();
-                        unsigned readEnd    = readStart + genTypeSize(readNode);
-                        unsigned writeStart = nodeInfo.LclOffs();
-                        unsigned writeEnd   = writeStart + genTypeSize(node);
-                        if ((readEnd > writeStart) && (writeEnd > readStart))
+                        for (auto read : *reads)
                         {
-                            JITDUMP("Write to local overlaps outstanding read (write: %u..%u, read: %u..%u)\n",
-                                    writeStart, writeEnd, readStart, readEnd);
+                            GenTree*           readNode = read.Key();
+                            AliasSet::NodeInfo readInfo(compiler, readNode);
+                            assert(readInfo.IsLclVarRead() && readInfo.LclNum() == nodeInfo.LclNum());
 
-                            LIR::Use use;
-                            bool     found = const_cast<LIR::Range*>(range)->TryGetUse(readNode, &use);
-                            GenTree* user  = found ? use.User() : nullptr;
-
-                            for (GenTree* rangeNode : *range)
+                            unsigned readStart  = readInfo.LclOffs();
+                            unsigned readEnd    = readStart + genTypeSize(readNode);
+                            unsigned writeStart = nodeInfo.LclOffs();
+                            unsigned writeEnd   = writeStart + genTypeSize(node);
+                            if ((readEnd > writeStart) && (writeEnd > readStart))
                             {
-                                const char* prefix = nullptr;
-                                if (rangeNode == readNode)
+                                JITDUMP("Write to local overlaps outstanding read (write: %u..%u, read: %u..%u)\n",
+                                        writeStart, writeEnd, readStart, readEnd);
+
+                                LIR::Use use;
+                                bool     found = const_cast<LIR::Range*>(range)->TryGetUse(readNode, &use);
+                                GenTree* user  = found ? use.User() : nullptr;
+
+                                for (GenTree* rangeNode : *range)
                                 {
-                                    prefix = "read:  ";
-                                }
-                                else if (rangeNode == node)
-                                {
-                                    prefix = "write: ";
-                                }
-                                else if (rangeNode == user)
-                                {
-                                    prefix = "user:  ";
-                                }
-                                else
-                                {
-                                    prefix = "       ";
+                                    const char* prefix = nullptr;
+                                    if (rangeNode == readNode)
+                                    {
+                                        prefix = "read:  ";
+                                    }
+                                    else if (rangeNode == node)
+                                    {
+                                        prefix = "write: ";
+                                    }
+                                    else if (rangeNode == user)
+                                    {
+                                        prefix = "user:  ";
+                                    }
+                                    else
+                                    {
+                                        prefix = "       ";
+                                    }
+
+                                    compiler->gtDispLIRNode(rangeNode, prefix);
                                 }
 
-                                compiler->gtDispLIRNode(rangeNode, prefix);
+                                assert(!"Write to unaliased local overlaps outstanding read");
+                                break;
                             }
-
-                            assert(!"Write to unaliased local overlaps outstanding read");
-                            break;
                         }
                     }
                 }
             }
+
+            return true;
         }
 
-        return true;
-    }
-
-private:
-    //------------------------------------------------------------------------
-    // UseNodeOperands: mark the node's operands as used.
-    //
-    // Arguments:
-    //    node - the node to use operands from.
-    void UseNodeOperands(GenTree* node)
-    {
-        for (GenTree* operand : node->Operands())
+    private:
+        //------------------------------------------------------------------------
+        // UseNodeOperands: mark the node's operands as used.
+        //
+        // Arguments:
+        //    node - the node to use operands from.
+        void UseNodeOperands(GenTree* node)
         {
-            if (operand->isContained())
+            for (GenTree* operand : node->Operands())
             {
-                UseNodeOperands(operand);
-            }
+                if (operand->isContained())
+                {
+                    UseNodeOperands(operand);
+                }
 
-            AliasSet::NodeInfo operandInfo(compiler, operand);
-            if (operandInfo.IsLclVarRead())
-            {
-                PopLclVarRead(operandInfo);
+                AliasSet::NodeInfo operandInfo(compiler, operand);
+                if (operandInfo.IsLclVarRead())
+                {
+                    PopLclVarRead(operandInfo);
+                }
             }
         }
-    }
 
-    //------------------------------------------------------------------------
-    // PushLclVarRead: add a local def the list of outstanding reads.
-    //
-    // Arguments:
-    //    defInfo - the node info representing the def.
-    //
-    void PushLclVarRead(const AliasSet::NodeInfo& defInfo)
-    {
-        SmallHashTable<GenTree*, GenTree*>* reads;
-        if (!unusedLclVarReads.TryGetValue(defInfo.LclNum(), &reads))
+        //------------------------------------------------------------------------
+        // PushLclVarRead: add a local def the list of outstanding reads.
+        //
+        // Arguments:
+        //    defInfo - the node info representing the def.
+        //
+        void PushLclVarRead(const AliasSet::NodeInfo& defInfo)
         {
-            if (!lclVarReadsMapsCache.Empty())
+            SmallHashTable<GenTree*, GenTree*>* reads;
+            if (!unusedLclVarReads.TryGetValue(defInfo.LclNum(), &reads))
             {
-                reads = lclVarReadsMapsCache.Pop();
-            }
-            else
-            {
-                reads = new (compiler, CMK_DebugOnly)
-                    SmallHashTable<GenTree*, GenTree*>(compiler->getAllocator(CMK_DebugOnly));
+                if (!lclVarReadsMapsCache.Empty())
+                {
+                    reads = lclVarReadsMapsCache.Pop();
+                }
+                else
+                {
+                    reads = new (compiler, CMK_DebugOnly)
+                        SmallHashTable<GenTree*, GenTree*>(compiler->getAllocator(CMK_DebugOnly));
+                }
+
+                unusedLclVarReads.AddOrUpdate(defInfo.LclNum(), reads);
             }
 
-            unusedLclVarReads.AddOrUpdate(defInfo.LclNum(), reads);
+            reads->AddOrUpdate(defInfo.Node(), defInfo.Node());
         }
 
-        reads->AddOrUpdate(defInfo.Node(), defInfo.Node());
-    }
-
-    //------------------------------------------------------------------------
-    // PopLclVarRead: remove a local def from the list of outstanding reads.
-    //
-    // Arguments:
-    //    defInfo - the node info representing the def.
-    //
-    void PopLclVarRead(const AliasSet::NodeInfo& defInfo)
-    {
-        SmallHashTable<GenTree*, GenTree*>* reads;
-        const bool                          foundReads = unusedLclVarReads.TryGetValue(defInfo.LclNum(), &reads);
-        assert(foundReads);
-
-        bool found = reads->TryRemove(defInfo.Node());
-
-        assert(found || !"Could not find consumed local in unusedLclVarReads");
-
-        if (reads->Count() == 0)
+        //------------------------------------------------------------------------
+        // PopLclVarRead: remove a local def from the list of outstanding reads.
+        //
+        // Arguments:
+        //    defInfo - the node info representing the def.
+        //
+        void PopLclVarRead(const AliasSet::NodeInfo& defInfo)
         {
-            unusedLclVarReads.Remove(defInfo.LclNum());
-            lclVarReadsMapsCache.Push(reads);
-        }
-    }
+            SmallHashTable<GenTree*, GenTree*>* reads;
+            const bool                          foundReads = unusedLclVarReads.TryGetValue(defInfo.LclNum(), &reads);
+            assert(foundReads);
 
-private:
-    Compiler*                                                     compiler;
-    const LIR::Range*                                             range;
-    SmallHashTable<GenTree*, bool, 32U>&                          unusedDefs;
-    SmallHashTable<int, SmallHashTable<GenTree*, GenTree*>*, 16U> unusedLclVarReads;
-    ArrayStack<SmallHashTable<GenTree*, GenTree*>*>               lclVarReadsMapsCache;
+            bool found = reads->TryRemove(defInfo.Node());
+
+            assert(found || !"Could not find consumed local in unusedLclVarReads");
+
+            if (reads->Count() == 0)
+            {
+                unusedLclVarReads.Remove(defInfo.LclNum());
+                lclVarReadsMapsCache.Push(reads);
+            }
+        }
+
+    private:
+        Compiler*                                                     compiler;
+        const LIR::Range*                                             range;
+        SmallHashTable<GenTree*, bool, 32U>&                          unusedDefs;
+        SmallHashTable<int, SmallHashTable<GenTree*, GenTree*>*, 16U> unusedLclVarReads;
+        ArrayStack<SmallHashTable<GenTree*, GenTree*>*>               lclVarReadsMapsCache;
 };
 
 //------------------------------------------------------------------------

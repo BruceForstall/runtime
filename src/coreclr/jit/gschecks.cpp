@@ -115,18 +115,19 @@ void Compiler::gsCopyShadowParams()
 
 struct MarkPtrsInfo
 {
-    Compiler* comp;
-    unsigned  lvStoreDef;   // Which local variable is the tree being assigned to?
-    bool      isStoreSrc;   // Is this the source value for an assignment?
-    bool      isUnderIndir; // Is this a pointer value tree that is being dereferenced?
-    bool      skipNextNode; // Skip a single node during the tree-walk
+        Compiler* comp;
+        unsigned  lvStoreDef;   // Which local variable is the tree being assigned to?
+        bool      isStoreSrc;   // Is this the source value for an assignment?
+        bool      isUnderIndir; // Is this a pointer value tree that is being dereferenced?
+        bool      skipNextNode; // Skip a single node during the tree-walk
 
 #ifdef DEBUG
-    void Print()
-    {
-        printf("[MarkPtrsInfo] = {comp = %p, lvStoreDef = %d, isStoreSrc = %d, isUnderIndir = %d, skipNextNode = %d}\n",
-               comp, lvStoreDef, isStoreSrc, isUnderIndir, skipNextNode);
-    }
+        void Print()
+        {
+            printf(
+                "[MarkPtrsInfo] = {comp = %p, lvStoreDef = %d, isStoreSrc = %d, isUnderIndir = %d, skipNextNode = %d}\n",
+                comp, lvStoreDef, isStoreSrc, isUnderIndir, skipNextNode);
+        }
 #endif
 };
 
@@ -179,55 +180,55 @@ Compiler::fgWalkResult Compiler::gsMarkPtrsAndAssignGroups(GenTree** pTree, fgWa
         // local vars and param uses
         case GT_LCL_VAR:
         case GT_LCL_FLD:
-        {
-            unsigned lclNum = tree->AsLclVarCommon()->GetLclNum();
-
-            if (pState->isUnderIndir)
             {
-                // The variable is being dereferenced for a read or a write.
-                comp->lvaTable[lclNum].lvIsPtr = 1;
-            }
+                unsigned lclNum = tree->AsLclVarCommon()->GetLclNum();
 
-            if (pState->isStoreSrc)
-            {
-                //
-                // Add lvAssignDef and lclNum to a common assign group
-                if (shadowVarInfo[pState->lvStoreDef].assignGroup)
+                if (pState->isUnderIndir)
                 {
-                    if (shadowVarInfo[lclNum].assignGroup)
+                    // The variable is being dereferenced for a read or a write.
+                    comp->lvaTable[lclNum].lvIsPtr = 1;
+                }
+
+                if (pState->isStoreSrc)
+                {
+                    //
+                    // Add lvAssignDef and lclNum to a common assign group
+                    if (shadowVarInfo[pState->lvStoreDef].assignGroup)
                     {
-                        // OR both bit vector
-                        shadowVarInfo[pState->lvStoreDef].assignGroup->bitVectOr(shadowVarInfo[lclNum].assignGroup);
+                        if (shadowVarInfo[lclNum].assignGroup)
+                        {
+                            // OR both bit vector
+                            shadowVarInfo[pState->lvStoreDef].assignGroup->bitVectOr(shadowVarInfo[lclNum].assignGroup);
+                        }
+                        else
+                        {
+                            shadowVarInfo[pState->lvStoreDef].assignGroup->bitVectSet(lclNum);
+                        }
+
+                        // Point both to the same bit vector
+                        shadowVarInfo[lclNum].assignGroup = shadowVarInfo[pState->lvStoreDef].assignGroup;
+                    }
+                    else if (shadowVarInfo[lclNum].assignGroup)
+                    {
+                        shadowVarInfo[lclNum].assignGroup->bitVectSet(pState->lvStoreDef);
+
+                        // Point both to the same bit vector
+                        shadowVarInfo[pState->lvStoreDef].assignGroup = shadowVarInfo[lclNum].assignGroup;
                     }
                     else
                     {
-                        shadowVarInfo[pState->lvStoreDef].assignGroup->bitVectSet(lclNum);
+                        FixedBitVect* bv = FixedBitVect::bitVectInit(pState->comp->lvaCount, pState->comp);
+
+                        // (shadowVarInfo[pState->lvAssignDef] == NULL && shadowVarInfo[lclNew] == NULL);
+                        // Neither of them has an assign group yet.  Make a new one.
+                        shadowVarInfo[pState->lvStoreDef].assignGroup = bv;
+                        shadowVarInfo[lclNum].assignGroup             = bv;
+                        bv->bitVectSet(pState->lvStoreDef);
+                        bv->bitVectSet(lclNum);
                     }
-
-                    // Point both to the same bit vector
-                    shadowVarInfo[lclNum].assignGroup = shadowVarInfo[pState->lvStoreDef].assignGroup;
                 }
-                else if (shadowVarInfo[lclNum].assignGroup)
-                {
-                    shadowVarInfo[lclNum].assignGroup->bitVectSet(pState->lvStoreDef);
-
-                    // Point both to the same bit vector
-                    shadowVarInfo[pState->lvStoreDef].assignGroup = shadowVarInfo[lclNum].assignGroup;
-                }
-                else
-                {
-                    FixedBitVect* bv = FixedBitVect::bitVectInit(pState->comp->lvaCount, pState->comp);
-
-                    // (shadowVarInfo[pState->lvAssignDef] == NULL && shadowVarInfo[lclNew] == NULL);
-                    // Neither of them has an assign group yet.  Make a new one.
-                    shadowVarInfo[pState->lvStoreDef].assignGroup = bv;
-                    shadowVarInfo[lclNum].assignGroup             = bv;
-                    bv->bitVectSet(pState->lvStoreDef);
-                    bv->bitVectSet(lclNum);
-                }
+                return WALK_CONTINUE;
             }
-            return WALK_CONTINUE;
-        }
 
         // Calls - Mark arg variables
         case GT_CALL:
@@ -446,49 +447,51 @@ void Compiler::gsParamsToShadows()
 
     class ReplaceShadowParamsVisitor final : public GenTreeVisitor<ReplaceShadowParamsVisitor>
     {
-        // Walk the locals of the method (i.e. GT_LCL_FLD and GT_LCL_VAR nodes) and replace the ones that correspond to
-        // "vulnerable" parameters with their shadow copies. If an original local variable has small type then replace
-        // the GT_LCL_VAR node type with TYP_INT.
-    public:
-        enum
-        {
-            DoPostOrder = true
-        };
+            // Walk the locals of the method (i.e. GT_LCL_FLD and GT_LCL_VAR nodes) and replace the ones that correspond
+            // to "vulnerable" parameters with their shadow copies. If an original local variable has small type then
+            // replace the GT_LCL_VAR node type with TYP_INT.
+        public:
+            enum {
+                DoPostOrder = true
+            };
 
-        ReplaceShadowParamsVisitor(Compiler* compiler) : GenTreeVisitor<ReplaceShadowParamsVisitor>(compiler) {}
-
-        Compiler::fgWalkResult PostOrderVisit(GenTree** use, GenTree* user)
-        {
-            GenTree* tree = *use;
-
-            if (tree->OperIsAnyLocal())
+            ReplaceShadowParamsVisitor(Compiler* compiler)
+                : GenTreeVisitor<ReplaceShadowParamsVisitor>(compiler)
             {
-                unsigned int lclNum       = tree->AsLclVarCommon()->GetLclNum();
-                unsigned int shadowLclNum = m_compiler->gsShadowVarInfo[lclNum].shadowCopy;
+            }
 
-                if (shadowLclNum != BAD_VAR_NUM)
+            Compiler::fgWalkResult PostOrderVisit(GenTree** use, GenTree* user)
+            {
+                GenTree* tree = *use;
+
+                if (tree->OperIsAnyLocal())
                 {
-                    LclVarDsc* varDsc = m_compiler->lvaGetDesc(lclNum);
-                    assert(ShadowParamVarInfo::mayNeedShadowCopy(varDsc));
+                    unsigned int lclNum       = tree->AsLclVarCommon()->GetLclNum();
+                    unsigned int shadowLclNum = m_compiler->gsShadowVarInfo[lclNum].shadowCopy;
 
-                    tree->AsLclVarCommon()->SetLclNum(shadowLclNum);
-
-                    if (varTypeIsSmall(varDsc))
+                    if (shadowLclNum != BAD_VAR_NUM)
                     {
-                        if (tree->OperIsScalarLocal())
+                        LclVarDsc* varDsc = m_compiler->lvaGetDesc(lclNum);
+                        assert(ShadowParamVarInfo::mayNeedShadowCopy(varDsc));
+
+                        tree->AsLclVarCommon()->SetLclNum(shadowLclNum);
+
+                        if (varTypeIsSmall(varDsc))
                         {
-                            tree->gtType = TYP_INT;
-                        }
-                        else if (tree->OperIs(GT_STORE_LCL_FLD) && tree->IsPartialLclFld(m_compiler))
-                        {
-                            tree->gtFlags |= GTF_VAR_USEASG;
+                            if (tree->OperIsScalarLocal())
+                            {
+                                tree->gtType = TYP_INT;
+                            }
+                            else if (tree->OperIs(GT_STORE_LCL_FLD) && tree->IsPartialLclFld(m_compiler))
+                            {
+                                tree->gtFlags |= GTF_VAR_USEASG;
+                            }
                         }
                     }
                 }
-            }
 
-            return WALK_CONTINUE;
-        }
+                return WALK_CONTINUE;
+            }
     };
 
     for (BasicBlock* const block : Blocks())

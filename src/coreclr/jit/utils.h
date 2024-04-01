@@ -54,86 +54,79 @@ inline BOOLEAN BitScanReverse64(DWORD* Index, DWORD64 Mask)
 
 #endif // _MSC_VER
 
-template <typename T, int size>
-inline constexpr unsigned ArrLen(T (&)[size])
+template <typename T, int size> inline constexpr unsigned ArrLen(T (&)[size])
 {
     return size;
 }
 
 // return true if arg is a power of 2
-template <typename T>
-inline bool isPow2(T i)
+template <typename T> inline bool isPow2(T i)
 {
     return (i > 0 && ((i - 1) & i) == 0);
 }
 
-template <typename T>
-constexpr bool AreContiguous(T val1, T val2)
+template <typename T> constexpr bool AreContiguous(T val1, T val2)
 {
     return (val1 + 1) == val2;
 }
 
-template <typename T, typename... Ts>
-constexpr bool AreContiguous(T val1, T val2, Ts... rest)
+template <typename T, typename... Ts> constexpr bool AreContiguous(T val1, T val2, Ts... rest)
 {
     return ((val1 + 1) == val2) && AreContiguous(val2, rest...);
 }
 
 // Adapter for iterators to a type that is compatible with C++11
 // range-based for loops.
-template <typename TIterator>
-class IteratorPair
+template <typename TIterator> class IteratorPair
 {
-    TIterator m_begin;
-    TIterator m_end;
+        TIterator m_begin;
+        TIterator m_end;
 
-public:
-    IteratorPair(TIterator begin, TIterator end) : m_begin(begin), m_end(end) {}
+    public:
+        IteratorPair(TIterator begin, TIterator end)
+            : m_begin(begin)
+            , m_end(end)
+        {
+        }
 
-    inline TIterator begin()
-    {
-        return m_begin;
-    }
+        inline TIterator begin()
+        {
+            return m_begin;
+        }
 
-    inline TIterator end()
-    {
-        return m_end;
-    }
+        inline TIterator end()
+        {
+            return m_end;
+        }
 };
 
-template <typename TIterator>
-inline IteratorPair<TIterator> MakeIteratorPair(TIterator begin, TIterator end)
+template <typename TIterator> inline IteratorPair<TIterator> MakeIteratorPair(TIterator begin, TIterator end)
 {
     return IteratorPair<TIterator>(begin, end);
 }
 
 // Recursive template definition to calculate the base-2 logarithm
 // of a constant value.
-template <unsigned val, unsigned acc = 0>
-struct ConstLog2
+template <unsigned val, unsigned acc = 0> struct ConstLog2
 {
-    enum
-    {
-        value = ConstLog2<val / 2, acc + 1>::value
-    };
+        enum {
+            value = ConstLog2 < val / 2,
+            acc + 1 > ::value
+        };
 };
 
-template <unsigned acc>
-struct ConstLog2<0, acc>
+template <unsigned acc> struct ConstLog2<0, acc>
 {
-    enum
-    {
-        value = acc
-    };
+        enum {
+            value = acc
+        };
 };
 
-template <unsigned acc>
-struct ConstLog2<1, acc>
+template <unsigned acc> struct ConstLog2<1, acc>
 {
-    enum
-    {
-        value = acc
-    };
+        enum {
+            value = acc
+        };
 };
 
 inline const char* dspBool(bool b)
@@ -141,8 +134,7 @@ inline const char* dspBool(bool b)
     return (b) ? "true" : "false";
 }
 
-template <typename T>
-int signum(T val)
+template <typename T> int signum(T val)
 {
     if (val < T(0))
     {
@@ -182,125 +174,132 @@ int signum(T val)
 class ConfigMethodRange
 {
 
-public:
-    // Default capacity
-    enum
-    {
-        DEFAULT_CAPACITY = 50
-    };
+    public:
+        // Default capacity
+        enum {
+            DEFAULT_CAPACITY = 50
+        };
 
-    // Does the range include this hash?
-    bool Contains(unsigned hash);
+        // Does the range include this hash?
+        bool Contains(unsigned hash);
 
-    // Ensure the range string has been parsed.
-    void EnsureInit(const WCHAR* rangeStr, unsigned capacity = DEFAULT_CAPACITY)
-    {
-        // Make sure that the memory was zero initialized
-        assert(m_inited == 0 || m_inited == 1);
-
-        if (!m_inited)
+        // Ensure the range string has been parsed.
+        void EnsureInit(const WCHAR* rangeStr, unsigned capacity = DEFAULT_CAPACITY)
         {
-            InitRanges(rangeStr, capacity);
-            assert(m_inited == 1);
+            // Make sure that the memory was zero initialized
+            assert(m_inited == 0 || m_inited == 1);
+
+            if (!m_inited)
+            {
+                InitRanges(rangeStr, capacity);
+                assert(m_inited == 1);
+            }
         }
-    }
 
-    bool IsEmpty() const
-    {
-        return m_lastRange == 0;
-    }
+        bool IsEmpty() const
+        {
+            return m_lastRange == 0;
+        }
 
-    // Error checks
-    bool Error() const
-    {
-        return m_badChar != 0;
-    }
+        // Error checks
+        bool Error() const
+        {
+            return m_badChar != 0;
+        }
 
-    size_t BadCharIndex() const
-    {
-        return m_badChar - 1;
-    }
+        size_t BadCharIndex() const
+        {
+            return m_badChar - 1;
+        }
 
-    void Dump();
+        void Dump();
 
-private:
-    struct Range
-    {
-        unsigned m_low;
-        unsigned m_high;
-    };
+    private:
+        struct Range
+        {
+                unsigned m_low;
+                unsigned m_high;
+        };
 
-    void InitRanges(const WCHAR* rangeStr, unsigned capacity);
+        void InitRanges(const WCHAR* rangeStr, unsigned capacity);
 
-    unsigned m_entries;   // number of entries in the range array
-    unsigned m_lastRange; // count of low-high pairs
-    unsigned m_inited;    // 1 if range string has been parsed
-    size_t   m_badChar;   // index + 1 of any bad character in range string
-    Range*   m_ranges;    // ranges of functions to include
+        unsigned m_entries;   // number of entries in the range array
+        unsigned m_lastRange; // count of low-high pairs
+        unsigned m_inited;    // 1 if range string has been parsed
+        size_t   m_badChar;   // index + 1 of any bad character in range string
+        Range*   m_ranges;    // ranges of functions to include
 };
 
 // ConfigInArray is an integer-valued array
 //
 class ConfigIntArray
 {
-public:
-    ConfigIntArray() : m_values(nullptr), m_length(0) {}
-
-    // Ensure the string has been parsed.
-    void EnsureInit(const WCHAR* str)
-    {
-        if (m_values == nullptr)
+    public:
+        ConfigIntArray()
+            : m_values(nullptr)
+            , m_length(0)
         {
-            Init(str);
         }
-    }
 
-    void Dump();
-    int* GetData() const
-    {
-        return m_values;
-    }
-    unsigned GetLength() const
-    {
-        return m_length;
-    }
+        // Ensure the string has been parsed.
+        void EnsureInit(const WCHAR* str)
+        {
+            if (m_values == nullptr)
+            {
+                Init(str);
+            }
+        }
 
-private:
-    void     Init(const WCHAR* str);
-    int*     m_values;
-    unsigned m_length;
+        void Dump();
+        int* GetData() const
+        {
+            return m_values;
+        }
+        unsigned GetLength() const
+        {
+            return m_length;
+        }
+
+    private:
+        void     Init(const WCHAR* str);
+        int*     m_values;
+        unsigned m_length;
 };
 
 // ConfigDoubleArray is an double-valued array
 //
 class ConfigDoubleArray
 {
-public:
-    ConfigDoubleArray() : m_values(nullptr), m_length(0) {}
-
-    // Ensure the string has been parsed.
-    void EnsureInit(const WCHAR* str)
-    {
-        if (m_values == nullptr)
+    public:
+        ConfigDoubleArray()
+            : m_values(nullptr)
+            , m_length(0)
         {
-            Init(str);
         }
-    }
 
-    void    Dump();
-    double* GetData() const
-    {
-        return m_values;
-    }
-    unsigned GetLength() const
-    {
-        return m_length;
-    }
+        // Ensure the string has been parsed.
+        void EnsureInit(const WCHAR* str)
+        {
+            if (m_values == nullptr)
+            {
+                Init(str);
+            }
+        }
 
-private:
-    void     Init(const WCHAR* str);
-    double*  m_values;
-    unsigned m_length;
+        void    Dump();
+        double* GetData() const
+        {
+            return m_values;
+        }
+        unsigned GetLength() const
+        {
+            return m_length;
+        }
+
+    private:
+        void     Init(const WCHAR* str);
+        double*  m_values;
+        unsigned m_length;
 };
 
 #endif // defined(DEBUG)
@@ -312,52 +311,52 @@ class Compiler;
  */
 class FixedBitVect
 {
-private:
-    UINT bitVectSize;
-    UINT bitVect[];
+    private:
+        UINT bitVectSize;
+        UINT bitVect[];
 
-    // bitChunkSize() - Returns number of bits in a bitVect chunk
-    static UINT bitChunkSize();
+        // bitChunkSize() - Returns number of bits in a bitVect chunk
+        static UINT bitChunkSize();
 
-    // bitNumToBit() - Returns a bit mask of the given bit number
-    static UINT bitNumToBit(UINT bitNum);
+        // bitNumToBit() - Returns a bit mask of the given bit number
+        static UINT bitNumToBit(UINT bitNum);
 
-public:
-    // bitVectInit() - Initializes a bit vector of a given size
-    static FixedBitVect* bitVectInit(UINT size, Compiler* comp);
+    public:
+        // bitVectInit() - Initializes a bit vector of a given size
+        static FixedBitVect* bitVectInit(UINT size, Compiler* comp);
 
-    // bitVectGetSize() - Get number of bits in the bit set
-    UINT bitVectGetSize()
-    {
-        return bitVectSize;
-    }
+        // bitVectGetSize() - Get number of bits in the bit set
+        UINT bitVectGetSize()
+        {
+            return bitVectSize;
+        }
 
-    // bitVectSet() - Sets the given bit
-    void bitVectSet(UINT bitNum);
+        // bitVectSet() - Sets the given bit
+        void bitVectSet(UINT bitNum);
 
-    // bitVectClear() - Clears the given bit
-    void bitVectClear(UINT bitNum);
+        // bitVectClear() - Clears the given bit
+        void bitVectClear(UINT bitNum);
 
-    // bitVectTest() - Tests the given bit
-    bool bitVectTest(UINT bitNum);
+        // bitVectTest() - Tests the given bit
+        bool bitVectTest(UINT bitNum);
 
-    // bitVectOr() - Or in the given bit vector
-    void bitVectOr(FixedBitVect* bv);
+        // bitVectOr() - Or in the given bit vector
+        void bitVectOr(FixedBitVect* bv);
 
-    // bitVectAnd() - And with passed in bit vector
-    void bitVectAnd(FixedBitVect& bv);
+        // bitVectAnd() - And with passed in bit vector
+        void bitVectAnd(FixedBitVect& bv);
 
-    // bitVectGetFirst() - Find the first bit on and return the bit num.
-    //                    Return -1 if no bits found.
-    UINT bitVectGetFirst();
+        // bitVectGetFirst() - Find the first bit on and return the bit num.
+        //                    Return -1 if no bits found.
+        UINT bitVectGetFirst();
 
-    // bitVectGetNext() - Find the next bit on given previous bit and return bit num.
-    //                    Return -1 if no bits found.
-    UINT bitVectGetNext(UINT bitNumPrev);
+        // bitVectGetNext() - Find the next bit on given previous bit and return bit num.
+        //                    Return -1 if no bits found.
+        UINT bitVectGetNext(UINT bitNumPrev);
 
-    // bitVectGetNextAndClear() - Find the first bit on, clear it and return it.
-    //                            Return -1 if no bits found.
-    UINT bitVectGetNextAndClear();
+        // bitVectGetNextAndClear() - Find the first bit on, clear it and return it.
+        //                            Return -1 if no bits found.
+        UINT bitVectGetNextAndClear();
 };
 
 /******************************************************************************
@@ -394,29 +393,29 @@ void hexDump(FILE* dmpf, BYTE* addr, size_t size);
  * the destructor asserts that the value at destruction time is the same one we set.
  * Usage: ScopedSetVariable<bool> _unused_name(&variable, true);
  */
-template <typename T>
-class ScopedSetVariable
+template <typename T> class ScopedSetVariable
 {
-public:
-    ScopedSetVariable(T* pVariable, T value) : m_pVariable(pVariable)
-    {
-        m_oldValue   = *m_pVariable;
-        *m_pVariable = value;
-        INDEBUG(m_value = value;)
-    }
+    public:
+        ScopedSetVariable(T* pVariable, T value)
+            : m_pVariable(pVariable)
+        {
+            m_oldValue   = *m_pVariable;
+            *m_pVariable = value;
+            INDEBUG(m_value = value;)
+        }
 
-    ~ScopedSetVariable()
-    {
-        assert(*m_pVariable == m_value); // Assert that the value didn't change between ctor and dtor
-        *m_pVariable = m_oldValue;
-    }
+        ~ScopedSetVariable()
+        {
+            assert(*m_pVariable == m_value); // Assert that the value didn't change between ctor and dtor
+            *m_pVariable = m_oldValue;
+        }
 
-private:
+    private:
 #ifdef DEBUG
-    T m_value;      // The value we set the variable to (used for assert).
-#endif              // DEBUG
-    T  m_oldValue;  // The old value, to restore the variable to.
-    T* m_pVariable; // Address of the variable to change
+        T m_value;      // The value we set the variable to (used for assert).
+#endif                  // DEBUG
+        T  m_oldValue;  // The old value, to restore the variable to.
+        T* m_pVariable; // Address of the variable to change
 };
 
 /******************************************************************************
@@ -430,208 +429,208 @@ private:
  * The phase ordering is clean for AMD64, but not for x86/ARM. So don't do the phase
  * ordering asserts for those platforms.
  */
-template <typename T>
-class PhasedVar
+template <typename T> class PhasedVar
 {
-public:
-    PhasedVar()
+    public:
+        PhasedVar()
 #ifdef DEBUG
-        : m_initialized(false), m_writePhase(true)
+            : m_initialized(false)
+            , m_writePhase(true)
 #endif // DEBUG
-    {
-    }
+        {
+        }
 
-    PhasedVar(T value)
-        : m_value(value)
+        PhasedVar(T value)
+            : m_value(value)
 #ifdef DEBUG
-        , m_initialized(true)
-        , m_writePhase(true)
+            , m_initialized(true)
+            , m_writePhase(true)
 #endif // DEBUG
-    {
-    }
+        {
+        }
 
-    ~PhasedVar()
-    {
+        ~PhasedVar()
+        {
 #ifdef DEBUG
-        m_initialized = false;
-        m_writePhase  = true;
+            m_initialized = false;
+            m_writePhase  = true;
 #endif // DEBUG
-    }
+        }
 
-    // Read the value. Change to the read phase.
-    // Marked 'const' because we don't change the encapsulated value, even though
-    // we do change the write phase, which is only for debugging asserts.
+        // Read the value. Change to the read phase.
+        // Marked 'const' because we don't change the encapsulated value, even though
+        // we do change the write phase, which is only for debugging asserts.
 
-    operator T() const
-    {
+        operator T() const
+        {
 #ifdef DEBUG
-        assert(m_initialized);
-        (const_cast<PhasedVar*>(this))->m_writePhase = false;
+            assert(m_initialized);
+            (const_cast<PhasedVar*>(this))->m_writePhase = false;
 #endif // DEBUG
-        return m_value;
-    }
+            return m_value;
+        }
 
-    // Mark the value as read only; explicitly change the variable to the "read" phase.
-    void MarkAsReadOnly() const
-    {
+        // Mark the value as read only; explicitly change the variable to the "read" phase.
+        void MarkAsReadOnly() const
+        {
 #ifdef DEBUG
-        assert(m_initialized);
-        (const_cast<PhasedVar*>(this))->m_writePhase = false;
+            assert(m_initialized);
+            (const_cast<PhasedVar*>(this))->m_writePhase = false;
 #endif // DEBUG
-    }
+        }
 
-    // When dumping stuff we could try to read a PhasedVariable
-    // This method tells us whether we should read the PhasedVariable
-    bool HasFinalValue() const
-    {
+        // When dumping stuff we could try to read a PhasedVariable
+        // This method tells us whether we should read the PhasedVariable
+        bool HasFinalValue() const
+        {
 #ifdef DEBUG
-        return (const_cast<PhasedVar*>(this))->m_writePhase == false;
+            return (const_cast<PhasedVar*>(this))->m_writePhase == false;
 #else
-        return true;
+            return true;
 #endif // DEBUG
-    }
+        }
 
-    // Functions/operators to write the value. Must be in the write phase.
+        // Functions/operators to write the value. Must be in the write phase.
 
-    PhasedVar& operator=(const T& value)
-    {
+        PhasedVar& operator=(const T& value)
+        {
 #ifdef DEBUG
-        assert(m_writePhase);
-        m_initialized = true;
+            assert(m_writePhase);
+            m_initialized = true;
 #endif // DEBUG
-        m_value = value;
-        return *this;
-    }
+            m_value = value;
+            return *this;
+        }
 
-    PhasedVar& operator&=(const T& value)
-    {
+        PhasedVar& operator&=(const T& value)
+        {
 #ifdef DEBUG
-        assert(m_writePhase);
-        m_initialized = true;
+            assert(m_writePhase);
+            m_initialized = true;
 #endif // DEBUG
-        m_value &= value;
-        return *this;
-    }
+            m_value &= value;
+            return *this;
+        }
 
-    PhasedVar& operator|=(const T& value)
-    {
+        PhasedVar& operator|=(const T& value)
+        {
 #ifdef DEBUG
-        assert(m_writePhase);
-        m_initialized = true;
+            assert(m_writePhase);
+            m_initialized = true;
 #endif // DEBUG
-        m_value |= value;
-        return *this;
-    }
+            m_value |= value;
+            return *this;
+        }
 
-    // Note: if you need more <op>= functions, you can define them here, like operator&=
+        // Note: if you need more <op>= functions, you can define them here, like operator&=
 
-    // Assign a value, but don't assert if we're not in the write phase, and
-    // don't change the phase (if we're actually in the read phase, we'll stay
-    // in the read phase). This is a dangerous function, and overrides the main
-    // benefit of this class. Use it wisely!
-    void OverrideAssign(const T& value)
-    {
+        // Assign a value, but don't assert if we're not in the write phase, and
+        // don't change the phase (if we're actually in the read phase, we'll stay
+        // in the read phase). This is a dangerous function, and overrides the main
+        // benefit of this class. Use it wisely!
+        void OverrideAssign(const T& value)
+        {
 #ifdef DEBUG
-        m_initialized = true;
+            m_initialized = true;
 #endif // DEBUG
-        m_value = value;
-    }
+            m_value = value;
+        }
 
-    // We've decided that this variable can go back to write phase, even if it has been
-    // written. This can be used, for example, for variables set and read during frame
-    // layout calculation, as long as it is before final layout, such that anything
-    // being calculated is just an estimate anyway. Obviously, it must be used carefully,
-    // since it overrides the main benefit of this class.
-    void ResetWritePhase()
-    {
+        // We've decided that this variable can go back to write phase, even if it has been
+        // written. This can be used, for example, for variables set and read during frame
+        // layout calculation, as long as it is before final layout, such that anything
+        // being calculated is just an estimate anyway. Obviously, it must be used carefully,
+        // since it overrides the main benefit of this class.
+        void ResetWritePhase()
+        {
 #ifdef DEBUG
-        m_writePhase = true;
+            m_writePhase = true;
 #endif // DEBUG
-    }
+        }
 
-private:
-    // Don't allow a copy constructor. (This could be allowed, but only add it once it is actually needed.)
+    private:
+        // Don't allow a copy constructor. (This could be allowed, but only add it once it is actually needed.)
 
-    PhasedVar(const PhasedVar& o)
-    {
-        unreached();
-    }
+        PhasedVar(const PhasedVar& o)
+        {
+            unreached();
+        }
 
-    T m_value;
+        T m_value;
 #ifdef DEBUG
-    bool m_initialized; // true once the variable has been initialized, that is, written once.
-    bool m_writePhase;  // true if we are in the (initial) "write" phase. Once the value is read, this changes to false,
-                        // and can't be changed back.
-#endif                  // DEBUG
+        bool m_initialized; // true once the variable has been initialized, that is, written once.
+        bool m_writePhase;  // true if we are in the (initial) "write" phase. Once the value is read, this changes to
+                           // false, and can't be changed back.
+#endif                      // DEBUG
 };
 
 class HelperCallProperties
 {
-private:
-    bool m_isPure[CORINFO_HELP_COUNT];
-    bool m_noThrow[CORINFO_HELP_COUNT];
-    bool m_alwaysThrow[CORINFO_HELP_COUNT];
-    bool m_nonNullReturn[CORINFO_HELP_COUNT];
-    bool m_isAllocator[CORINFO_HELP_COUNT];
-    bool m_mutatesHeap[CORINFO_HELP_COUNT];
-    bool m_mayRunCctor[CORINFO_HELP_COUNT];
+    private:
+        bool m_isPure[CORINFO_HELP_COUNT];
+        bool m_noThrow[CORINFO_HELP_COUNT];
+        bool m_alwaysThrow[CORINFO_HELP_COUNT];
+        bool m_nonNullReturn[CORINFO_HELP_COUNT];
+        bool m_isAllocator[CORINFO_HELP_COUNT];
+        bool m_mutatesHeap[CORINFO_HELP_COUNT];
+        bool m_mayRunCctor[CORINFO_HELP_COUNT];
 
-    void init();
+        void init();
 
-public:
-    HelperCallProperties()
-    {
-        init();
-    }
+    public:
+        HelperCallProperties()
+        {
+            init();
+        }
 
-    bool IsPure(CorInfoHelpFunc helperId)
-    {
-        assert(helperId > CORINFO_HELP_UNDEF);
-        assert(helperId < CORINFO_HELP_COUNT);
-        return m_isPure[helperId];
-    }
+        bool IsPure(CorInfoHelpFunc helperId)
+        {
+            assert(helperId > CORINFO_HELP_UNDEF);
+            assert(helperId < CORINFO_HELP_COUNT);
+            return m_isPure[helperId];
+        }
 
-    bool NoThrow(CorInfoHelpFunc helperId)
-    {
-        assert(helperId > CORINFO_HELP_UNDEF);
-        assert(helperId < CORINFO_HELP_COUNT);
-        return m_noThrow[helperId];
-    }
+        bool NoThrow(CorInfoHelpFunc helperId)
+        {
+            assert(helperId > CORINFO_HELP_UNDEF);
+            assert(helperId < CORINFO_HELP_COUNT);
+            return m_noThrow[helperId];
+        }
 
-    bool AlwaysThrow(CorInfoHelpFunc helperId)
-    {
-        assert(helperId > CORINFO_HELP_UNDEF);
-        assert(helperId < CORINFO_HELP_COUNT);
-        return m_alwaysThrow[helperId];
-    }
+        bool AlwaysThrow(CorInfoHelpFunc helperId)
+        {
+            assert(helperId > CORINFO_HELP_UNDEF);
+            assert(helperId < CORINFO_HELP_COUNT);
+            return m_alwaysThrow[helperId];
+        }
 
-    bool NonNullReturn(CorInfoHelpFunc helperId)
-    {
-        assert(helperId > CORINFO_HELP_UNDEF);
-        assert(helperId < CORINFO_HELP_COUNT);
-        return m_nonNullReturn[helperId];
-    }
+        bool NonNullReturn(CorInfoHelpFunc helperId)
+        {
+            assert(helperId > CORINFO_HELP_UNDEF);
+            assert(helperId < CORINFO_HELP_COUNT);
+            return m_nonNullReturn[helperId];
+        }
 
-    bool IsAllocator(CorInfoHelpFunc helperId)
-    {
-        assert(helperId > CORINFO_HELP_UNDEF);
-        assert(helperId < CORINFO_HELP_COUNT);
-        return m_isAllocator[helperId];
-    }
+        bool IsAllocator(CorInfoHelpFunc helperId)
+        {
+            assert(helperId > CORINFO_HELP_UNDEF);
+            assert(helperId < CORINFO_HELP_COUNT);
+            return m_isAllocator[helperId];
+        }
 
-    bool MutatesHeap(CorInfoHelpFunc helperId)
-    {
-        assert(helperId > CORINFO_HELP_UNDEF);
-        assert(helperId < CORINFO_HELP_COUNT);
-        return m_mutatesHeap[helperId];
-    }
+        bool MutatesHeap(CorInfoHelpFunc helperId)
+        {
+            assert(helperId > CORINFO_HELP_UNDEF);
+            assert(helperId < CORINFO_HELP_COUNT);
+            return m_mutatesHeap[helperId];
+        }
 
-    bool MayRunCctor(CorInfoHelpFunc helperId)
-    {
-        assert(helperId > CORINFO_HELP_UNDEF);
-        assert(helperId < CORINFO_HELP_COUNT);
-        return m_mayRunCctor[helperId];
-    }
+        bool MayRunCctor(CorInfoHelpFunc helperId)
+        {
+            assert(helperId > CORINFO_HELP_UNDEF);
+            assert(helperId < CORINFO_HELP_COUNT);
+            return m_mayRunCctor[helperId];
+        }
 };
 
 //*****************************************************************************
@@ -649,29 +648,29 @@ public:
 
 class AssemblyNamesList2
 {
-    struct AssemblyName
-    {
-        char*         m_assemblyName;
-        AssemblyName* m_next;
-    };
+        struct AssemblyName
+        {
+                char*         m_assemblyName;
+                AssemblyName* m_next;
+        };
 
-    AssemblyName* m_pNames; // List of names
-    HostAllocator m_alloc;  // HostAllocator to use in this class
+        AssemblyName* m_pNames; // List of names
+        HostAllocator m_alloc;  // HostAllocator to use in this class
 
-public:
-    // Take a Unicode string list of assembly names, parse it, and store it.
-    AssemblyNamesList2(const WCHAR* list, HostAllocator alloc);
+    public:
+        // Take a Unicode string list of assembly names, parse it, and store it.
+        AssemblyNamesList2(const WCHAR* list, HostAllocator alloc);
 
-    ~AssemblyNamesList2();
+        ~AssemblyNamesList2();
 
-    // Return 'true' if 'assemblyName' (in UTF-8 format) is in the stored list of assembly names.
-    bool IsInList(const char* assemblyName);
+        // Return 'true' if 'assemblyName' (in UTF-8 format) is in the stored list of assembly names.
+        bool IsInList(const char* assemblyName);
 
-    // Return 'true' if the assembly name list is empty.
-    bool IsEmpty()
-    {
-        return m_pNames == nullptr;
-    }
+        // Return 'true' if the assembly name list is empty.
+        bool IsEmpty()
+        {
+            return m_pNames == nullptr;
+        }
 };
 
 // MethodSet: Manage a list of methods that is read from a file.
@@ -690,42 +689,44 @@ public:
 //
 class MethodSet
 {
-    // TODO: use a hash table? or two: one on hash value, one on function name
-    struct MethodInfo
-    {
-        char*       m_MethodName;
-        int         m_MethodHash;
-        MethodInfo* m_next;
-
-        MethodInfo(char* methodName, int methodHash)
-            : m_MethodName(methodName), m_MethodHash(methodHash), m_next(nullptr)
+        // TODO: use a hash table? or two: one on hash value, one on function name
+        struct MethodInfo
         {
+                char*       m_MethodName;
+                int         m_MethodHash;
+                MethodInfo* m_next;
+
+                MethodInfo(char* methodName, int methodHash)
+                    : m_MethodName(methodName)
+                    , m_MethodHash(methodHash)
+                    , m_next(nullptr)
+                {
+                }
+        };
+
+        MethodInfo*   m_pInfos; // List of function info
+        HostAllocator m_alloc;  // HostAllocator to use in this class
+
+    public:
+        // Take a Unicode string with the filename containing a list of function names, parse it, and store it.
+        MethodSet(const WCHAR* filename, HostAllocator alloc);
+
+        ~MethodSet();
+
+        // Return 'true' if 'functionName' (in UTF-8 format) is in the stored set of assembly names.
+        bool IsInSet(const char* functionName);
+
+        // Return 'true' if 'functionHash' (in UTF-8 format) is in the stored set of assembly names.
+        bool IsInSet(int functionHash);
+
+        // Return 'true' if this method is active. Prefer non-zero methodHash for check over (non-null) methodName.
+        bool IsActiveMethod(const char* methodName, int methodHash);
+
+        // Return 'true' if the assembly name set is empty.
+        bool IsEmpty()
+        {
+            return m_pInfos == nullptr;
         }
-    };
-
-    MethodInfo*   m_pInfos; // List of function info
-    HostAllocator m_alloc;  // HostAllocator to use in this class
-
-public:
-    // Take a Unicode string with the filename containing a list of function names, parse it, and store it.
-    MethodSet(const WCHAR* filename, HostAllocator alloc);
-
-    ~MethodSet();
-
-    // Return 'true' if 'functionName' (in UTF-8 format) is in the stored set of assembly names.
-    bool IsInSet(const char* functionName);
-
-    // Return 'true' if 'functionHash' (in UTF-8 format) is in the stored set of assembly names.
-    bool IsInSet(int functionHash);
-
-    // Return 'true' if this method is active. Prefer non-zero methodHash for check over (non-null) methodName.
-    bool IsActiveMethod(const char* methodName, int methodHash);
-
-    // Return 'true' if the assembly name set is empty.
-    bool IsEmpty()
-    {
-        return m_pInfos == nullptr;
-    }
 };
 
 #ifdef FEATURE_JIT_METHOD_PERF
@@ -734,36 +735,36 @@ public:
 //
 class CycleCount
 {
-private:
-    double           cps;         // cycles per second
-    unsigned __int64 beginCycles; // cycles at stop watch construction
-public:
-    CycleCount();
+    private:
+        double           cps;         // cycles per second
+        unsigned __int64 beginCycles; // cycles at stop watch construction
+    public:
+        CycleCount();
 
-    // Kick off the counter, and if re-entrant will use the latest cycles as starting point.
-    // If the method returns false, any other query yield unpredictable results.
-    bool Start();
+        // Kick off the counter, and if re-entrant will use the latest cycles as starting point.
+        // If the method returns false, any other query yield unpredictable results.
+        bool Start();
 
-    // Return time elapsed in msecs, if Start returned true.
-    double ElapsedTime();
+        // Return time elapsed in msecs, if Start returned true.
+        double ElapsedTime();
 
-private:
-    // Return true if successful.
-    bool GetCycles(unsigned __int64* time);
+    private:
+        // Return true if successful.
+        bool GetCycles(unsigned __int64* time);
 };
 
 // Uses win API QueryPerformanceCounter/QueryPerformanceFrequency.
 class PerfCounter
 {
-    LARGE_INTEGER beg;
-    double        freq;
+        LARGE_INTEGER beg;
+        double        freq;
 
-public:
-    // If the method returns false, any other query yield unpredictable results.
-    bool Start();
+    public:
+        // If the method returns false, any other query yield unpredictable results.
+        bool Start();
 
-    // Return time elapsed from start in millis, if Start returned true.
-    double ElapsedTime();
+        // Return time elapsed from start in millis, if Start returned true.
+        double ElapsedTime();
 };
 
 #endif // FEATURE_JIT_METHOD_PERF
@@ -784,194 +785,194 @@ unsigned CountDigits(double num, unsigned base = 10);
  */
 class FloatingPointUtils
 {
-public:
-    static double convertUInt64ToDouble(unsigned __int64 u64);
+    public:
+        static double convertUInt64ToDouble(unsigned __int64 u64);
 
-    static float convertUInt64ToFloat(unsigned __int64 u64);
+        static float convertUInt64ToFloat(unsigned __int64 u64);
 
-    static unsigned __int64 convertDoubleToUInt64(double d);
+        static unsigned __int64 convertDoubleToUInt64(double d);
 
-    static double convertToDouble(float f);
+        static double convertToDouble(float f);
 
-    static float convertToSingle(double d);
+        static float convertToSingle(double d);
 
-    static double round(double x);
+        static double round(double x);
 
-    static float round(float x);
+        static float round(float x);
 
-    static bool isNormal(double x);
+        static bool isNormal(double x);
 
-    static bool isNormal(float x);
+        static bool isNormal(float x);
 
-    static bool hasPreciseReciprocal(double x);
+        static bool hasPreciseReciprocal(double x);
 
-    static bool hasPreciseReciprocal(float x);
+        static bool hasPreciseReciprocal(float x);
 
-    static double infinite_double();
+        static double infinite_double();
 
-    static float infinite_float();
+        static float infinite_float();
 
-    static bool isAllBitsSet(float val);
+        static bool isAllBitsSet(float val);
 
-    static bool isAllBitsSet(double val);
+        static bool isAllBitsSet(double val);
 
-    static bool isFinite(float val);
+        static bool isFinite(float val);
 
-    static bool isFinite(double val);
+        static bool isFinite(double val);
 
-    static bool isNegative(float val);
+        static bool isNegative(float val);
 
-    static bool isNegative(double val);
+        static bool isNegative(double val);
 
-    static bool isNaN(float val);
+        static bool isNaN(float val);
 
-    static bool isNaN(double val);
+        static bool isNaN(double val);
 
-    static bool isNegativeZero(double val);
+        static bool isNegativeZero(double val);
 
-    static bool isPositiveZero(double val);
+        static bool isPositiveZero(double val);
 
-    static double maximum(double val1, double val2);
+        static double maximum(double val1, double val2);
 
-    static double maximumMagnitude(double val1, double val2);
+        static double maximumMagnitude(double val1, double val2);
 
-    static double maximumMagnitudeNumber(double val1, double val2);
+        static double maximumMagnitudeNumber(double val1, double val2);
 
-    static double maximumNumber(double val1, double val2);
+        static double maximumNumber(double val1, double val2);
 
-    static float maximum(float val1, float val2);
+        static float maximum(float val1, float val2);
 
-    static float maximumMagnitude(float val1, float val2);
+        static float maximumMagnitude(float val1, float val2);
 
-    static float maximumMagnitudeNumber(float val1, float val2);
+        static float maximumMagnitudeNumber(float val1, float val2);
 
-    static float maximumNumber(float val1, float val2);
+        static float maximumNumber(float val1, float val2);
 
-    static double minimum(double val1, double val2);
+        static double minimum(double val1, double val2);
 
-    static double minimumMagnitude(double val1, double val2);
+        static double minimumMagnitude(double val1, double val2);
 
-    static double minimumMagnitudeNumber(double val1, double val2);
+        static double minimumMagnitudeNumber(double val1, double val2);
 
-    static double minimumNumber(double val1, double val2);
+        static double minimumNumber(double val1, double val2);
 
-    static float minimum(float val1, float val2);
+        static float minimum(float val1, float val2);
 
-    static float minimumMagnitude(float val1, float val2);
+        static float minimumMagnitude(float val1, float val2);
 
-    static float minimumMagnitudeNumber(float val1, float val2);
+        static float minimumMagnitudeNumber(float val1, float val2);
 
-    static float minimumNumber(float val1, float val2);
+        static float minimumNumber(float val1, float val2);
 
-    static double normalize(double x);
+        static double normalize(double x);
 
-    static int ilogb(double x);
+        static int ilogb(double x);
 
-    static int ilogb(float f);
+        static int ilogb(float f);
 };
 
 class BitOperations
 {
-public:
-    //------------------------------------------------------------------------
-    // BitOperations::BitScanForward: Search the mask data from least significant bit (LSB) to the most significant bit
-    // (MSB) for a set bit (1)
-    //
-    // Arguments:
-    //    value - the value
-    //
-    // Return Value:
-    //    0 if the mask is zero; nonzero otherwise.
-    //
-    FORCEINLINE static uint32_t BitScanForward(uint32_t value)
-    {
-        assert(value != 0);
+    public:
+        //------------------------------------------------------------------------
+        // BitOperations::BitScanForward: Search the mask data from least significant bit (LSB) to the most significant
+        // bit (MSB) for a set bit (1)
+        //
+        // Arguments:
+        //    value - the value
+        //
+        // Return Value:
+        //    0 if the mask is zero; nonzero otherwise.
+        //
+        FORCEINLINE static uint32_t BitScanForward(uint32_t value)
+        {
+            assert(value != 0);
 
 #if defined(_MSC_VER)
-        unsigned long result;
-        ::_BitScanForward(&result, value);
-        return static_cast<uint32_t>(result);
+            unsigned long result;
+            ::_BitScanForward(&result, value);
+            return static_cast<uint32_t>(result);
 #else
-        int32_t result = __builtin_ctz(value);
-        return static_cast<uint32_t>(result);
+            int32_t result = __builtin_ctz(value);
+            return static_cast<uint32_t>(result);
 #endif
-    }
+        }
 
-    //------------------------------------------------------------------------
-    // BitOperations::BitScanForward: Search the mask data from least significant bit (LSB) to the most significant bit
-    // (MSB) for a set bit (1)
-    //
-    // Arguments:
-    //    value - the value
-    //
-    // Return Value:
-    //    0 if the mask is zero; nonzero otherwise.
-    //
-    FORCEINLINE static uint32_t BitScanForward(uint64_t value)
-    {
-        assert(value != 0);
+        //------------------------------------------------------------------------
+        // BitOperations::BitScanForward: Search the mask data from least significant bit (LSB) to the most significant
+        // bit (MSB) for a set bit (1)
+        //
+        // Arguments:
+        //    value - the value
+        //
+        // Return Value:
+        //    0 if the mask is zero; nonzero otherwise.
+        //
+        FORCEINLINE static uint32_t BitScanForward(uint64_t value)
+        {
+            assert(value != 0);
 
 #if defined(_MSC_VER)
 #if defined(HOST_64BIT)
-        unsigned long result;
-        ::_BitScanForward64(&result, value);
-        return static_cast<uint32_t>(result);
+            unsigned long result;
+            ::_BitScanForward64(&result, value);
+            return static_cast<uint32_t>(result);
 #else
-        uint32_t lower = static_cast<uint32_t>(value);
+            uint32_t lower = static_cast<uint32_t>(value);
 
-        if (lower == 0)
-        {
-            uint32_t upper = static_cast<uint32_t>(value >> 32);
-            return 32 + BitScanForward(upper);
-        }
+            if (lower == 0)
+            {
+                uint32_t upper = static_cast<uint32_t>(value >> 32);
+                return 32 + BitScanForward(upper);
+            }
 
-        return BitScanForward(lower);
+            return BitScanForward(lower);
 #endif // HOST_64BIT
 #else
-        int32_t result = __builtin_ctzll(value);
-        return static_cast<uint32_t>(result);
+            int32_t result = __builtin_ctzll(value);
+            return static_cast<uint32_t>(result);
 #endif
-    }
+        }
 
-    static uint32_t BitScanReverse(uint32_t value);
+        static uint32_t BitScanReverse(uint32_t value);
 
-    static uint32_t BitScanReverse(uint64_t value);
+        static uint32_t BitScanReverse(uint64_t value);
 
-    static uint64_t DoubleToUInt64Bits(double value);
+        static uint64_t DoubleToUInt64Bits(double value);
 
-    static uint32_t LeadingZeroCount(uint32_t value);
+        static uint32_t LeadingZeroCount(uint32_t value);
 
-    static uint32_t LeadingZeroCount(uint64_t value);
+        static uint32_t LeadingZeroCount(uint64_t value);
 
-    static uint32_t Log2(uint32_t value);
+        static uint32_t Log2(uint32_t value);
 
-    static uint32_t Log2(uint64_t value);
+        static uint32_t Log2(uint64_t value);
 
-    static uint32_t PopCount(uint32_t value);
+        static uint32_t PopCount(uint32_t value);
 
-    static uint32_t PopCount(uint64_t value);
+        static uint32_t PopCount(uint64_t value);
 
-    static uint32_t ReverseBits(uint32_t value);
+        static uint32_t ReverseBits(uint32_t value);
 
-    static uint64_t ReverseBits(uint64_t value);
+        static uint64_t ReverseBits(uint64_t value);
 
-    static uint32_t RotateLeft(uint32_t value, uint32_t offset);
+        static uint32_t RotateLeft(uint32_t value, uint32_t offset);
 
-    static uint64_t RotateLeft(uint64_t value, uint32_t offset);
+        static uint64_t RotateLeft(uint64_t value, uint32_t offset);
 
-    static uint32_t RotateRight(uint32_t value, uint32_t offset);
+        static uint32_t RotateRight(uint32_t value, uint32_t offset);
 
-    static uint64_t RotateRight(uint64_t value, uint32_t offset);
+        static uint64_t RotateRight(uint64_t value, uint32_t offset);
 
-    static uint32_t SingleToUInt32Bits(float value);
+        static uint32_t SingleToUInt32Bits(float value);
 
-    static uint32_t TrailingZeroCount(uint32_t value);
+        static uint32_t TrailingZeroCount(uint32_t value);
 
-    static uint32_t TrailingZeroCount(uint64_t value);
+        static uint32_t TrailingZeroCount(uint64_t value);
 
-    static float UInt32BitsToSingle(uint32_t value);
+        static float UInt32BitsToSingle(uint32_t value);
 
-    static double UInt64BitsToDouble(uint64_t value);
+        static double UInt64BitsToDouble(uint64_t value);
 };
 
 // The CLR requires that critical section locks be initialized via its ClrCreateCriticalSection API...but
@@ -987,34 +988,34 @@ public:
 
 class CritSecObject
 {
-public:
-    CritSecObject()
-    {
-        m_pCs = nullptr;
-    }
-
-    CRITSEC_COOKIE Val()
-    {
-        if (m_pCs == nullptr)
+    public:
+        CritSecObject()
         {
-            // CompareExchange-based lazy init.
-            CRITSEC_COOKIE newCs    = ClrCreateCriticalSection(CrstLeafLock, CRST_DEFAULT);
-            CRITSEC_COOKIE observed = InterlockedCompareExchangeT(&m_pCs, newCs, NULL);
-            if (observed != nullptr)
-            {
-                ClrDeleteCriticalSection(newCs);
-            }
+            m_pCs = nullptr;
         }
-        return m_pCs;
-    }
 
-private:
-    // CRITSEC_COOKIE is an opaque pointer type.
-    CRITSEC_COOKIE m_pCs;
+        CRITSEC_COOKIE Val()
+        {
+            if (m_pCs == nullptr)
+            {
+                // CompareExchange-based lazy init.
+                CRITSEC_COOKIE newCs    = ClrCreateCriticalSection(CrstLeafLock, CRST_DEFAULT);
+                CRITSEC_COOKIE observed = InterlockedCompareExchangeT(&m_pCs, newCs, NULL);
+                if (observed != nullptr)
+                {
+                    ClrDeleteCriticalSection(newCs);
+                }
+            }
+            return m_pCs;
+        }
 
-    // No copying or assignment allowed.
-    CritSecObject(const CritSecObject&)            = delete;
-    CritSecObject& operator=(const CritSecObject&) = delete;
+    private:
+        // CRITSEC_COOKIE is an opaque pointer type.
+        CRITSEC_COOKIE m_pCs;
+
+        // No copying or assignment allowed.
+        CritSecObject(const CritSecObject&)            = delete;
+        CritSecObject& operator=(const CritSecObject&) = delete;
 };
 
 // Stack-based holder for a critial section lock.
@@ -1022,27 +1023,27 @@ private:
 
 class CritSecHolder
 {
-public:
-    CritSecHolder(CritSecObject& critSec) : m_CritSec(critSec)
-    {
-        ClrEnterCriticalSection(m_CritSec.Val());
-    }
+    public:
+        CritSecHolder(CritSecObject& critSec)
+            : m_CritSec(critSec)
+        {
+            ClrEnterCriticalSection(m_CritSec.Val());
+        }
 
-    ~CritSecHolder()
-    {
-        ClrLeaveCriticalSection(m_CritSec.Val());
-    }
+        ~CritSecHolder()
+        {
+            ClrLeaveCriticalSection(m_CritSec.Val());
+        }
 
-private:
-    CritSecObject& m_CritSec;
+    private:
+        CritSecObject& m_CritSec;
 
-    // No copying or assignment allowed.
-    CritSecHolder(const CritSecHolder&)            = delete;
-    CritSecHolder& operator=(const CritSecHolder&) = delete;
+        // No copying or assignment allowed.
+        CritSecHolder(const CritSecHolder&)            = delete;
+        CritSecHolder& operator=(const CritSecHolder&) = delete;
 };
 
-namespace MagicDivide
-{
+namespace MagicDivide {
 uint32_t GetUnsigned32Magic(
     uint32_t d, bool* increment /*out*/, int* preShift /*out*/, int* postShift /*out*/, unsigned bits);
 #ifdef TARGET_64BIT
@@ -1061,8 +1062,7 @@ int64_t GetSigned64Magic(int64_t d, int* shift /*out*/);
 
 double CachedCyclesPerSecond();
 
-template <typename T>
-bool FitsIn(var_types type, T value)
+template <typename T> bool FitsIn(var_types type, T value)
 {
     static_assert_no_msg((std::is_same<T, int32_t>::value || std::is_same<T, int64_t>::value ||
                           std::is_same<T, size_t>::value || std::is_same<T, ssize_t>::value ||
@@ -1091,8 +1091,7 @@ bool FitsIn(var_types type, T value)
     }
 }
 
-namespace CheckedOps
-{
+namespace CheckedOps {
 const bool Unsigned = true;
 const bool Signed   = false;
 
@@ -1102,8 +1101,7 @@ const bool Signed   = false;
 // for some operators, and that's legal, but its callee EvalOpSpecialized<T> uses "assert(!AddOverflows(v1, v2))"
 // for VNF_ADD_OVF/UN, and would like to continue doing so without casts.
 
-template <class T>
-bool AddOverflows(T x, T y, bool unsignedAdd)
+template <class T> bool AddOverflows(T x, T y, bool unsignedAdd)
 {
     typedef typename std::make_unsigned<T>::type UT;
     assert((std::is_same<T, int32_t>::value || std::is_same<T, int64_t>::value));
@@ -1118,8 +1116,7 @@ bool AddOverflows(T x, T y, bool unsignedAdd)
     }
 }
 
-template <class T>
-bool SubOverflows(T x, T y, bool unsignedSub)
+template <class T> bool SubOverflows(T x, T y, bool unsignedSub)
 {
     typedef typename std::make_unsigned<T>::type UT;
     assert((std::is_same<T, int32_t>::value || std::is_same<T, int64_t>::value));
@@ -1134,8 +1131,7 @@ bool SubOverflows(T x, T y, bool unsignedSub)
     }
 }
 
-template <class T>
-bool MulOverflows(T x, T y, bool unsignedMul)
+template <class T> bool MulOverflows(T x, T y, bool unsignedMul)
 {
     typedef typename std::make_unsigned<T>::type UT;
     assert((std::is_same<T, int32_t>::value || std::is_same<T, int64_t>::value));

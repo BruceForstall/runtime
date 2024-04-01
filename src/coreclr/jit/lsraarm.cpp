@@ -229,22 +229,22 @@ int LinearScan::BuildNode(GenTree* tree)
             FALLTHROUGH;
 
         case GT_LCL_FLD:
-        {
-            if (tree->OperIs(GT_LCL_FLD) && tree->AsLclFld()->IsOffsetMisaligned())
             {
-                buildInternalIntRegisterDefForNode(tree); // to generate address.
-                buildInternalIntRegisterDefForNode(tree); // to move float into an int reg.
-                if (tree->TypeIs(TYP_DOUBLE))
+                if (tree->OperIs(GT_LCL_FLD) && tree->AsLclFld()->IsOffsetMisaligned())
                 {
-                    buildInternalIntRegisterDefForNode(tree); // to move the second half into an int reg.
+                    buildInternalIntRegisterDefForNode(tree); // to generate address.
+                    buildInternalIntRegisterDefForNode(tree); // to move float into an int reg.
+                    if (tree->TypeIs(TYP_DOUBLE))
+                    {
+                        buildInternalIntRegisterDefForNode(tree); // to move the second half into an int reg.
+                    }
+                    buildInternalRegisterUses();
                 }
-                buildInternalRegisterUses();
-            }
 
-            srcCount = 0;
-            BuildDef(tree);
-        }
-        break;
+                srcCount = 0;
+                BuildDef(tree);
+            }
+            break;
 
         case GT_STORE_LCL_VAR:
             if (tree->IsMultiRegLclVar() && isCandidateMultiRegLclVar(tree->AsLclVar()))
@@ -269,28 +269,28 @@ int LinearScan::BuildNode(GenTree* tree)
             break;
 
         case GT_INTRINSIC:
-        {
-            // TODO-ARM: Implement other type of intrinsics (round, sqrt and etc.)
-            // Both operand and its result must be of the same floating point type.
-            GenTree* op1 = tree->gtGetOp1();
-            assert(varTypeIsFloating(op1));
-            assert(op1->TypeGet() == tree->TypeGet());
-            BuildUse(op1);
-            srcCount = 1;
-
-            switch (tree->AsIntrinsic()->gtIntrinsicName)
             {
-                case NI_System_Math_Abs:
-                case NI_System_Math_Sqrt:
-                    assert(dstCount == 1);
-                    BuildDef(tree);
-                    break;
-                default:
-                    unreached();
-                    break;
+                // TODO-ARM: Implement other type of intrinsics (round, sqrt and etc.)
+                // Both operand and its result must be of the same floating point type.
+                GenTree* op1 = tree->gtGetOp1();
+                assert(varTypeIsFloating(op1));
+                assert(op1->TypeGet() == tree->TypeGet());
+                BuildUse(op1);
+                srcCount = 1;
+
+                switch (tree->AsIntrinsic()->gtIntrinsicName)
+                {
+                    case NI_System_Math_Abs:
+                    case NI_System_Math_Sqrt:
+                        assert(dstCount == 1);
+                        BuildDef(tree);
+                        break;
+                    default:
+                        unreached();
+                        break;
+                }
             }
-        }
-        break;
+            break;
 
         case GT_CAST:
             assert(dstCount == 1);
@@ -388,14 +388,14 @@ int LinearScan::BuildNode(GenTree* tree)
         case GT_DIV:
         case GT_MULHI:
         case GT_UDIV:
-        {
-            assert(dstCount == 1);
-            srcCount = BuildBinaryUses(tree->AsOp());
-            assert(srcCount == 2);
-            buildInternalRegisterUses();
-            BuildDef(tree);
-        }
-        break;
+            {
+                assert(dstCount == 1);
+                srcCount = BuildBinaryUses(tree->AsOp());
+                assert(srcCount == 2);
+                buildInternalRegisterUses();
+                BuildDef(tree);
+            }
+            break;
 
         case GT_MUL_LONG:
             dstCount = 2;
@@ -457,14 +457,14 @@ int LinearScan::BuildNode(GenTree* tree)
             FALLTHROUGH;
 
         case GT_CNS_INT:
-        {
-            srcCount = 0;
-            assert(dstCount == 1);
-            buildInternalRegisterUses();
-            RefPosition* def               = BuildDef(tree);
-            def->getInterval()->isConstant = true;
-        }
-        break;
+            {
+                srcCount = 0;
+                assert(dstCount == 1);
+                buildInternalRegisterUses();
+                RefPosition* def               = BuildDef(tree);
+                def->getInterval()->isConstant = true;
+            }
+            break;
 
         case GT_RETURN:
             srcCount = BuildReturn(tree);
@@ -502,46 +502,46 @@ int LinearScan::BuildNode(GenTree* tree)
             break;
 
         case GT_LEA:
-        {
-            GenTreeAddrMode* lea    = tree->AsAddrMode();
-            int              offset = lea->Offset();
+            {
+                GenTreeAddrMode* lea    = tree->AsAddrMode();
+                int              offset = lea->Offset();
 
-            // This LEA is instantiating an address, so we set up the srcCount and dstCount here.
-            srcCount = 0;
-            assert(dstCount == 1);
-            if (lea->HasBase())
-            {
-                srcCount++;
-                BuildUse(tree->AsAddrMode()->Base());
-            }
-            if (lea->HasIndex())
-            {
-                srcCount++;
-                BuildUse(tree->AsAddrMode()->Index());
-            }
+                // This LEA is instantiating an address, so we set up the srcCount and dstCount here.
+                srcCount = 0;
+                assert(dstCount == 1);
+                if (lea->HasBase())
+                {
+                    srcCount++;
+                    BuildUse(tree->AsAddrMode()->Base());
+                }
+                if (lea->HasIndex())
+                {
+                    srcCount++;
+                    BuildUse(tree->AsAddrMode()->Index());
+                }
 
-            // An internal register may be needed too; the logic here should be in sync with the
-            // genLeaInstruction()'s requirements for a such register.
-            if (lea->HasBase() && lea->HasIndex())
-            {
-                if (offset != 0)
+                // An internal register may be needed too; the logic here should be in sync with the
+                // genLeaInstruction()'s requirements for a such register.
+                if (lea->HasBase() && lea->HasIndex())
                 {
-                    // We need a register when we have all three: base reg, index reg and a non-zero offset.
-                    buildInternalIntRegisterDefForNode(tree);
+                    if (offset != 0)
+                    {
+                        // We need a register when we have all three: base reg, index reg and a non-zero offset.
+                        buildInternalIntRegisterDefForNode(tree);
+                    }
                 }
-            }
-            else if (lea->HasBase())
-            {
-                if (!emitter::emitIns_valid_imm_for_add(offset, INS_FLAGS_DONT_CARE))
+                else if (lea->HasBase())
                 {
-                    // We need a register when we have an offset that is too large to encode in the add instruction.
-                    buildInternalIntRegisterDefForNode(tree);
+                    if (!emitter::emitIns_valid_imm_for_add(offset, INS_FLAGS_DONT_CARE))
+                    {
+                        // We need a register when we have an offset that is too large to encode in the add instruction.
+                        buildInternalIntRegisterDefForNode(tree);
+                    }
                 }
+                buildInternalRegisterUses();
+                BuildDef(tree);
             }
-            buildInternalRegisterUses();
-            BuildDef(tree);
-        }
-        break;
+            break;
 
         case GT_NEG:
         case GT_NOT:
@@ -593,23 +593,23 @@ int LinearScan::BuildNode(GenTree* tree)
             break;
 
         case GT_STOREIND:
-        {
-            assert(dstCount == 0);
-            GenTree* src = tree->gtGetOp2();
-
-            if (compiler->codeGen->gcInfo.gcIsWriteBarrierStoreIndNode(tree->AsStoreInd()))
             {
-                srcCount = BuildGCWriteBarrier(tree);
-                break;
-            }
+                assert(dstCount == 0);
+                GenTree* src = tree->gtGetOp2();
 
-            srcCount = BuildIndir(tree->AsIndir());
-            // No contained source on ARM.
-            assert(!src->isContained());
-            srcCount++;
-            BuildUse(src);
-        }
-        break;
+                if (compiler->codeGen->gcInfo.gcIsWriteBarrierStoreIndNode(tree->AsStoreInd()))
+                {
+                    srcCount = BuildGCWriteBarrier(tree);
+                    break;
+                }
+
+                srcCount = BuildIndir(tree->AsIndir());
+                // No contained source on ARM.
+                assert(!src->isContained());
+                srcCount++;
+                BuildUse(src);
+            }
+            break;
 
         case GT_NULLCHECK:
 #ifdef TARGET_ARM
@@ -664,36 +664,36 @@ int LinearScan::BuildNode(GenTree* tree)
             break;
 
         case GT_BITCAST:
-        {
-            assert(dstCount == 1);
-            regNumber argReg  = tree->GetRegNum();
-            regMaskTP argMask = RBM_NONE;
-            if (argReg != REG_COUNT)
             {
-                argMask = genRegMask(argReg);
-            }
+                assert(dstCount == 1);
+                regNumber argReg  = tree->GetRegNum();
+                regMaskTP argMask = RBM_NONE;
+                if (argReg != REG_COUNT)
+                {
+                    argMask = genRegMask(argReg);
+                }
 
-            // If type of node is `long` then it is actually `double`.
-            // The actual `long` types must have been transformed as a field list with two fields.
-            if (tree->TypeGet() == TYP_LONG)
-            {
-                dstCount++;
-                assert(genRegArgNext(argReg) == REG_NEXT(argReg));
-                argMask |= genRegMask(REG_NEXT(argReg));
-                dstCount = 2;
+                // If type of node is `long` then it is actually `double`.
+                // The actual `long` types must have been transformed as a field list with two fields.
+                if (tree->TypeGet() == TYP_LONG)
+                {
+                    dstCount++;
+                    assert(genRegArgNext(argReg) == REG_NEXT(argReg));
+                    argMask |= genRegMask(REG_NEXT(argReg));
+                    dstCount = 2;
+                }
+                if (!tree->gtGetOp1()->isContained())
+                {
+                    BuildUse(tree->gtGetOp1());
+                    srcCount = 1;
+                }
+                else
+                {
+                    srcCount = 0;
+                }
+                BuildDefs(tree, dstCount, argMask);
             }
-            if (!tree->gtGetOp1()->isContained())
-            {
-                BuildUse(tree->gtGetOp1());
-                srcCount = 1;
-            }
-            else
-            {
-                srcCount = 0;
-            }
-            BuildDefs(tree, dstCount, argMask);
-        }
-        break;
+            break;
 
         case GT_LCL_ADDR:
         case GT_PHYSREG:

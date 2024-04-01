@@ -125,70 +125,70 @@ void Scev::Dump(Compiler* comp)
     switch (Oper)
     {
         case ScevOper::Constant:
-        {
-            ScevConstant* cns = (ScevConstant*)this;
-            printf("%zd", (ssize_t)cns->Value);
-            break;
-        }
-        case ScevOper::Local:
-        {
-            ScevLocal* invariantLocal = (ScevLocal*)this;
-            printf("V%02u.%u", invariantLocal->LclNum, invariantLocal->SsaNum);
-
-            int64_t cns;
-            if (invariantLocal->GetConstantValue(comp, &cns))
             {
-                printf(" (%lld)", (long long)cns);
+                ScevConstant* cns = (ScevConstant*)this;
+                printf("%zd", (ssize_t)cns->Value);
+                break;
             }
-            break;
-        }
+        case ScevOper::Local:
+            {
+                ScevLocal* invariantLocal = (ScevLocal*)this;
+                printf("V%02u.%u", invariantLocal->LclNum, invariantLocal->SsaNum);
+
+                int64_t cns;
+                if (invariantLocal->GetConstantValue(comp, &cns))
+                {
+                    printf(" (%lld)", (long long)cns);
+                }
+                break;
+            }
         case ScevOper::ZeroExtend:
         case ScevOper::SignExtend:
-        {
-            ScevUnop* unop = (ScevUnop*)this;
-            printf("%cext<%d>(", unop->Oper == ScevOper::ZeroExtend ? 'z' : 's', genTypeSize(unop->Type) * 8);
-            unop->Op1->Dump(comp);
-            printf(")");
-            break;
-        }
+            {
+                ScevUnop* unop = (ScevUnop*)this;
+                printf("%cext<%d>(", unop->Oper == ScevOper::ZeroExtend ? 'z' : 's', genTypeSize(unop->Type) * 8);
+                unop->Op1->Dump(comp);
+                printf(")");
+                break;
+            }
         case ScevOper::Add:
         case ScevOper::Mul:
         case ScevOper::Lsh:
-        {
-            ScevBinop* binop = (ScevBinop*)this;
-            printf("(");
-            binop->Op1->Dump(comp);
-            const char* op;
-            switch (binop->Oper)
             {
-                case ScevOper::Add:
-                    op = "+";
-                    break;
-                case ScevOper::Mul:
-                    op = "*";
-                    break;
-                case ScevOper::Lsh:
-                    op = "<<";
-                    break;
-                default:
-                    unreached();
+                ScevBinop* binop = (ScevBinop*)this;
+                printf("(");
+                binop->Op1->Dump(comp);
+                const char* op;
+                switch (binop->Oper)
+                {
+                    case ScevOper::Add:
+                        op = "+";
+                        break;
+                    case ScevOper::Mul:
+                        op = "*";
+                        break;
+                    case ScevOper::Lsh:
+                        op = "<<";
+                        break;
+                    default:
+                        unreached();
+                }
+                printf(" %s ", op);
+                binop->Op2->Dump(comp);
+                printf(")");
+                break;
             }
-            printf(" %s ", op);
-            binop->Op2->Dump(comp);
-            printf(")");
-            break;
-        }
         case ScevOper::AddRec:
-        {
-            ScevAddRec* addRec = (ScevAddRec*)this;
-            printf("<" FMT_LP, addRec->Loop->GetIndex());
-            printf(", ");
-            addRec->Start->Dump(comp);
-            printf(", ");
-            addRec->Step->Dump(comp);
-            printf(">");
-            break;
-        }
+            {
+                ScevAddRec* addRec = (ScevAddRec*)this;
+                printf("<" FMT_LP, addRec->Loop->GetIndex());
+                printf(", ");
+                addRec->Start->Dump(comp);
+                printf(", ");
+                addRec->Step->Dump(comp);
+                printf(">");
+                break;
+            }
         default:
             unreached();
     }
@@ -206,7 +206,9 @@ void Scev::Dump(Compiler* comp)
 //   ResetForLoop.
 //
 ScalarEvolutionContext::ScalarEvolutionContext(Compiler* comp)
-    : m_comp(comp), m_cache(comp->getAllocator(CMK_LoopIVOpts)), m_ephemeralCache(comp->getAllocator(CMK_LoopIVOpts))
+    : m_comp(comp)
+    , m_cache(comp->getAllocator(CMK_LoopIVOpts))
+    , m_ephemeralCache(comp->getAllocator(CMK_LoopIVOpts))
 {
 }
 
@@ -376,228 +378,229 @@ Scev* ScalarEvolutionContext::AnalyzeNew(BasicBlock* block, GenTree* tree, int d
     {
         case GT_CNS_INT:
         case GT_CNS_LNG:
-        {
-            return CreateScevForConstant(tree->AsIntConCommon());
-        }
+            {
+                return CreateScevForConstant(tree->AsIntConCommon());
+            }
         case GT_LCL_VAR:
         case GT_PHI_ARG:
-        {
-            if (!tree->AsLclVarCommon()->HasSsaName())
             {
-                return nullptr;
-            }
-
-            assert(m_comp->lvaInSsa(tree->AsLclVarCommon()->GetLclNum()));
-            LclVarDsc*    dsc    = m_comp->lvaGetDesc(tree->AsLclVarCommon());
-            LclSsaVarDsc* ssaDsc = dsc->GetPerSsaData(tree->AsLclVarCommon()->GetSsaNum());
-
-            if ((ssaDsc->GetBlock() == nullptr) || !m_loop->ContainsBlock(ssaDsc->GetBlock()))
-            {
-                return NewLocal(tree->AsLclVarCommon()->GetLclNum(), tree->AsLclVarCommon()->GetSsaNum());
-            }
-
-            if (ssaDsc->GetDefNode() == nullptr)
-            {
-                // GT_CALL retbuf def?
-                return nullptr;
-            }
-
-            if (ssaDsc->GetDefNode()->GetLclNum() != tree->AsLclVarCommon()->GetLclNum())
-            {
-                // Should be a def of the parent
-                assert(dsc->lvIsStructField && (ssaDsc->GetDefNode()->GetLclNum() == dsc->lvParentLcl));
-                return nullptr;
-            }
-
-            return Analyze(ssaDsc->GetBlock(), ssaDsc->GetDefNode(), depth + 1);
-        }
-        case GT_STORE_LCL_VAR:
-        {
-            GenTreeLclVarCommon* store = tree->AsLclVarCommon();
-            GenTree*             data  = store->Data();
-            if (!data->OperIs(GT_PHI))
-            {
-                return Analyze(block, data, depth + 1);
-            }
-
-            if (block != m_loop->GetHeader())
-            {
-                return nullptr;
-            }
-
-            // We have a phi def for the current loop. Look for a primary
-            // induction variable.
-            GenTreePhi*    phi         = data->AsPhi();
-            GenTreePhiArg* enterSsa    = nullptr;
-            GenTreePhiArg* backedgeSsa = nullptr;
-
-            for (GenTreePhi::Use& use : phi->Uses())
-            {
-                GenTreePhiArg*  phiArg = use.GetNode()->AsPhiArg();
-                GenTreePhiArg*& ssaArg = m_loop->ContainsBlock(phiArg->gtPredBB) ? backedgeSsa : enterSsa;
-                if ((ssaArg == nullptr) || (ssaArg->GetSsaNum() == phiArg->GetSsaNum()))
-                {
-                    ssaArg = phiArg;
-                }
-                else
+                if (!tree->AsLclVarCommon()->HasSsaName())
                 {
                     return nullptr;
                 }
-            }
 
-            if ((enterSsa == nullptr) || (backedgeSsa == nullptr))
+                assert(m_comp->lvaInSsa(tree->AsLclVarCommon()->GetLclNum()));
+                LclVarDsc*    dsc    = m_comp->lvaGetDesc(tree->AsLclVarCommon());
+                LclSsaVarDsc* ssaDsc = dsc->GetPerSsaData(tree->AsLclVarCommon()->GetSsaNum());
+
+                if ((ssaDsc->GetBlock() == nullptr) || !m_loop->ContainsBlock(ssaDsc->GetBlock()))
+                {
+                    return NewLocal(tree->AsLclVarCommon()->GetLclNum(), tree->AsLclVarCommon()->GetSsaNum());
+                }
+
+                if (ssaDsc->GetDefNode() == nullptr)
+                {
+                    // GT_CALL retbuf def?
+                    return nullptr;
+                }
+
+                if (ssaDsc->GetDefNode()->GetLclNum() != tree->AsLclVarCommon()->GetLclNum())
+                {
+                    // Should be a def of the parent
+                    assert(dsc->lvIsStructField && (ssaDsc->GetDefNode()->GetLclNum() == dsc->lvParentLcl));
+                    return nullptr;
+                }
+
+                return Analyze(ssaDsc->GetBlock(), ssaDsc->GetDefNode(), depth + 1);
+            }
+        case GT_STORE_LCL_VAR:
             {
-                return nullptr;
+                GenTreeLclVarCommon* store = tree->AsLclVarCommon();
+                GenTree*             data  = store->Data();
+                if (!data->OperIs(GT_PHI))
+                {
+                    return Analyze(block, data, depth + 1);
+                }
+
+                if (block != m_loop->GetHeader())
+                {
+                    return nullptr;
+                }
+
+                // We have a phi def for the current loop. Look for a primary
+                // induction variable.
+                GenTreePhi*    phi         = data->AsPhi();
+                GenTreePhiArg* enterSsa    = nullptr;
+                GenTreePhiArg* backedgeSsa = nullptr;
+
+                for (GenTreePhi::Use& use : phi->Uses())
+                {
+                    GenTreePhiArg*  phiArg = use.GetNode()->AsPhiArg();
+                    GenTreePhiArg*& ssaArg = m_loop->ContainsBlock(phiArg->gtPredBB) ? backedgeSsa : enterSsa;
+                    if ((ssaArg == nullptr) || (ssaArg->GetSsaNum() == phiArg->GetSsaNum()))
+                    {
+                        ssaArg = phiArg;
+                    }
+                    else
+                    {
+                        return nullptr;
+                    }
+                }
+
+                if ((enterSsa == nullptr) || (backedgeSsa == nullptr))
+                {
+                    return nullptr;
+                }
+
+                ScevLocal* enterScev = NewLocal(enterSsa->GetLclNum(), enterSsa->GetSsaNum());
+
+                LclVarDsc*    dsc    = m_comp->lvaGetDesc(store);
+                LclSsaVarDsc* ssaDsc = dsc->GetPerSsaData(backedgeSsa->GetSsaNum());
+
+                if (ssaDsc->GetDefNode() == nullptr)
+                {
+                    // GT_CALL retbuf def
+                    return nullptr;
+                }
+
+                if (ssaDsc->GetDefNode()->GetLclNum() != store->GetLclNum())
+                {
+                    assert(dsc->lvIsStructField && ssaDsc->GetDefNode()->GetLclNum() == dsc->lvParentLcl);
+                    return nullptr;
+                }
+
+                assert(ssaDsc->GetBlock() != nullptr);
+
+                // Try simple but most common case first, where we have a direct
+                // add recurrence like i = i + 1.
+                Scev* simpleAddRec =
+                    CreateSimpleAddRec(store, enterScev, ssaDsc->GetBlock(), ssaDsc->GetDefNode()->Data());
+                if (simpleAddRec != nullptr)
+                {
+                    return simpleAddRec;
+                }
+
+                // Otherwise try a more powerful approach; we create a symbolic
+                // node representing the recurrence and then invoke the analysis
+                // recursively. This handles for example cases like
+                //
+                //   int i = start;
+                //   while (i < n)
+                //   {
+                //     int j = i + 1;
+                //     ...
+                //     i = j;
+                //   }
+                // => <L, start, 1>
+                //
+                // where we need to follow SSA defs. In this case the analysis will result in
+                // <symbolic node> + 1. The symbolic node represents a recurrence,
+                // so this corresponds to the infinite sequence [start, start + 1,
+                // start + 1 + 1, ...] which can be represented by <L, start, 1>.
+                //
+                // This approach also generalizes to handle chains of recurrences.
+                // For example:
+                //
+                //   int i = 0;
+                //   int j = 0;
+                //   while (i < n)
+                //   {
+                //     j++;
+                //     i += j;
+                //   }
+                // => <L, 0, <L, 1, 1>>
+                //
+                // Here `i` will analyze to <symbolic node> + <L, [initial value of j], 1>.
+                // Like before this corresponds to an infinite sequence
+                // [start, start + <L, [initial value of j], 1>, start + 2 * <L, [initial value of j], 1>, ...]
+                // which again can be represented as <L, start, <L, [initial value of j], 1>>.
+                //
+                // More generally, as long as we have only additions and only a
+                // single operand is the recurrence, we can represent it as an add
+                // recurrence. See MakeAddRecFromRecursiveScev for the details.
+                //
+                ScevConstant* symbolicAddRec = NewConstant(data->TypeGet(), 0xdeadbeef);
+                m_ephemeralCache.Emplace(store, symbolicAddRec);
+
+                Scev* result;
+                if (m_usingEphemeralCache)
+                {
+                    result = Analyze(ssaDsc->GetBlock(), ssaDsc->GetDefNode()->Data(), depth + 1);
+                }
+                else
+                {
+                    m_usingEphemeralCache = true;
+                    result                = Analyze(ssaDsc->GetBlock(), ssaDsc->GetDefNode()->Data(), depth + 1);
+                    m_usingEphemeralCache = false;
+                    m_ephemeralCache.RemoveAll();
+                }
+
+                if (result == nullptr)
+                {
+                    return nullptr;
+                }
+
+                return MakeAddRecFromRecursiveScev(enterScev, result, symbolicAddRec);
             }
-
-            ScevLocal* enterScev = NewLocal(enterSsa->GetLclNum(), enterSsa->GetSsaNum());
-
-            LclVarDsc*    dsc    = m_comp->lvaGetDesc(store);
-            LclSsaVarDsc* ssaDsc = dsc->GetPerSsaData(backedgeSsa->GetSsaNum());
-
-            if (ssaDsc->GetDefNode() == nullptr)
-            {
-                // GT_CALL retbuf def
-                return nullptr;
-            }
-
-            if (ssaDsc->GetDefNode()->GetLclNum() != store->GetLclNum())
-            {
-                assert(dsc->lvIsStructField && ssaDsc->GetDefNode()->GetLclNum() == dsc->lvParentLcl);
-                return nullptr;
-            }
-
-            assert(ssaDsc->GetBlock() != nullptr);
-
-            // Try simple but most common case first, where we have a direct
-            // add recurrence like i = i + 1.
-            Scev* simpleAddRec = CreateSimpleAddRec(store, enterScev, ssaDsc->GetBlock(), ssaDsc->GetDefNode()->Data());
-            if (simpleAddRec != nullptr)
-            {
-                return simpleAddRec;
-            }
-
-            // Otherwise try a more powerful approach; we create a symbolic
-            // node representing the recurrence and then invoke the analysis
-            // recursively. This handles for example cases like
-            //
-            //   int i = start;
-            //   while (i < n)
-            //   {
-            //     int j = i + 1;
-            //     ...
-            //     i = j;
-            //   }
-            // => <L, start, 1>
-            //
-            // where we need to follow SSA defs. In this case the analysis will result in
-            // <symbolic node> + 1. The symbolic node represents a recurrence,
-            // so this corresponds to the infinite sequence [start, start + 1,
-            // start + 1 + 1, ...] which can be represented by <L, start, 1>.
-            //
-            // This approach also generalizes to handle chains of recurrences.
-            // For example:
-            //
-            //   int i = 0;
-            //   int j = 0;
-            //   while (i < n)
-            //   {
-            //     j++;
-            //     i += j;
-            //   }
-            // => <L, 0, <L, 1, 1>>
-            //
-            // Here `i` will analyze to <symbolic node> + <L, [initial value of j], 1>.
-            // Like before this corresponds to an infinite sequence
-            // [start, start + <L, [initial value of j], 1>, start + 2 * <L, [initial value of j], 1>, ...]
-            // which again can be represented as <L, start, <L, [initial value of j], 1>>.
-            //
-            // More generally, as long as we have only additions and only a
-            // single operand is the recurrence, we can represent it as an add
-            // recurrence. See MakeAddRecFromRecursiveScev for the details.
-            //
-            ScevConstant* symbolicAddRec = NewConstant(data->TypeGet(), 0xdeadbeef);
-            m_ephemeralCache.Emplace(store, symbolicAddRec);
-
-            Scev* result;
-            if (m_usingEphemeralCache)
-            {
-                result = Analyze(ssaDsc->GetBlock(), ssaDsc->GetDefNode()->Data(), depth + 1);
-            }
-            else
-            {
-                m_usingEphemeralCache = true;
-                result                = Analyze(ssaDsc->GetBlock(), ssaDsc->GetDefNode()->Data(), depth + 1);
-                m_usingEphemeralCache = false;
-                m_ephemeralCache.RemoveAll();
-            }
-
-            if (result == nullptr)
-            {
-                return nullptr;
-            }
-
-            return MakeAddRecFromRecursiveScev(enterScev, result, symbolicAddRec);
-        }
         case GT_CAST:
-        {
-            GenTreeCast* cast = tree->AsCast();
-            if (cast->gtCastType != TYP_LONG)
             {
-                return nullptr;
-            }
+                GenTreeCast* cast = tree->AsCast();
+                if (cast->gtCastType != TYP_LONG)
+                {
+                    return nullptr;
+                }
 
-            Scev* op = Analyze(block, cast->CastOp(), depth + 1);
-            if (op == nullptr)
-            {
-                return nullptr;
-            }
+                Scev* op = Analyze(block, cast->CastOp(), depth + 1);
+                if (op == nullptr)
+                {
+                    return nullptr;
+                }
 
-            return NewExtension(cast->IsUnsigned() ? ScevOper::ZeroExtend : ScevOper::SignExtend, TYP_LONG, op);
-        }
+                return NewExtension(cast->IsUnsigned() ? ScevOper::ZeroExtend : ScevOper::SignExtend, TYP_LONG, op);
+            }
         case GT_ADD:
         case GT_SUB:
         case GT_MUL:
         case GT_LSH:
-        {
-            Scev* op1 = Analyze(block, tree->gtGetOp1(), depth + 1);
-            if (op1 == nullptr)
-                return nullptr;
-
-            Scev* op2 = Analyze(block, tree->gtGetOp2(), depth + 1);
-            if (op2 == nullptr)
-                return nullptr;
-
-            ScevOper oper;
-            switch (tree->OperGet())
             {
-                case GT_ADD:
-                    oper = ScevOper::Add;
-                    break;
-                case GT_SUB:
-                    oper = ScevOper::Add;
-                    op2  = NewBinop(ScevOper::Mul, op2, NewConstant(op2->Type, -1));
-                    break;
-                case GT_MUL:
-                    oper = ScevOper::Mul;
-                    break;
-                case GT_LSH:
-                    oper = ScevOper::Lsh;
-                    break;
-                default:
-                    unreached();
-            }
+                Scev* op1 = Analyze(block, tree->gtGetOp1(), depth + 1);
+                if (op1 == nullptr)
+                    return nullptr;
 
-            return NewBinop(oper, op1, op2);
-        }
+                Scev* op2 = Analyze(block, tree->gtGetOp2(), depth + 1);
+                if (op2 == nullptr)
+                    return nullptr;
+
+                ScevOper oper;
+                switch (tree->OperGet())
+                {
+                    case GT_ADD:
+                        oper = ScevOper::Add;
+                        break;
+                    case GT_SUB:
+                        oper = ScevOper::Add;
+                        op2  = NewBinop(ScevOper::Mul, op2, NewConstant(op2->Type, -1));
+                        break;
+                    case GT_MUL:
+                        oper = ScevOper::Mul;
+                        break;
+                    case GT_LSH:
+                        oper = ScevOper::Lsh;
+                        break;
+                    default:
+                        unreached();
+                }
+
+                return NewBinop(oper, op1, op2);
+            }
         case GT_COMMA:
-        {
-            return Analyze(block, tree->gtGetOp2(), depth + 1);
-        }
+            {
+                return Analyze(block, tree->gtGetOp2(), depth + 1);
+            }
         case GT_ARR_ADDR:
-        {
-            return Analyze(block, tree->AsArrAddr()->Addr(), depth + 1);
-        }
+            {
+                return Analyze(block, tree->AsArrAddr()->Addr(), depth + 1);
+            }
         default:
             return nullptr;
     }
@@ -722,16 +725,14 @@ Scev* ScalarEvolutionContext::MakeAddRecFromRecursiveScev(Scev* startScev, Scev*
         }
         else
         {
-            ScevVisit result = addOperand->Visit(
-                [=](Scev* node)
+            ScevVisit result = addOperand->Visit([=](Scev* node) {
+                if (node == recursiveScev)
                 {
-                    if (node == recursiveScev)
-                    {
-                        return ScevVisit::Abort;
-                    }
+                    return ScevVisit::Abort;
+                }
 
-                    return ScevVisit::Continue;
-                });
+                return ScevVisit::Continue;
+            });
 
             if (result == ScevVisit::Abort)
             {
@@ -868,8 +869,7 @@ Scev* ScalarEvolutionContext::Analyze(BasicBlock* block, GenTree* tree, int dept
 // Returns:
 //   Folded value.
 //
-template <typename T>
-static T FoldBinop(ScevOper oper, T op1, T op2)
+template <typename T> static T FoldBinop(ScevOper oper, T op1, T op2)
 {
     switch (oper)
     {
@@ -906,102 +906,102 @@ Scev* ScalarEvolutionContext::Simplify(Scev* scev)
     {
         case ScevOper::Constant:
         case ScevOper::Local:
-        {
-            return scev;
-        }
+            {
+                return scev;
+            }
         case ScevOper::ZeroExtend:
         case ScevOper::SignExtend:
-        {
-            ScevUnop* unop = (ScevUnop*)scev;
-            assert(genTypeSize(unop->Type) >= genTypeSize(unop->Op1->Type));
-
-            Scev* op1 = Simplify(unop->Op1);
-
-            if (unop->Type == op1->Type)
             {
-                return op1;
+                ScevUnop* unop = (ScevUnop*)scev;
+                assert(genTypeSize(unop->Type) >= genTypeSize(unop->Op1->Type));
+
+                Scev* op1 = Simplify(unop->Op1);
+
+                if (unop->Type == op1->Type)
+                {
+                    return op1;
+                }
+
+                assert((unop->Type == TYP_LONG) && (op1->Type == TYP_INT));
+
+                if (op1->OperIs(ScevOper::Constant))
+                {
+                    ScevConstant* cns = (ScevConstant*)op1;
+                    return NewConstant(unop->Type, unop->OperIs(ScevOper::ZeroExtend) ? (uint64_t)(int32_t)cns->Value
+                                                                                      : (int64_t)(int32_t)cns->Value);
+                }
+
+                if (op1->OperIs(ScevOper::AddRec))
+                {
+                    // TODO-Cleanup: This requires some proof that it is ok, but
+                    // currently we do not rely on this.
+                    return op1;
+                }
+
+                return (op1 == unop->Op1) ? unop : NewExtension(unop->Oper, unop->Type, op1);
             }
-
-            assert((unop->Type == TYP_LONG) && (op1->Type == TYP_INT));
-
-            if (op1->OperIs(ScevOper::Constant))
-            {
-                ScevConstant* cns = (ScevConstant*)op1;
-                return NewConstant(unop->Type, unop->OperIs(ScevOper::ZeroExtend) ? (uint64_t)(int32_t)cns->Value
-                                                                                  : (int64_t)(int32_t)cns->Value);
-            }
-
-            if (op1->OperIs(ScevOper::AddRec))
-            {
-                // TODO-Cleanup: This requires some proof that it is ok, but
-                // currently we do not rely on this.
-                return op1;
-            }
-
-            return (op1 == unop->Op1) ? unop : NewExtension(unop->Oper, unop->Type, op1);
-        }
         case ScevOper::Add:
         case ScevOper::Mul:
         case ScevOper::Lsh:
-        {
-            ScevBinop* binop = (ScevBinop*)scev;
-            Scev*      op1   = Simplify(binop->Op1);
-            Scev*      op2   = Simplify(binop->Op2);
-
-            if (binop->OperIs(ScevOper::Add, ScevOper::Mul))
             {
-                // Normalize addrecs to the left
-                if (op2->OperIs(ScevOper::AddRec) && !op1->OperIs(ScevOper::AddRec))
+                ScevBinop* binop = (ScevBinop*)scev;
+                Scev*      op1   = Simplify(binop->Op1);
+                Scev*      op2   = Simplify(binop->Op2);
+
+                if (binop->OperIs(ScevOper::Add, ScevOper::Mul))
                 {
-                    std::swap(op1, op2);
+                    // Normalize addrecs to the left
+                    if (op2->OperIs(ScevOper::AddRec) && !op1->OperIs(ScevOper::AddRec))
+                    {
+                        std::swap(op1, op2);
+                    }
+                    // Normalize constants to the right
+                    if (op1->OperIs(ScevOper::Constant) && !op2->OperIs(ScevOper::Constant))
+                    {
+                        std::swap(op1, op2);
+                    }
                 }
-                // Normalize constants to the right
-                if (op1->OperIs(ScevOper::Constant) && !op2->OperIs(ScevOper::Constant))
+
+                if (op1->OperIs(ScevOper::AddRec))
                 {
-                    std::swap(op1, op2);
+                    // <L, start, step> + x => <L, start + x, step>
+                    // <L, start, step> * x => <L, start * x, step * x>
+                    ScevAddRec* addRec   = (ScevAddRec*)op1;
+                    Scev*       newStart = Simplify(NewBinop(binop->Oper, addRec->Start, op2));
+                    Scev*       newStep  = scev->OperIs(ScevOper::Mul, ScevOper::Lsh)
+                                               ? Simplify(NewBinop(binop->Oper, addRec->Step, op2))
+                                               : addRec->Step;
+                    return NewAddRec(newStart, newStep);
                 }
+
+                if (op1->OperIs(ScevOper::Constant) && op2->OperIs(ScevOper::Constant))
+                {
+                    ScevConstant* cns1 = (ScevConstant*)op1;
+                    ScevConstant* cns2 = (ScevConstant*)op2;
+                    int64_t       newValue;
+                    if (binop->TypeIs(TYP_INT))
+                    {
+                        newValue = FoldBinop<int32_t>(binop->Oper, static_cast<int32_t>(cns1->Value),
+                                                      static_cast<int32_t>(cns2->Value));
+                    }
+                    else
+                    {
+                        assert(binop->TypeIs(TYP_LONG));
+                        newValue = FoldBinop<int64_t>(binop->Oper, cns1->Value, cns2->Value);
+                    }
+
+                    return NewConstant(binop->Type, newValue);
+                }
+
+                return (op1 == binop->Op1) && (op2 == binop->Op2) ? binop : NewBinop(binop->Oper, op1, op2);
             }
-
-            if (op1->OperIs(ScevOper::AddRec))
-            {
-                // <L, start, step> + x => <L, start + x, step>
-                // <L, start, step> * x => <L, start * x, step * x>
-                ScevAddRec* addRec   = (ScevAddRec*)op1;
-                Scev*       newStart = Simplify(NewBinop(binop->Oper, addRec->Start, op2));
-                Scev*       newStep  = scev->OperIs(ScevOper::Mul, ScevOper::Lsh)
-                                           ? Simplify(NewBinop(binop->Oper, addRec->Step, op2))
-                                           : addRec->Step;
-                return NewAddRec(newStart, newStep);
-            }
-
-            if (op1->OperIs(ScevOper::Constant) && op2->OperIs(ScevOper::Constant))
-            {
-                ScevConstant* cns1 = (ScevConstant*)op1;
-                ScevConstant* cns2 = (ScevConstant*)op2;
-                int64_t       newValue;
-                if (binop->TypeIs(TYP_INT))
-                {
-                    newValue = FoldBinop<int32_t>(binop->Oper, static_cast<int32_t>(cns1->Value),
-                                                  static_cast<int32_t>(cns2->Value));
-                }
-                else
-                {
-                    assert(binop->TypeIs(TYP_LONG));
-                    newValue = FoldBinop<int64_t>(binop->Oper, cns1->Value, cns2->Value);
-                }
-
-                return NewConstant(binop->Type, newValue);
-            }
-
-            return (op1 == binop->Op1) && (op2 == binop->Op2) ? binop : NewBinop(binop->Oper, op1, op2);
-        }
         case ScevOper::AddRec:
-        {
-            ScevAddRec* addRec = (ScevAddRec*)scev;
-            Scev*       start  = Simplify(addRec->Start);
-            Scev*       step   = Simplify(addRec->Step);
-            return (start == addRec->Start) && (step == addRec->Step) ? addRec : NewAddRec(start, step);
-        }
+            {
+                ScevAddRec* addRec = (ScevAddRec*)scev;
+                Scev*       start  = Simplify(addRec->Start);
+                Scev*       step   = Simplify(addRec->Step);
+                return (start == addRec->Start) && (step == addRec->Step) ? addRec : NewAddRec(start, step);
+            }
         default:
             unreached();
     }

@@ -212,7 +212,7 @@ size_t gcPtrMapISize; // GC pointer map size: interruptible methods
 size_t gcHeaderNSize; // GC header      size: non-interruptible methods
 size_t gcPtrMapNSize; // GC pointer map size: non-interruptible methods
 
-#endif // DISPLAY_SIZES
+#endif                // DISPLAY_SIZES
 
 /*****************************************************************************
  *
@@ -493,21 +493,21 @@ var_types Compiler::getPrimitiveTypeForStruct(unsigned structSize, CORINFO_CLASS
 #ifdef TARGET_ARM64
                 case 16:
 #endif // TARGET_ARM64
-                {
-                    var_types hfaType = GetHfaType(clsHnd);
-                    // We're only interested in the case where the struct size is equal to the size of the hfaType.
-                    if (varTypeIsValidHfaType(hfaType))
                     {
-                        if (genTypeSize(hfaType) == structSize)
+                        var_types hfaType = GetHfaType(clsHnd);
+                        // We're only interested in the case where the struct size is equal to the size of the hfaType.
+                        if (varTypeIsValidHfaType(hfaType))
                         {
-                            useType = hfaType;
-                        }
-                        else
-                        {
-                            return TYP_UNKNOWN;
+                            if (genTypeSize(hfaType) == structSize)
+                            {
+                                useType = hfaType;
+                            }
+                            else
+                            {
+                                return TYP_UNKNOWN;
+                            }
                         }
                     }
-                }
             }
             if (useType != TYP_UNKNOWN)
             {
@@ -551,13 +551,13 @@ var_types Compiler::getPrimitiveTypeForStruct(unsigned structSize, CORINFO_CLASS
 #endif // TARGET_64BIT
 
         case TARGET_POINTER_SIZE:
-        {
-            BYTE gcPtr = 0;
-            // Check if this pointer-sized struct is wrapping a GC object
-            info.compCompHnd->getClassGClayout(clsHnd, &gcPtr);
-            useType = getJitGCType(gcPtr);
-        }
-        break;
+            {
+                BYTE gcPtr = 0;
+                // Check if this pointer-sized struct is wrapping a GC object
+                info.compCompHnd->getClassGClayout(clsHnd, &gcPtr);
+                useType = getJitGCType(gcPtr);
+            }
+            break;
 
         default:
             useType = TYP_UNKNOWN;
@@ -747,7 +747,7 @@ var_types Compiler::getArgTypeForStruct(CORINFO_CLASS_HANDLE clsHnd,
                 howToPassStruct = SPK_ByValue;
                 useType         = TYP_STRUCT;
 
-#else //  TARGET_XXX
+#else  //  TARGET_XXX
 
                 noway_assert(!"Unhandled TARGET in getArgTypeForStruct (with FEATURE_MULTIREG_ARGS=1)");
 
@@ -774,7 +774,7 @@ var_types Compiler::getArgTypeForStruct(CORINFO_CLASS_HANDLE clsHnd,
             howToPassStruct = SPK_ByReference;
             useType         = TYP_UNKNOWN;
 
-#else //  TARGET_XXX
+#else  //  TARGET_XXX
 
             noway_assert(!"Unhandled TARGET in getArgTypeForStruct");
 
@@ -1110,7 +1110,7 @@ var_types Compiler::getReturnTypeForStruct(CORINFO_CLASS_HANDLE     clsHnd,
                 howToReturnStruct = SPK_ByValue;
                 useType           = TYP_STRUCT;
 
-#else //  TARGET_XXX
+#else  //  TARGET_XXX
 
                 noway_assert(!"Unhandled TARGET in getReturnTypeForStruct (with FEATURE_MULTIREG_ARGS=1)");
 
@@ -1153,48 +1153,54 @@ var_types Compiler::getReturnTypeForStruct(CORINFO_CLASS_HANDLE     clsHnd,
 
 struct FileLine
 {
-    char*    m_file;
-    unsigned m_line;
-    char*    m_condStr;
+        char*    m_file;
+        unsigned m_line;
+        char*    m_condStr;
 
-    FileLine() : m_file(nullptr), m_line(0), m_condStr(nullptr) {}
-
-    FileLine(const char* file, unsigned line, const char* condStr) : m_line(line)
-    {
-        size_t newSize = (strlen(file) + 1) * sizeof(char);
-        m_file         = HostAllocator::getHostAllocator().allocate<char>(newSize);
-        strcpy_s(m_file, newSize, file);
-
-        newSize   = (strlen(condStr) + 1) * sizeof(char);
-        m_condStr = HostAllocator::getHostAllocator().allocate<char>(newSize);
-        strcpy_s(m_condStr, newSize, condStr);
-    }
-
-    FileLine(const FileLine& other)
-    {
-        m_file    = other.m_file;
-        m_line    = other.m_line;
-        m_condStr = other.m_condStr;
-    }
-
-    // GetHashCode() and Equals() are needed by JitHashTable
-
-    static unsigned GetHashCode(FileLine fl)
-    {
-        assert(fl.m_file != nullptr);
-        unsigned code = fl.m_line;
-        for (const char* p = fl.m_file; *p != '\0'; p++)
+        FileLine()
+            : m_file(nullptr)
+            , m_line(0)
+            , m_condStr(nullptr)
         {
-            code += *p;
         }
-        // Could also add condStr.
-        return code;
-    }
 
-    static bool Equals(FileLine fl1, FileLine fl2)
-    {
-        return (fl1.m_line == fl2.m_line) && (0 == strcmp(fl1.m_file, fl2.m_file));
-    }
+        FileLine(const char* file, unsigned line, const char* condStr)
+            : m_line(line)
+        {
+            size_t newSize = (strlen(file) + 1) * sizeof(char);
+            m_file         = HostAllocator::getHostAllocator().allocate<char>(newSize);
+            strcpy_s(m_file, newSize, file);
+
+            newSize   = (strlen(condStr) + 1) * sizeof(char);
+            m_condStr = HostAllocator::getHostAllocator().allocate<char>(newSize);
+            strcpy_s(m_condStr, newSize, condStr);
+        }
+
+        FileLine(const FileLine& other)
+        {
+            m_file    = other.m_file;
+            m_line    = other.m_line;
+            m_condStr = other.m_condStr;
+        }
+
+        // GetHashCode() and Equals() are needed by JitHashTable
+
+        static unsigned GetHashCode(FileLine fl)
+        {
+            assert(fl.m_file != nullptr);
+            unsigned code = fl.m_line;
+            for (const char* p = fl.m_file; *p != '\0'; p++)
+            {
+                code += *p;
+            }
+            // Could also add condStr.
+            return code;
+        }
+
+        static bool Equals(FileLine fl1, FileLine fl2)
+        {
+            return (fl1.m_line == fl2.m_line) && (0 == strcmp(fl1.m_file, fl2.m_file));
+        }
 };
 
 typedef JitHashTable<FileLine, FileLine, size_t, HostAllocator> FileLineToCountMap;
@@ -1228,18 +1234,21 @@ void RecordNowayAssertGlobal(const char* filename, unsigned line, const char* co
 
 struct NowayAssertCountMap
 {
-    size_t   count;
-    FileLine fl;
+        size_t   count;
+        FileLine fl;
 
-    NowayAssertCountMap() : count(0) {}
-
-    struct compare
-    {
-        bool operator()(const NowayAssertCountMap& elem1, const NowayAssertCountMap& elem2)
+        NowayAssertCountMap()
+            : count(0)
         {
-            return (ssize_t)elem2.count < (ssize_t)elem1.count; // sort in descending order
         }
-    };
+
+        struct compare
+        {
+                bool operator()(const NowayAssertCountMap& elem1, const NowayAssertCountMap& elem2)
+                {
+                    return (ssize_t)elem2.count < (ssize_t)elem1.count; // sort in descending order
+                }
+        };
 };
 
 void DisplayNowayAssertMap()
@@ -1444,9 +1453,9 @@ void Compiler::compShutdown()
     {
         struct OperInfo
         {
-            unsigned   Count;
-            unsigned   Size;
-            genTreeOps Oper;
+                unsigned   Count;
+                unsigned   Size;
+                genTreeOps Oper;
         };
 
         OperInfo opers[GT_COUNT];
@@ -1455,12 +1464,10 @@ void Compiler::compShutdown()
             opers[op] = {GenTree::s_gtNodeCounts[op], GenTree::s_gtTrueSizes[op], static_cast<genTreeOps>(op)};
         }
 
-        jitstd::sort(opers, opers + ArrLen(opers),
-                     [](const OperInfo& l, const OperInfo& r)
-                     {
-                         // We'll be sorting in descending order.
-                         return l.Count >= r.Count;
-                     });
+        jitstd::sort(opers, opers + ArrLen(opers), [](const OperInfo& l, const OperInfo& r) {
+            // We'll be sorting in descending order.
+            return l.Count >= r.Count;
+        });
 
         unsigned remainingCount      = totalCount;
         unsigned remainingCountLarge = 0;
@@ -1694,7 +1701,7 @@ void Compiler::compShutdown()
 #if LOOP_HOIST_STATS
 #ifdef DEBUG // Always display loop stats in retail
     if (JitConfig.DisplayLoopHoistStats() != 0)
-#endif // DEBUG
+#endif       // DEBUG
     {
         PrintAggregateLoopHoistStats(jitstdout());
     }
@@ -2183,7 +2190,7 @@ const char* Compiler::compRegVarName(regNumber reg, bool displayVar, bool isFloa
                                                                 // consecutive calls before printing
             static int index = 0;                               // for circular index into the name array
 
-            index = (index + 1) % 2; // circular reuse of index
+            index = (index + 1) % 2;                            // circular reuse of index
             sprintf_s(nameVarReg[index], NAME_VAR_REG_BUFFER_LEN, "%s'%s'", getRegName(reg), VarNameToStr(varName));
 
             return nameVarReg[index];
@@ -2600,7 +2607,7 @@ void Compiler::compInitOptions(JitFlags* jitFlags)
         }
     }
 
-#else // !DEBUG
+#else  // !DEBUG
 
     const char* altJitVal;
     if (jitFlags->IsSet(JitFlags::JIT_FLAG_PREJIT))
@@ -3151,8 +3158,7 @@ void Compiler::compInitOptions(JitFlags* jitFlags)
 #endif
 
 #if defined(DEBUG) && defined(TARGET_XARCH)
-    enum
-    {
+    enum {
         STACK_CHECK_ON_RETURN = 0x1,
         STACK_CHECK_ON_CALL   = 0x2,
         STACK_CHECK_ALL       = 0x3
@@ -3904,50 +3910,50 @@ void Compiler::compSetOptimizationLevel()
                 }
                 break;
             case 0xD:
-            {
-                unsigned firstMinopts  = (jitMinOpts >> 12) & 0xFFF;
-                unsigned secondMinopts = (jitMinOpts >> 0) & 0xFFF;
-
-                if ((firstMinopts == methodCountMask) || (secondMinopts == methodCountMask))
                 {
-                    if (verbose)
+                    unsigned firstMinopts  = (jitMinOpts >> 12) & 0xFFF;
+                    unsigned secondMinopts = (jitMinOpts >> 0) & 0xFFF;
+
+                    if ((firstMinopts == methodCountMask) || (secondMinopts == methodCountMask))
                     {
-                        printf("0xD: Optimizations disabled by JitMinOpts and methodCountMask\n");
+                        if (verbose)
+                        {
+                            printf("0xD: Optimizations disabled by JitMinOpts and methodCountMask\n");
+                        }
+                        theMinOptsValue = true;
                     }
-                    theMinOptsValue = true;
                 }
-            }
-            break;
+                break;
             case 0xE:
-            {
-                unsigned startMinopts = (jitMinOpts >> 12) & 0xFFF;
-                unsigned endMinopts   = (jitMinOpts >> 0) & 0xFFF;
-
-                if ((startMinopts <= methodCountMask) && (endMinopts >= methodCountMask))
                 {
-                    if (verbose)
+                    unsigned startMinopts = (jitMinOpts >> 12) & 0xFFF;
+                    unsigned endMinopts   = (jitMinOpts >> 0) & 0xFFF;
+
+                    if ((startMinopts <= methodCountMask) && (endMinopts >= methodCountMask))
                     {
-                        printf("0xE: Optimizations disabled by JitMinOpts and methodCountMask\n");
+                        if (verbose)
+                        {
+                            printf("0xE: Optimizations disabled by JitMinOpts and methodCountMask\n");
+                        }
+                        theMinOptsValue = true;
                     }
-                    theMinOptsValue = true;
                 }
-            }
-            break;
+                break;
             case 0xF:
-            {
-                unsigned bitsZero = (jitMinOpts >> 12) & 0xFFF;
-                unsigned bitsOne  = (jitMinOpts >> 0) & 0xFFF;
-
-                if (((methodCountMask & bitsOne) == bitsOne) && ((~methodCountMask & bitsZero) == bitsZero))
                 {
-                    if (verbose)
+                    unsigned bitsZero = (jitMinOpts >> 12) & 0xFFF;
+                    unsigned bitsOne  = (jitMinOpts >> 0) & 0xFFF;
+
+                    if (((methodCountMask & bitsOne) == bitsOne) && ((~methodCountMask & bitsZero) == bitsZero))
                     {
-                        printf("0xF: Optimizations disabled by JitMinOpts and methodCountMask\n");
+                        if (verbose)
+                        {
+                            printf("0xF: Optimizations disabled by JitMinOpts and methodCountMask\n");
+                        }
+                        theMinOptsValue = true;
                     }
-                    theMinOptsValue = true;
                 }
-            }
-            break;
+                break;
         }
     }
 
@@ -4476,7 +4482,7 @@ void Compiler::compFunctionTraceStart()
                info.compFullName, info.compMethodHash(),
                compGetTieringName()); /* } editor brace matching workaround for this printf */
     }
-#endif // DEBUG
+#endif                                // DEBUG
 }
 
 void Compiler::compFunctionTraceEnd(void* methodCodePtr, ULONG methodCodeSize, bool isNYI)
@@ -4563,8 +4569,7 @@ void Compiler::compCompile(void** methodCodePtr, uint32_t* methodCodeSize, JitFl
 
     // Prepare for importation
     //
-    auto preImportPhase = [this]()
-    {
+    auto preImportPhase = [this]() {
         if (compIsForInlining())
         {
             // Notify root instance that an inline attempt is about to import IL
@@ -4789,7 +4794,9 @@ void Compiler::compCompile(void** methodCodePtr, uint32_t* methodCodeSize, JitFl
     {
         // Tail merge
         //
-        DoPhase(this, PHASE_HEAD_TAIL_MERGE, [this]() { return fgHeadTailMerge(true); });
+        DoPhase(this, PHASE_HEAD_TAIL_MERGE, [this]() {
+            return fgHeadTailMerge(true);
+        });
 
         // Merge common throw blocks
         //
@@ -4859,8 +4866,7 @@ void Compiler::compCompile(void** methodCodePtr, uint32_t* methodCodeSize, JitFl
     unsigned const preMorphBBCount = fgBBcount;
     DoPhase(this, PHASE_MORPH_GLOBAL, &Compiler::fgMorphBlocks);
 
-    auto postMorphPhase = [this]()
-    {
+    auto postMorphPhase = [this]() {
         // Fix any LclVar annotations on discarded struct promotion temps for implicit by-ref args
         fgMarkDemotedImplicitByRefArgs();
         lvaRefCountState       = RCS_INVALID;
@@ -4915,7 +4921,9 @@ void Compiler::compCompile(void** methodCodePtr, uint32_t* methodCodeSize, JitFl
 
         // Second pass of tail merge
         //
-        DoPhase(this, PHASE_HEAD_TAIL_MERGE2, [this]() { return fgHeadTailMerge(false); });
+        DoPhase(this, PHASE_HEAD_TAIL_MERGE2, [this]() {
+            return fgHeadTailMerge(false);
+        });
 
         // Canonicalize entry to give a unique dominator tree root
         //
@@ -5263,7 +5271,9 @@ void Compiler::compCompile(void** methodCodePtr, uint32_t* methodCodeSize, JitFl
 
     // Now that lowering is completed we can proceed to perform register allocation
     //
-    auto linearScanPhase = [this]() { m_pLinearScan->doLinearScan(); };
+    auto linearScanPhase = [this]() {
+        m_pLinearScan->doLinearScan();
+    };
     DoPhase(this, PHASE_LINEAR_SCAN, linearScanPhase);
 
     // Copied from rpPredictRegUse()
@@ -5410,19 +5420,17 @@ bool Compiler::shouldAlignLoop(FlowGraphNaturalLoop* loop, BasicBlock* top)
         return false;
     }
 
-    bool hasCall = loop->VisitLoopBlocks(
-                       [](BasicBlock* block)
-                       {
-                           for (GenTree* tree : LIR::AsRange(block))
-                           {
-                               if (tree->IsCall())
-                               {
-                                   return BasicBlockVisit::Abort;
-                               }
-                           }
+    bool hasCall = loop->VisitLoopBlocks([](BasicBlock* block) {
+        for (GenTree* tree : LIR::AsRange(block))
+        {
+            if (tree->IsCall())
+            {
+                return BasicBlockVisit::Abort;
+            }
+        }
 
-                           return BasicBlockVisit::Continue;
-                       }) == BasicBlockVisit::Abort;
+        return BasicBlockVisit::Continue;
+    }) == BasicBlockVisit::Abort;
 
     if (hasCall)
     {
@@ -5985,7 +5993,9 @@ void Compiler::RecomputeFlowGraphAnnotations()
 }
 
 /*****************************************************************************/
-void Compiler::ProcessShutdownWork(ICorStaticInfo* statInfo) {}
+void Compiler::ProcessShutdownWork(ICorStaticInfo* statInfo)
+{
+}
 
 /*****************************************************************************/
 
@@ -6081,7 +6091,7 @@ int Compiler::compCompile(CORINFO_MODULE_HANDLE classPtr,
             {
 #if defined(DEBUG) && !defined(HOST_UNIX) // no 'perror' in the PAL
                 perror("Failed to open JitFuncInfoLogFile");
-#endif // defined(DEBUG) && !defined(HOST_UNIX)
+#endif                                    // defined(DEBUG) && !defined(HOST_UNIX)
             }
         }
     }
@@ -6428,7 +6438,7 @@ int Compiler::compCompile(CORINFO_MODULE_HANDLE classPtr,
             }
         }
     }
-#endif // DEBUG
+#endif                                 // DEBUG
 
     info.compProfilerCallback = false; // Assume false until we are told to hook this method.
 
@@ -6454,16 +6464,16 @@ int Compiler::compCompile(CORINFO_MODULE_HANDLE classPtr,
 
     struct Param
     {
-        Compiler* pThis;
+            Compiler* pThis;
 
-        CORINFO_MODULE_HANDLE classPtr;
-        COMP_HANDLE           compHnd;
-        CORINFO_METHOD_INFO*  methodInfo;
-        void**                methodCodePtr;
-        uint32_t*             methodCodeSize;
-        JitFlags*             compileFlags;
+            CORINFO_MODULE_HANDLE classPtr;
+            COMP_HANDLE           compHnd;
+            CORINFO_METHOD_INFO*  methodInfo;
+            void**                methodCodePtr;
+            uint32_t*             methodCodeSize;
+            JitFlags*             compileFlags;
 
-        int result;
+            int result;
     } param;
     param.pThis          = this;
     param.classPtr       = classPtr;
@@ -6493,7 +6503,7 @@ int Compiler::compCompile(CORINFO_MODULE_HANDLE classPtr,
 
         GetEmitter()->emitEndCG();
 
-    DoneCleanUp:
+DoneCleanUp:
         compDone();
     }
     endErrorTrap() // ERROR TRAP: End
@@ -7537,18 +7547,18 @@ void Compiler::compInitVarScopeMap()
 
 struct genCmpLocalVarLifeBeg
 {
-    bool operator()(const VarScopeDsc* elem1, const VarScopeDsc* elem2)
-    {
-        return elem1->vsdLifeBeg < elem2->vsdLifeBeg;
-    }
+        bool operator()(const VarScopeDsc* elem1, const VarScopeDsc* elem2)
+        {
+            return elem1->vsdLifeBeg < elem2->vsdLifeBeg;
+        }
 };
 
 struct genCmpLocalVarLifeEnd
 {
-    bool operator()(const VarScopeDsc* elem1, const VarScopeDsc* elem2)
-    {
-        return elem1->vsdLifeEnd < elem2->vsdLifeEnd;
-    }
+        bool operator()(const VarScopeDsc* elem1, const VarScopeDsc* elem2)
+        {
+            return elem1->vsdLifeEnd < elem2->vsdLifeEnd;
+        }
 };
 
 inline void Compiler::compInitScopeLists()
@@ -7708,7 +7718,7 @@ void Compiler::compProcessScopesUntil(unsigned   offset,
 
         offs = nextExitScope ? nextExitScope->vsdLifeEnd : offset;
 
-    START_FINDING_SCOPES:
+START_FINDING_SCOPES:
 
         while ((scope = compGetNextEnterScope(offs, true)) != nullptr)
         {
@@ -7807,54 +7817,54 @@ void Compiler::compDispLocalVars()
 
 struct WrapICorJitInfo : public ICorJitInfo
 {
-    //------------------------------------------------------------------------
-    // WrapICorJitInfo::makeOne: allocate an instance of WrapICorJitInfo
-    //
-    // Arguments:
-    //    alloc      - the allocator to get memory from for the instance
-    //    compile    - the compiler instance
-    //    compHndRef - the ICorJitInfo handle from the EE; the caller's
-    //                 copy may be replaced with a "wrapper" instance
-    //
-    // Return Value:
-    //    If the config flags indicate that ICorJitInfo should be wrapped,
-    //    we return the "wrapper" instance; otherwise we return "nullptr".
+        //------------------------------------------------------------------------
+        // WrapICorJitInfo::makeOne: allocate an instance of WrapICorJitInfo
+        //
+        // Arguments:
+        //    alloc      - the allocator to get memory from for the instance
+        //    compile    - the compiler instance
+        //    compHndRef - the ICorJitInfo handle from the EE; the caller's
+        //                 copy may be replaced with a "wrapper" instance
+        //
+        // Return Value:
+        //    If the config flags indicate that ICorJitInfo should be wrapped,
+        //    we return the "wrapper" instance; otherwise we return "nullptr".
 
-    static WrapICorJitInfo* makeOne(ArenaAllocator* alloc, Compiler* compiler, COMP_HANDLE& compHndRef /* INOUT */)
-    {
-        WrapICorJitInfo* wrap = nullptr;
-
-        if (JitConfig.JitEECallTimingInfo() != 0)
+        static WrapICorJitInfo* makeOne(ArenaAllocator* alloc, Compiler* compiler, COMP_HANDLE& compHndRef /* INOUT */)
         {
-            // It's too early to use the default allocator, so we do this
-            // in two steps to be safe (the constructor doesn't need to do
-            // anything except fill in the vtable pointer, so we let the
-            // compiler do it).
-            void* inst = alloc->allocateMemory(roundUp(sizeof(WrapICorJitInfo)));
-            if (inst != nullptr)
+            WrapICorJitInfo* wrap = nullptr;
+
+            if (JitConfig.JitEECallTimingInfo() != 0)
             {
-                // If you get a build error here due to 'WrapICorJitInfo' being
-                // an abstract class, it's very likely that the wrapper bodies
-                // in ICorJitInfo_wrapper_generated.hpp are no longer in sync with
-                // the EE interface; please be kind and update the header file.
-                wrap = new (inst, jitstd::placement_t()) WrapICorJitInfo();
+                // It's too early to use the default allocator, so we do this
+                // in two steps to be safe (the constructor doesn't need to do
+                // anything except fill in the vtable pointer, so we let the
+                // compiler do it).
+                void* inst = alloc->allocateMemory(roundUp(sizeof(WrapICorJitInfo)));
+                if (inst != nullptr)
+                {
+                    // If you get a build error here due to 'WrapICorJitInfo' being
+                    // an abstract class, it's very likely that the wrapper bodies
+                    // in ICorJitInfo_wrapper_generated.hpp are no longer in sync with
+                    // the EE interface; please be kind and update the header file.
+                    wrap = new (inst, jitstd::placement_t()) WrapICorJitInfo();
 
-                wrap->wrapComp = compiler;
+                    wrap->wrapComp = compiler;
 
-                // Save the real handle and replace it with our wrapped version.
-                wrap->wrapHnd = compHndRef;
-                compHndRef    = wrap;
+                    // Save the real handle and replace it with our wrapped version.
+                    wrap->wrapHnd = compHndRef;
+                    compHndRef    = wrap;
+                }
             }
+
+            return wrap;
         }
 
-        return wrap;
-    }
+    private:
+        Compiler*   wrapComp;
+        COMP_HANDLE wrapHnd; // the "real thing"
 
-private:
-    Compiler*   wrapComp;
-    COMP_HANDLE wrapHnd; // the "real thing"
-
-public:
+    public:
 #include "ICorJitInfo_wrapper_generated.hpp"
 };
 
@@ -7904,23 +7914,23 @@ START:
 
     struct Param
     {
-        Compiler*       pComp;
-        ArenaAllocator* pAlloc;
-        bool            jitFallbackCompile;
+            Compiler*       pComp;
+            ArenaAllocator* pAlloc;
+            bool            jitFallbackCompile;
 
-        CORINFO_METHOD_HANDLE methodHnd;
-        CORINFO_MODULE_HANDLE classPtr;
-        COMP_HANDLE           compHnd;
-        CORINFO_METHOD_INFO*  methodInfo;
-        void**                methodCodePtr;
-        uint32_t*             methodCodeSize;
-        JitFlags*             compileFlags;
-        InlineInfo*           inlineInfo;
+            CORINFO_METHOD_HANDLE methodHnd;
+            CORINFO_MODULE_HANDLE classPtr;
+            COMP_HANDLE           compHnd;
+            CORINFO_METHOD_INFO*  methodInfo;
+            void**                methodCodePtr;
+            uint32_t*             methodCodeSize;
+            JitFlags*             compileFlags;
+            InlineInfo*           inlineInfo;
 #if MEASURE_CLRAPI_CALLS
-        WrapICorJitInfo* wrapCLR;
+            WrapICorJitInfo* wrapCLR;
 #endif
 
-        int result;
+            int result;
     } param;
     param.pComp              = nullptr;
     param.pAlloc             = pAlloc;
@@ -8314,7 +8324,9 @@ XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
 */
 
 /*****************************************************************************/
-void codeGeneratorCodeSizeBeg() {}
+void codeGeneratorCodeSizeBeg()
+{
+}
 
 /*****************************************************************************
  *
@@ -8322,7 +8334,9 @@ void codeGeneratorCodeSizeBeg() {}
  */
 
 /*****************************************************************************/
-void codeGeneratorCodeSizeEnd() {}
+void codeGeneratorCodeSizeEnd()
+{
+}
 /*****************************************************************************
  *
  *  Gather statistics - mainly used for the standalone
@@ -8925,7 +8939,8 @@ void CompTimeSummaryInfo::Print(FILE* f)
     fprintf(f, "\n");
 }
 
-JitTimer::JitTimer(unsigned byteCodeSize) : m_info(byteCodeSize)
+JitTimer::JitTimer(unsigned byteCodeSize)
+    : m_info(byteCodeSize)
 {
 #if MEASURE_CLRAPI_CALLS
     m_CLRcallInvokes = 0;
@@ -10042,14 +10057,14 @@ JITDBGAPI void __cdecl cTreeFlags(Compiler* comp, GenTree* tree)
                 break;
 
             case GT_CNS_INT:
-            {
-                GenTreeFlags handleKind = (tree->gtFlags & GTF_ICON_HDL_MASK);
-                if (handleKind != 0)
                 {
-                    chars += printf("[%s]", GenTree::gtGetHandleKindString(handleKind));
+                    GenTreeFlags handleKind = (tree->gtFlags & GTF_ICON_HDL_MASK);
+                    if (handleKind != 0)
+                    {
+                        chars += printf("[%s]", GenTree::gtGetHandleKindString(handleKind));
+                    }
                 }
-            }
-            break;
+                break;
 
             case GT_BLK:
             case GT_STORE_BLK:
@@ -10196,14 +10211,14 @@ JITDBGAPI void __cdecl cTreeFlags(Compiler* comp, GenTree* tree)
                 break;
             default:
 
-            {
-                GenTreeFlags flags = (tree->gtFlags & (~(GTF_COMMON_MASK | GTF_OVERFLOW)));
-                if (flags != 0)
                 {
-                    chars += printf("[%08X]", flags);
+                    GenTreeFlags flags = (tree->gtFlags & (~(GTF_COMMON_MASK | GTF_OVERFLOW)));
+                    if (flags != 0)
+                    {
+                        chars += printf("[%08X]", flags);
+                    }
                 }
-            }
-            break;
+                break;
         }
 
         // Common flags.
@@ -10479,12 +10494,10 @@ JITDBGAPI GenTree* __cdecl dFindTreeInTree(GenTree* tree, unsigned id)
     }
 
     GenTree* child = nullptr;
-    tree->VisitOperands(
-        [&child, id](GenTree* operand) -> GenTree::VisitResult
-        {
-            child = dFindTreeInTree(child, id);
-            return (child != nullptr) ? GenTree::VisitResult::Abort : GenTree::VisitResult::Continue;
-        });
+    tree->VisitOperands([&child, id](GenTree* operand) -> GenTree::VisitResult {
+        child = dFindTreeInTree(child, id);
+        return (child != nullptr) ? GenTree::VisitResult::Abort : GenTree::VisitResult::Continue;
+    });
 
     return child;
 }

@@ -277,7 +277,7 @@ BasicBlock* CodeGen::genCallFinally(BasicBlock* block)
 #endif // JIT32_GCENCODER
     }
 
-#else // !FEATURE_EH_FUNCLETS
+#else  // !FEATURE_EH_FUNCLETS
 
     // If we are about to invoke a finally locally from a try block, we have to set the ShadowSP slot
     // corresponding to the finally's nesting level. When invoked in response to an exception, the
@@ -354,7 +354,7 @@ void CodeGen::genEHCatchRet(BasicBlock* block)
     GetEmitter()->emitIns_R_L(INS_lea, EA_PTR_DSP_RELOC, block->GetTarget(), REG_INTRET);
 }
 
-#else // !FEATURE_EH_FUNCLETS
+#else  // !FEATURE_EH_FUNCLETS
 
 void CodeGen::genEHFinallyOrFilterRet(BasicBlock* block)
 {
@@ -455,144 +455,144 @@ void CodeGen::genSetRegToConst(regNumber targetReg, var_types targetType, simd_t
     switch (targetType)
     {
         case TYP_SIMD8:
-        {
-            simd8_t val8 = *(simd8_t*)val;
-            if (val8.IsAllBitsSet())
             {
-                if (emitter::isHighSimdReg(targetReg))
+                simd8_t val8 = *(simd8_t*)val;
+                if (val8.IsAllBitsSet())
                 {
-                    assert(compiler->compIsaSupportedDebugOnly(InstructionSet_AVX512F));
-                    emit->emitIns_SIMD_R_R_R_I(INS_vpternlogd, attr, targetReg, targetReg, targetReg,
-                                               static_cast<int8_t>(0xFF));
+                    if (emitter::isHighSimdReg(targetReg))
+                    {
+                        assert(compiler->compIsaSupportedDebugOnly(InstructionSet_AVX512F));
+                        emit->emitIns_SIMD_R_R_R_I(INS_vpternlogd, attr, targetReg, targetReg, targetReg,
+                                                   static_cast<int8_t>(0xFF));
+                    }
+                    else
+                    {
+                        emit->emitIns_SIMD_R_R_R(INS_pcmpeqd, EA_16BYTE, targetReg, targetReg, targetReg);
+                    }
+                }
+                else if (val8.IsZero())
+                {
+                    emit->emitIns_SIMD_R_R_R(INS_xorps, EA_16BYTE, targetReg, targetReg, targetReg);
                 }
                 else
                 {
-                    emit->emitIns_SIMD_R_R_R(INS_pcmpeqd, EA_16BYTE, targetReg, targetReg, targetReg);
+                    CORINFO_FIELD_HANDLE hnd = emit->emitSimd8Const(val8);
+                    emit->emitIns_R_C(ins_Load(targetType), attr, targetReg, hnd, 0);
                 }
+                break;
             }
-            else if (val8.IsZero())
-            {
-                emit->emitIns_SIMD_R_R_R(INS_xorps, EA_16BYTE, targetReg, targetReg, targetReg);
-            }
-            else
-            {
-                CORINFO_FIELD_HANDLE hnd = emit->emitSimd8Const(val8);
-                emit->emitIns_R_C(ins_Load(targetType), attr, targetReg, hnd, 0);
-            }
-            break;
-        }
         case TYP_SIMD12:
-        {
-            simd12_t val12 = *(simd12_t*)val;
-            if (val12.IsAllBitsSet())
             {
-                if (emitter::isHighSimdReg(targetReg))
+                simd12_t val12 = *(simd12_t*)val;
+                if (val12.IsAllBitsSet())
                 {
-                    assert(compiler->compIsaSupportedDebugOnly(InstructionSet_AVX512F));
-                    emit->emitIns_SIMD_R_R_R_I(INS_vpternlogd, attr, targetReg, targetReg, targetReg,
-                                               static_cast<int8_t>(0xFF));
+                    if (emitter::isHighSimdReg(targetReg))
+                    {
+                        assert(compiler->compIsaSupportedDebugOnly(InstructionSet_AVX512F));
+                        emit->emitIns_SIMD_R_R_R_I(INS_vpternlogd, attr, targetReg, targetReg, targetReg,
+                                                   static_cast<int8_t>(0xFF));
+                    }
+                    else
+                    {
+                        emit->emitIns_SIMD_R_R_R(INS_pcmpeqd, EA_16BYTE, targetReg, targetReg, targetReg);
+                    }
+                }
+                else if (val12.IsZero())
+                {
+                    emit->emitIns_SIMD_R_R_R(INS_xorps, EA_16BYTE, targetReg, targetReg, targetReg);
                 }
                 else
                 {
-                    emit->emitIns_SIMD_R_R_R(INS_pcmpeqd, EA_16BYTE, targetReg, targetReg, targetReg);
+                    simd16_t val16 = {};
+                    memcpy(&val16, &val12, sizeof(val12));
+                    CORINFO_FIELD_HANDLE hnd = emit->emitSimd16Const(val16);
+                    emit->emitIns_R_C(ins_Load(targetType), attr, targetReg, hnd, 0);
                 }
+                break;
             }
-            else if (val12.IsZero())
-            {
-                emit->emitIns_SIMD_R_R_R(INS_xorps, EA_16BYTE, targetReg, targetReg, targetReg);
-            }
-            else
-            {
-                simd16_t val16 = {};
-                memcpy(&val16, &val12, sizeof(val12));
-                CORINFO_FIELD_HANDLE hnd = emit->emitSimd16Const(val16);
-                emit->emitIns_R_C(ins_Load(targetType), attr, targetReg, hnd, 0);
-            }
-            break;
-        }
         case TYP_SIMD16:
-        {
-            simd16_t val16 = *(simd16_t*)val;
-            if (val16.IsAllBitsSet())
             {
-                if (emitter::isHighSimdReg(targetReg))
+                simd16_t val16 = *(simd16_t*)val;
+                if (val16.IsAllBitsSet())
                 {
-                    assert(compiler->compIsaSupportedDebugOnly(InstructionSet_AVX512F));
-                    emit->emitIns_SIMD_R_R_R_I(INS_vpternlogd, attr, targetReg, targetReg, targetReg,
-                                               static_cast<int8_t>(0xFF));
+                    if (emitter::isHighSimdReg(targetReg))
+                    {
+                        assert(compiler->compIsaSupportedDebugOnly(InstructionSet_AVX512F));
+                        emit->emitIns_SIMD_R_R_R_I(INS_vpternlogd, attr, targetReg, targetReg, targetReg,
+                                                   static_cast<int8_t>(0xFF));
+                    }
+                    else
+                    {
+                        emit->emitIns_SIMD_R_R_R(INS_pcmpeqd, attr, targetReg, targetReg, targetReg);
+                    }
+                }
+                else if (val16.IsZero())
+                {
+                    emit->emitIns_SIMD_R_R_R(INS_xorps, attr, targetReg, targetReg, targetReg);
                 }
                 else
                 {
-                    emit->emitIns_SIMD_R_R_R(INS_pcmpeqd, attr, targetReg, targetReg, targetReg);
+                    CORINFO_FIELD_HANDLE hnd = emit->emitSimd16Const(val16);
+                    emit->emitIns_R_C(ins_Load(targetType), attr, targetReg, hnd, 0);
                 }
+                break;
             }
-            else if (val16.IsZero())
-            {
-                emit->emitIns_SIMD_R_R_R(INS_xorps, attr, targetReg, targetReg, targetReg);
-            }
-            else
-            {
-                CORINFO_FIELD_HANDLE hnd = emit->emitSimd16Const(val16);
-                emit->emitIns_R_C(ins_Load(targetType), attr, targetReg, hnd, 0);
-            }
-            break;
-        }
         case TYP_SIMD32:
-        {
-            simd32_t val32 = *(simd32_t*)val;
-            if (val32.IsAllBitsSet() && compiler->compOpportunisticallyDependsOn(InstructionSet_AVX2))
             {
-                if (emitter::isHighSimdReg(targetReg))
+                simd32_t val32 = *(simd32_t*)val;
+                if (val32.IsAllBitsSet() && compiler->compOpportunisticallyDependsOn(InstructionSet_AVX2))
                 {
-                    assert(compiler->compIsaSupportedDebugOnly(InstructionSet_AVX512F));
-                    emit->emitIns_SIMD_R_R_R_I(INS_vpternlogd, attr, targetReg, targetReg, targetReg,
-                                               static_cast<int8_t>(0xFF));
+                    if (emitter::isHighSimdReg(targetReg))
+                    {
+                        assert(compiler->compIsaSupportedDebugOnly(InstructionSet_AVX512F));
+                        emit->emitIns_SIMD_R_R_R_I(INS_vpternlogd, attr, targetReg, targetReg, targetReg,
+                                                   static_cast<int8_t>(0xFF));
+                    }
+                    else
+                    {
+                        emit->emitIns_SIMD_R_R_R(INS_pcmpeqd, attr, targetReg, targetReg, targetReg);
+                    }
+                }
+                else if (val32.IsZero())
+                {
+                    emit->emitIns_SIMD_R_R_R(INS_xorps, attr, targetReg, targetReg, targetReg);
                 }
                 else
                 {
-                    emit->emitIns_SIMD_R_R_R(INS_pcmpeqd, attr, targetReg, targetReg, targetReg);
+                    CORINFO_FIELD_HANDLE hnd = emit->emitSimd32Const(val32);
+                    emit->emitIns_R_C(ins_Load(targetType), attr, targetReg, hnd, 0);
                 }
+                break;
             }
-            else if (val32.IsZero())
-            {
-                emit->emitIns_SIMD_R_R_R(INS_xorps, attr, targetReg, targetReg, targetReg);
-            }
-            else
-            {
-                CORINFO_FIELD_HANDLE hnd = emit->emitSimd32Const(val32);
-                emit->emitIns_R_C(ins_Load(targetType), attr, targetReg, hnd, 0);
-            }
-            break;
-        }
         case TYP_SIMD64:
-        {
-            simd64_t val64 = *(simd64_t*)val;
-            if (val64.IsAllBitsSet() && compiler->compOpportunisticallyDependsOn(InstructionSet_AVX512F))
             {
-                emit->emitIns_SIMD_R_R_R_I(INS_vpternlogd, attr, targetReg, targetReg, targetReg,
-                                           static_cast<int8_t>(0xFF));
+                simd64_t val64 = *(simd64_t*)val;
+                if (val64.IsAllBitsSet() && compiler->compOpportunisticallyDependsOn(InstructionSet_AVX512F))
+                {
+                    emit->emitIns_SIMD_R_R_R_I(INS_vpternlogd, attr, targetReg, targetReg, targetReg,
+                                               static_cast<int8_t>(0xFF));
+                }
+                else if (val64.IsZero())
+                {
+                    // Use VEX version because it's smaller (for zmm0-zmm15) than EVEX to zero a zmm register and still
+                    // zeros the entire register:
+                    //
+                    //   xorps zmm0, zmm0, zmm0 (6 bytes)
+                    //   xorps ymm0, ymm0, ymm0 (4 bytes)
+                    //
+                    emit->emitIns_SIMD_R_R_R(INS_xorps, EA_32BYTE, targetReg, targetReg, targetReg);
+                }
+                else
+                {
+                    CORINFO_FIELD_HANDLE hnd = emit->emitSimd64Const(val64);
+                    emit->emitIns_R_C(ins_Load(targetType), attr, targetReg, hnd, 0);
+                }
+                break;
             }
-            else if (val64.IsZero())
-            {
-                // Use VEX version because it's smaller (for zmm0-zmm15) than EVEX to zero a zmm register and still
-                // zeros the entire register:
-                //
-                //   xorps zmm0, zmm0, zmm0 (6 bytes)
-                //   xorps ymm0, ymm0, ymm0 (4 bytes)
-                //
-                emit->emitIns_SIMD_R_R_R(INS_xorps, EA_32BYTE, targetReg, targetReg, targetReg);
-            }
-            else
-            {
-                CORINFO_FIELD_HANDLE hnd = emit->emitSimd64Const(val64);
-                emit->emitIns_R_C(ins_Load(targetType), attr, targetReg, hnd, 0);
-            }
-            break;
-        }
         default:
-        {
-            unreached();
-        }
+            {
+                unreached();
+            }
     }
 }
 #endif // FEATURE_SIMD
@@ -608,91 +608,91 @@ void CodeGen::genSetRegToConst(regNumber targetReg, var_types targetType, GenTre
     switch (tree->gtOper)
     {
         case GT_CNS_INT:
-        {
-            // relocatable values tend to come down as a CNS_INT of native int type
-            // so the line between these two opcodes is kind of blurry
-            GenTreeIntCon* con    = tree->AsIntCon();
-            ssize_t        cnsVal = con->IconValue();
-
-            emitAttr attr = emitActualTypeSize(targetType);
-            // Currently this cannot be done for all handles due to
-            // https://github.com/dotnet/runtime/issues/60712. However, it is
-            // also unclear whether we unconditionally want to use rip-relative
-            // lea instructions when not necessary. While a mov is larger, on
-            // many Intel CPUs rip-relative lea instructions have higher
-            // latency.
-            if (con->ImmedValNeedsReloc(compiler))
             {
-                attr = EA_SET_FLG(attr, EA_CNS_RELOC_FLG);
-            }
+                // relocatable values tend to come down as a CNS_INT of native int type
+                // so the line between these two opcodes is kind of blurry
+                GenTreeIntCon* con    = tree->AsIntCon();
+                ssize_t        cnsVal = con->IconValue();
 
-            if (targetType == TYP_BYREF)
-            {
-                attr = EA_SET_FLG(attr, EA_BYREF_FLG);
-            }
-
-            if (compiler->IsTargetAbi(CORINFO_NATIVEAOT_ABI))
-            {
-                if (con->IsIconHandle(GTF_ICON_SECREL_OFFSET))
+                emitAttr attr = emitActualTypeSize(targetType);
+                // Currently this cannot be done for all handles due to
+                // https://github.com/dotnet/runtime/issues/60712. However, it is
+                // also unclear whether we unconditionally want to use rip-relative
+                // lea instructions when not necessary. While a mov is larger, on
+                // many Intel CPUs rip-relative lea instructions have higher
+                // latency.
+                if (con->ImmedValNeedsReloc(compiler))
                 {
-                    attr = EA_SET_FLG(attr, EA_CNS_SEC_RELOC);
+                    attr = EA_SET_FLG(attr, EA_CNS_RELOC_FLG);
                 }
-                else if (con->IsIconHandle(GTF_ICON_TLSGD_OFFSET))
-                {
-                    attr = EA_SET_FLG(attr, EA_CNS_TLSGD_RELOC);
-                }
-            }
 
-            instGen_Set_Reg_To_Imm(attr, targetReg, cnsVal,
-                                   INS_FLAGS_DONT_CARE DEBUGARG(con->gtTargetHandle) DEBUGARG(con->gtFlags));
-            regSet.verifyRegUsed(targetReg);
-        }
-        break;
+                if (targetType == TYP_BYREF)
+                {
+                    attr = EA_SET_FLG(attr, EA_BYREF_FLG);
+                }
+
+                if (compiler->IsTargetAbi(CORINFO_NATIVEAOT_ABI))
+                {
+                    if (con->IsIconHandle(GTF_ICON_SECREL_OFFSET))
+                    {
+                        attr = EA_SET_FLG(attr, EA_CNS_SEC_RELOC);
+                    }
+                    else if (con->IsIconHandle(GTF_ICON_TLSGD_OFFSET))
+                    {
+                        attr = EA_SET_FLG(attr, EA_CNS_TLSGD_RELOC);
+                    }
+                }
+
+                instGen_Set_Reg_To_Imm(attr, targetReg, cnsVal,
+                                       INS_FLAGS_DONT_CARE DEBUGARG(con->gtTargetHandle) DEBUGARG(con->gtFlags));
+                regSet.verifyRegUsed(targetReg);
+            }
+            break;
 
         case GT_CNS_DBL:
-        {
-            emitter* emit = GetEmitter();
-            emitAttr size = emitTypeSize(targetType);
+            {
+                emitter* emit = GetEmitter();
+                emitAttr size = emitTypeSize(targetType);
 
-            if (tree->IsFloatPositiveZero())
-            {
-                // A faster/smaller way to generate Zero
-                emit->emitIns_SIMD_R_R_R(INS_xorps, EA_16BYTE, targetReg, targetReg, targetReg);
-            }
-            else if (tree->IsFloatAllBitsSet())
-            {
-                if (emitter::isHighSimdReg(targetReg))
+                if (tree->IsFloatPositiveZero())
                 {
-                    assert(compiler->compIsaSupportedDebugOnly(InstructionSet_AVX512F));
-                    emit->emitIns_SIMD_R_R_R_I(INS_vpternlogd, EA_16BYTE, targetReg, targetReg, targetReg,
-                                               static_cast<int8_t>(0xFF));
+                    // A faster/smaller way to generate Zero
+                    emit->emitIns_SIMD_R_R_R(INS_xorps, EA_16BYTE, targetReg, targetReg, targetReg);
+                }
+                else if (tree->IsFloatAllBitsSet())
+                {
+                    if (emitter::isHighSimdReg(targetReg))
+                    {
+                        assert(compiler->compIsaSupportedDebugOnly(InstructionSet_AVX512F));
+                        emit->emitIns_SIMD_R_R_R_I(INS_vpternlogd, EA_16BYTE, targetReg, targetReg, targetReg,
+                                                   static_cast<int8_t>(0xFF));
+                    }
+                    else
+                    {
+                        // A faster/smaller way to generate AllBitsSet
+                        emit->emitIns_SIMD_R_R_R(INS_pcmpeqd, EA_16BYTE, targetReg, targetReg, targetReg);
+                    }
                 }
                 else
                 {
-                    // A faster/smaller way to generate AllBitsSet
-                    emit->emitIns_SIMD_R_R_R(INS_pcmpeqd, EA_16BYTE, targetReg, targetReg, targetReg);
+                    double               cns = tree->AsDblCon()->DconValue();
+                    CORINFO_FIELD_HANDLE hnd = emit->emitFltOrDblConst(cns, size);
+
+                    emit->emitIns_R_C(ins_Load(targetType), size, targetReg, hnd, 0);
                 }
             }
-            else
-            {
-                double               cns = tree->AsDblCon()->DconValue();
-                CORINFO_FIELD_HANDLE hnd = emit->emitFltOrDblConst(cns, size);
-
-                emit->emitIns_R_C(ins_Load(targetType), size, targetReg, hnd, 0);
-            }
-        }
-        break;
+            break;
 
         case GT_CNS_VEC:
-        {
+            {
 #if defined(FEATURE_SIMD)
-            GenTreeVecCon* vecCon = tree->AsVecCon();
-            genSetRegToConst(vecCon->GetRegNum(), targetType, &vecCon->gtSimdVal);
+                GenTreeVecCon* vecCon = tree->AsVecCon();
+                genSetRegToConst(vecCon->GetRegNum(), targetType, &vecCon->gtSimdVal);
 #else
-            unreached();
+                unreached();
 #endif
-            break;
-        }
+                break;
+            }
 
         default:
             unreached();
@@ -2087,13 +2087,13 @@ void CodeGen::genCodeForTreeNode(GenTree* treeNode)
             break;
 
         case GT_MEMORYBARRIER:
-        {
-            CodeGen::BarrierKind barrierKind =
-                treeNode->gtFlags & GTF_MEMORYBARRIER_LOAD ? BARRIER_LOAD_ONLY : BARRIER_FULL;
+            {
+                CodeGen::BarrierKind barrierKind =
+                    treeNode->gtFlags & GTF_MEMORYBARRIER_LOAD ? BARRIER_LOAD_ONLY : BARRIER_FULL;
 
-            instGen_MemoryBarrier(barrierKind);
-            break;
-        }
+                instGen_MemoryBarrier(barrierKind);
+                break;
+            }
 
         case GT_CMPXCHG:
             genCodeForCmpXchg(treeNode->AsCmpXchg());
@@ -2209,16 +2209,16 @@ void CodeGen::genCodeForTreeNode(GenTree* treeNode)
             break;
 
         default:
-        {
+            {
 #ifdef DEBUG
-            char message[256];
-            _snprintf_s(message, ArrLen(message), _TRUNCATE, "NYI: Unimplemented node type %s\n",
-                        GenTree::OpName(treeNode->OperGet()));
-            NYIRAW(message);
+                char message[256];
+                _snprintf_s(message, ArrLen(message), _TRUNCATE, "NYI: Unimplemented node type %s\n",
+                            GenTree::OpName(treeNode->OperGet()));
+                NYIRAW(message);
 #endif
-            assert(!"Unknown node in codegen");
-        }
-        break;
+                assert(!"Unknown node in codegen");
+            }
+            break;
     }
 }
 
@@ -2677,8 +2677,7 @@ void CodeGen::genCodeForMemmove(GenTreeBlk* tree)
             tempRegs[i] = tree->ExtractTempReg(RBM_ALLFLOAT);
         }
 
-        auto emitSimdLoadStore = [&](bool load)
-        {
+        auto emitSimdLoadStore = [&](bool load) {
             unsigned    offset      = 0;
             int         regIndex    = 0;
             instruction simdMov     = simdUnalignedMovIns();
@@ -2724,8 +2723,7 @@ void CodeGen::genCodeForMemmove(GenTreeBlk* tree)
         // Here we work with size 1..15 (x64)
         assert((size > 0) && (size < XMM_REGSIZE_BYTES));
 
-        auto emitScalarLoadStore = [&](bool load, int size, regNumber tempReg, int offset)
-        {
+        auto emitScalarLoadStore = [&](bool load, int size, regNumber tempReg, int offset) {
             var_types memType;
             switch (size)
             {
@@ -3235,8 +3233,7 @@ void CodeGen::genCodeForInitBlkUnroll(GenTreeBlk* node)
         instruction simdMov      = simdUnalignedMovIns();
         unsigned    bytesWritten = 0;
 
-        auto emitSimdMovs = [&]()
-        {
+        auto emitSimdMovs = [&]() {
             if (dstLclNum != BAD_VAR_NUM)
             {
                 emit->emitIns_S_R(simdMov, EA_ATTR(regSize), srcXmmReg, dstLclNum, dstOffset);
@@ -3527,8 +3524,7 @@ void CodeGen::genCodeForCpBlkUnroll(GenTreeBlk* node)
 
         instruction simdMov = simdUnalignedMovIns();
 
-        auto emitSimdMovs = [&]()
-        {
+        auto emitSimdMovs = [&]() {
             if (srcLclNum != BAD_VAR_NUM)
             {
                 emit->emitIns_R_S(simdMov, EA_ATTR(regSize), tempReg, srcLclNum, srcOffset);
@@ -5586,18 +5582,18 @@ void CodeGen::genCodeForStoreInd(GenTreeStoreInd* tree)
                         case NI_SSE2_X64_ConvertToUInt64:
                         case NI_AVX2_ConvertToInt32:
                         case NI_AVX2_ConvertToUInt32:
-                        {
-                            // These intrinsics are "ins reg/mem, xmm"
-                            ins  = HWIntrinsicInfo::lookupIns(intrinsicId, baseType);
-                            attr = emitActualTypeSize(baseType);
-                            break;
-                        }
+                            {
+                                // These intrinsics are "ins reg/mem, xmm"
+                                ins  = HWIntrinsicInfo::lookupIns(intrinsicId, baseType);
+                                attr = emitActualTypeSize(baseType);
+                                break;
+                            }
 
                         case NI_Vector128_GetElement:
-                        {
-                            assert(baseType == TYP_FLOAT);
-                            FALLTHROUGH;
-                        }
+                            {
+                                assert(baseType == TYP_FLOAT);
+                                FALLTHROUGH;
+                            }
 
                         case NI_SSE2_Extract:
                         case NI_SSE41_Extract:
@@ -5608,38 +5604,38 @@ void CodeGen::genCodeForStoreInd(GenTreeStoreInd* tree)
                         case NI_AVX512F_ExtractVector256:
                         case NI_AVX512DQ_ExtractVector128:
                         case NI_AVX512DQ_ExtractVector256:
-                        {
-                            // These intrinsics are "ins reg/mem, xmm, imm8"
-                            ins  = HWIntrinsicInfo::lookupIns(intrinsicId, baseType);
-                            attr = emitActualTypeSize(Compiler::getSIMDTypeForSize(hwintrinsic->GetSimdSize()));
-
-                            if (intrinsicId == NI_SSE2_Extract)
                             {
-                                // The encoding that supports containment is SSE4.1 only
-                                ins = INS_pextrw_sse41;
+                                // These intrinsics are "ins reg/mem, xmm, imm8"
+                                ins  = HWIntrinsicInfo::lookupIns(intrinsicId, baseType);
+                                attr = emitActualTypeSize(Compiler::getSIMDTypeForSize(hwintrinsic->GetSimdSize()));
+
+                                if (intrinsicId == NI_SSE2_Extract)
+                                {
+                                    // The encoding that supports containment is SSE4.1 only
+                                    ins = INS_pextrw_sse41;
+                                }
+
+                                // The hardware intrinsics take unsigned bytes between [0, 255].
+                                // However, the emitter expects "fits in byte" to always be signed
+                                // and therefore we need [128, 255] to be sign extended up to fill
+                                // the entire constant value.
+
+                                GenTreeIntCon* op2  = hwintrinsic->Op(2)->AsIntCon();
+                                ssize_t        ival = op2->IconValue();
+
+                                assert((ival >= 0) && (ival <= 255));
+                                op2->gtIconVal = static_cast<int8_t>(ival);
+                                break;
                             }
-
-                            // The hardware intrinsics take unsigned bytes between [0, 255].
-                            // However, the emitter expects "fits in byte" to always be signed
-                            // and therefore we need [128, 255] to be sign extended up to fill
-                            // the entire constant value.
-
-                            GenTreeIntCon* op2  = hwintrinsic->Op(2)->AsIntCon();
-                            ssize_t        ival = op2->IconValue();
-
-                            assert((ival >= 0) && (ival <= 255));
-                            op2->gtIconVal = static_cast<int8_t>(ival);
-                            break;
-                        }
 
                         case NI_AVX512F_ConvertToVector256Int32:
                         case NI_AVX512F_ConvertToVector256UInt32:
                         case NI_AVX512F_VL_ConvertToVector128UInt32:
                         case NI_AVX512F_VL_ConvertToVector128UInt32WithSaturation:
-                        {
-                            assert(!varTypeIsFloating(baseType));
-                            FALLTHROUGH;
-                        }
+                            {
+                                assert(!varTypeIsFloating(baseType));
+                                FALLTHROUGH;
+                            }
 
                         case NI_AVX512F_ConvertToVector128Byte:
                         case NI_AVX512F_ConvertToVector128ByteWithSaturation:
@@ -5673,17 +5669,17 @@ void CodeGen::genCodeForStoreInd(GenTreeStoreInd* tree)
                         case NI_AVX512BW_VL_ConvertToVector128ByteWithSaturation:
                         case NI_AVX512BW_VL_ConvertToVector128SByte:
                         case NI_AVX512BW_VL_ConvertToVector128SByteWithSaturation:
-                        {
-                            // These intrinsics are "ins reg/mem, xmm"
-                            ins  = HWIntrinsicInfo::lookupIns(intrinsicId, baseType);
-                            attr = emitActualTypeSize(Compiler::getSIMDTypeForSize(hwintrinsic->GetSimdSize()));
-                            break;
-                        }
+                            {
+                                // These intrinsics are "ins reg/mem, xmm"
+                                ins  = HWIntrinsicInfo::lookupIns(intrinsicId, baseType);
+                                attr = emitActualTypeSize(Compiler::getSIMDTypeForSize(hwintrinsic->GetSimdSize()));
+                                break;
+                            }
 
                         default:
-                        {
-                            unreached();
-                        }
+                            {
+                                unreached();
+                            }
                     }
                 }
 #endif // FEATURE_HW_INTRINSICS
@@ -7224,17 +7220,17 @@ void CodeGen::genIntCastOverflowCheck(GenTreeCast* cast, const GenIntCastDesc& d
 
 #ifdef TARGET_64BIT
         case GenIntCastDesc::CHECK_UINT_RANGE:
-        {
-            // We need to check if the value is not greater than 0xFFFFFFFF but this value
-            // cannot be encoded in an immediate operand. Use a right shift to test if the
-            // upper 32 bits are zero. This requires a temporary register.
-            const regNumber tempReg = cast->GetSingleTempReg();
-            assert(tempReg != reg);
-            GetEmitter()->emitIns_Mov(INS_mov, EA_8BYTE, tempReg, reg, /* canSkip */ false);
-            GetEmitter()->emitIns_R_I(INS_shr_N, EA_8BYTE, tempReg, 32);
-            genJumpToThrowHlpBlk(EJ_jne, SCK_OVERFLOW);
-        }
-        break;
+            {
+                // We need to check if the value is not greater than 0xFFFFFFFF but this value
+                // cannot be encoded in an immediate operand. Use a right shift to test if the
+                // upper 32 bits are zero. This requires a temporary register.
+                const regNumber tempReg = cast->GetSingleTempReg();
+                assert(tempReg != reg);
+                GetEmitter()->emitIns_Mov(INS_mov, EA_8BYTE, tempReg, reg, /* canSkip */ false);
+                GetEmitter()->emitIns_R_I(INS_shr_N, EA_8BYTE, tempReg, 32);
+                genJumpToThrowHlpBlk(EJ_jne, SCK_OVERFLOW);
+            }
+            break;
 
         case GenIntCastDesc::CHECK_POSITIVE_INT_RANGE:
             GetEmitter()->emitIns_R_I(INS_cmp, EA_8BYTE, reg, INT32_MAX);
@@ -7242,32 +7238,32 @@ void CodeGen::genIntCastOverflowCheck(GenTreeCast* cast, const GenIntCastDesc& d
             break;
 
         case GenIntCastDesc::CHECK_INT_RANGE:
-        {
-            // Emit "if ((long)(int)x != x) goto OVERFLOW"
-            const regNumber regTmp = cast->GetSingleTempReg();
-            GetEmitter()->emitIns_Mov(INS_movsxd, EA_8BYTE, regTmp, reg, true);
-            GetEmitter()->emitIns_R_R(INS_cmp, EA_8BYTE, reg, regTmp);
-            genJumpToThrowHlpBlk(EJ_jne, SCK_OVERFLOW);
-        }
-        break;
+            {
+                // Emit "if ((long)(int)x != x) goto OVERFLOW"
+                const regNumber regTmp = cast->GetSingleTempReg();
+                GetEmitter()->emitIns_Mov(INS_movsxd, EA_8BYTE, regTmp, reg, true);
+                GetEmitter()->emitIns_R_R(INS_cmp, EA_8BYTE, reg, regTmp);
+                genJumpToThrowHlpBlk(EJ_jne, SCK_OVERFLOW);
+            }
+            break;
 #endif
 
         default:
-        {
-            assert(desc.CheckKind() == GenIntCastDesc::CHECK_SMALL_INT_RANGE);
-            const int castMaxValue = desc.CheckSmallIntMax();
-            const int castMinValue = desc.CheckSmallIntMin();
-
-            GetEmitter()->emitIns_R_I(INS_cmp, EA_SIZE(desc.CheckSrcSize()), reg, castMaxValue);
-            genJumpToThrowHlpBlk((castMinValue == 0) ? EJ_ja : EJ_jg, SCK_OVERFLOW);
-
-            if (castMinValue != 0)
             {
-                GetEmitter()->emitIns_R_I(INS_cmp, EA_SIZE(desc.CheckSrcSize()), reg, castMinValue);
-                genJumpToThrowHlpBlk(EJ_jl, SCK_OVERFLOW);
+                assert(desc.CheckKind() == GenIntCastDesc::CHECK_SMALL_INT_RANGE);
+                const int castMaxValue = desc.CheckSmallIntMax();
+                const int castMinValue = desc.CheckSmallIntMin();
+
+                GetEmitter()->emitIns_R_I(INS_cmp, EA_SIZE(desc.CheckSrcSize()), reg, castMaxValue);
+                genJumpToThrowHlpBlk((castMinValue == 0) ? EJ_ja : EJ_jg, SCK_OVERFLOW);
+
+                if (castMinValue != 0)
+                {
+                    GetEmitter()->emitIns_R_I(INS_cmp, EA_SIZE(desc.CheckSrcSize()), reg, castMinValue);
+                    genJumpToThrowHlpBlk(EJ_jl, SCK_OVERFLOW);
+                }
             }
-        }
-        break;
+            break;
     }
 }
 
@@ -7680,7 +7676,7 @@ void CodeGen::genCkfinite(GenTree* treeNode)
     // if it is a finite value copy it to targetReg
     inst_Mov(targetType, targetReg, op1->GetRegNum(), /* canSkip */ true);
 
-#else // !TARGET_64BIT
+#else  // !TARGET_64BIT
 
     // If the target type is TYP_DOUBLE, we want to extract the high 32 bits into the register.
     // There is no easy way to do this. To not require an extra register, we'll use shuffles
@@ -7766,7 +7762,7 @@ int CodeGenInterface::genSPtoFPdelta() const
     // If Unix ever supports EnC, the RSP == RBP assumption will have to be reevaluated.
     delta = genTotalFrameSize();
 
-#else // !UNIX_AMD64_ABI
+#else  // !UNIX_AMD64_ABI
 
     // As per Amd64 ABI, RBP offset from initial RSP can be between 0 and 240 if
     // RBP needs to be reported in unwind codes.  This case would arise for methods
@@ -8026,38 +8022,38 @@ void CodeGen::genIntrinsic(GenTreeIntrinsic* treeNode)
             break;
 
         case NI_System_Math_Sqrt:
-        {
-            // Both operand and its result must be of the same floating point type.
-            GenTree* srcNode = treeNode->gtGetOp1();
-            assert(varTypeIsFloating(srcNode));
-            assert(srcNode->TypeGet() == treeNode->TypeGet());
+            {
+                // Both operand and its result must be of the same floating point type.
+                GenTree* srcNode = treeNode->gtGetOp1();
+                assert(varTypeIsFloating(srcNode));
+                assert(srcNode->TypeGet() == treeNode->TypeGet());
 
-            genConsumeOperands(treeNode->AsOp());
+                genConsumeOperands(treeNode->AsOp());
 
-            const instruction ins = (treeNode->TypeGet() == TYP_FLOAT) ? INS_sqrtss : INS_sqrtsd;
+                const instruction ins = (treeNode->TypeGet() == TYP_FLOAT) ? INS_sqrtss : INS_sqrtsd;
 
-            regNumber targetReg = treeNode->GetRegNum();
-            bool      isRMW     = !compiler->canUseVexEncoding();
+                regNumber targetReg = treeNode->GetRegNum();
+                bool      isRMW     = !compiler->canUseVexEncoding();
 
-            inst_RV_RV_TT(ins, emitTypeSize(treeNode), targetReg, targetReg, srcNode, isRMW, INS_OPTS_NONE);
-            break;
-        }
+                inst_RV_RV_TT(ins, emitTypeSize(treeNode), targetReg, targetReg, srcNode, isRMW, INS_OPTS_NONE);
+                break;
+            }
 
 #if defined(FEATURE_SIMD)
             // The handling is a bit more complex so genSimdUpperSave/Restore
             // handles genConsumeOperands and genProduceReg
 
         case NI_SIMD_UpperRestore:
-        {
-            genSimdUpperRestore(treeNode);
-            return;
-        }
+            {
+                genSimdUpperRestore(treeNode);
+                return;
+            }
 
         case NI_SIMD_UpperSave:
-        {
-            genSimdUpperSave(treeNode);
-            return;
-        }
+            {
+                genSimdUpperSave(treeNode);
+                return;
+            }
 #endif // FEATURE_SIMD
 
         default:
@@ -9504,7 +9500,7 @@ void CodeGen::genProfilingEnterCallback(regNumber initReg, bool* pInitRegZeroed)
         *pInitRegZeroed = false;
     }
 
-#else // !defined(UNIX_AMD64_ABI)
+#else  // !defined(UNIX_AMD64_ABI)
 
     // Emit profiler EnterCallback(ProfilerMethHnd, caller's SP)
     // R14 = ProfilerMethHnd
@@ -9628,7 +9624,7 @@ void CodeGen::genProfilingLeaveCallback(unsigned helper)
     // "mov r8, helper addr; call r8"
     genEmitHelperCall(helper, 0, EA_UNKNOWN, REG_ARG_2);
 
-#else // !defined(UNIX_AMD64_ABI)
+#else  // !defined(UNIX_AMD64_ABI)
 
     // RDI = ProfilerMethHnd
     if (compiler->compProfilerMethHndIndirected)
@@ -10701,7 +10697,7 @@ void CodeGen::genCaptureFuncletPrologEpilogInfo()
                compiler->lvaGetInitialSPRelativeOffset(compiler->lvaPSPSym)); // same offset used in main function and
                                                                               // funclet!
     }
-#endif // DEBUG
+#endif                                                                        // DEBUG
 }
 
 #elif defined(TARGET_X86)
@@ -10815,7 +10811,7 @@ void CodeGen::genSetPSPSym(regNumber initReg, bool* pInitRegZeroed)
 
     GetEmitter()->emitIns_S_R(ins_Store(TYP_I_IMPL), EA_PTRSIZE, REG_SPBASE, compiler->lvaPSPSym, 0);
 
-#else // TARGET*
+#else  // TARGET*
 
     NYI("Set function PSP sym");
 

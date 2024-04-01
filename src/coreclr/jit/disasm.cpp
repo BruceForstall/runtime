@@ -29,7 +29,7 @@ FILE* g_disAsmFileCorDisTools;
 #define DISASM_DUMP(...)                                                                                               \
     if (VERBOSE)                                                                                                       \
     printf(__VA_ARGS__)
-#else // !DEBUG
+#else  // !DEBUG
 #define DISASM_DUMP(...) printf(__VA_ARGS__)
 #endif // !DEBUG
 #else  // !DISASM_DEBUG
@@ -94,13 +94,13 @@ FILE* g_disAsmFileCorDisTools;
 
 typedef struct codeFix
 {
-    codeFix* cfNext;
-    unsigned cfFixup;
+        codeFix* cfNext;
+        unsigned cfFixup;
 }* codeFixPtr;
 
 typedef struct codeBlk
 {
-    codeFix* cbFixupLst;
+        codeFix* cbFixupLst;
 }* codeBlkPtr;
 
 #ifdef USE_MSVCDIS
@@ -325,7 +325,7 @@ size_t DisAssembler::disCchAddrMember(
             break;
     }
 
-#else // TARGET*
+#else  // TARGET*
 #error Unsupported or unset target architecture
 #endif // TARGET*
 
@@ -574,7 +574,7 @@ size_t DisAssembler::disCchFixupMember(
             break;
     }
 
-#else // TARGET*
+#else  // TARGET*
 #error Unsupported or unset target architecture
 #endif // TARGET*
 
@@ -787,7 +787,7 @@ size_t DisAssembler::disCchRegRelMember(
             break;
     }
 
-#else // TARGET*
+#else  // TARGET*
 #error Unsupported or unset target architecture
 #endif // TARGET*
 
@@ -962,18 +962,18 @@ size_t DisAssembler::CbDisassemble(DIS*        pdis,
             case DISX86::trmtaCallNear32:
             case DISX86::trmtaCallFar:
 
-            {
-                // Don't count addresses in the relocation table
-                size_t targetAddr;
-                size_t absoluteAddr =
-                    (size_t)disGetLinearAddr((size_t)pdis->AddrAddress(1)); // Get the address in the instruction of the
-                                                                            // call target address (the address the
-                                                                            // reloc is applied to).
-                if (GetRelocationMap()->Lookup(absoluteAddr, &targetAddr))
                 {
-                    break;
+                    // Don't count addresses in the relocation table
+                    size_t targetAddr;
+                    size_t absoluteAddr =
+                        (size_t)disGetLinearAddr((size_t)pdis->AddrAddress(1)); // Get the address in the instruction of
+                                                                                // the call target address (the address
+                                                                                // the reloc is applied to).
+                    if (GetRelocationMap()->Lookup(absoluteAddr, &targetAddr))
+                    {
+                        break;
+                    }
                 }
-            }
 
                 FALLTHROUGH;
 
@@ -1020,18 +1020,18 @@ size_t DisAssembler::CbDisassemble(DIS*        pdis,
             case DISARM64::TRMTA::trmtaCall:
             case DISARM64::TRMTA::trmtaCallCc:
 
-            {
-                // Don't count addresses in the relocation table
-                size_t targetAddr;
-                size_t absoluteAddr =
-                    (size_t)disGetLinearAddr((size_t)pdis->AddrAddress(1)); // Get the address in the instruction of the
-                                                                            // call target address (the address the
-                                                                            // reloc is applied to).
-                if (GetRelocationMap()->Lookup(absoluteAddr, &targetAddr))
                 {
-                    break;
+                    // Don't count addresses in the relocation table
+                    size_t targetAddr;
+                    size_t absoluteAddr =
+                        (size_t)disGetLinearAddr((size_t)pdis->AddrAddress(1)); // Get the address in the instruction of
+                                                                                // the call target address (the address
+                                                                                // the reloc is applied to).
+                    if (GetRelocationMap()->Lookup(absoluteAddr, &targetAddr))
+                    {
+                        break;
+                    }
                 }
-            }
 
                 FALLTHROUGH;
 
@@ -1057,35 +1057,35 @@ size_t DisAssembler::CbDisassemble(DIS*        pdis,
                 break;
 
             case DISARM64::TRMTA::trmtaFallThrough:
-            {
-                DIS::INSTRUCTION instr;
-                DIS::OPERAND     ops[DISARM64::coperandMax];
-                bool             ok = pdis->FDecode(&instr, ops, ArrLen(ops));
-                if (ok)
                 {
-                    switch ((DISARM64::OPA)instr.opa)
+                    DIS::INSTRUCTION instr;
+                    DIS::OPERAND     ops[DISARM64::coperandMax];
+                    bool             ok = pdis->FDecode(&instr, ops, ArrLen(ops));
+                    if (ok)
                     {
-                        case DISARM64::opaAdr:
-                        case DISARM64::opaAdrp:
-                            // operand 1 is an address
-                            assert(instr.coperand >= 2);
-                            assert(ops[1].opcls == DIS::opclsImmediate);
-                            assert(ops[1].imcls == DIS::imclsAddress);
-                            disTarget = ops[1].dwl;
-                            break;
-                        default:
-                            break;
-                    }
+                        switch ((DISARM64::OPA)instr.opa)
+                        {
+                            case DISARM64::opaAdr:
+                            case DISARM64::opaAdrp:
+                                // operand 1 is an address
+                                assert(instr.coperand >= 2);
+                                assert(ops[1].opcls == DIS::opclsImmediate);
+                                assert(ops[1].imcls == DIS::imclsAddress);
+                                disTarget = ops[1].dwl;
+                                break;
+                            default:
+                                break;
+                        }
 
-                    if (0 <= disTarget && disTarget < disTotalCodeSize)
-                    {
-                        /* we're OK, disTarget within block boundary */
+                        if (0 <= disTarget && disTarget < disTotalCodeSize)
+                        {
+                            /* we're OK, disTarget within block boundary */
 
-                        disLabels[disTarget] = 1;
+                            disLabels[disTarget] = 1;
+                        }
                     }
                 }
-            }
-            break;
+                break;
 
             default:
 
@@ -1093,9 +1093,9 @@ size_t DisAssembler::CbDisassemble(DIS*        pdis,
                 break;
 
         } // end switch
-#else // TARGET*
+#else     // TARGET*
 #error Unsupported or unset target architecture
-#endif // TARGET*
+#endif    // TARGET*
 
         return cb;
     } // end if
@@ -1123,7 +1123,7 @@ size_t DisAssembler::CbDisassemble(DIS*        pdis,
         }
 
 #ifdef TARGET_ARM64
-#define CCH_INDENT 8 // fixed sized instructions, always 8 characters
+#define CCH_INDENT 8  // fixed sized instructions, always 8 characters
 #elif defined(TARGET_AMD64)
 #define CCH_INDENT 30 // large constants sometimes
 #else
@@ -1332,11 +1332,11 @@ void DisAssembler::DisasmBuffer(FILE* pfile, bool printit)
         size_t cb;
 
         cb = CbDisassemble(pdis, ibCur, addr + ibCur, disGetLinearAddr(ibCur), disGetBufferSize(ibCur), pfile,
-                           false, // find labels
+                           false,        // find labels
                            printit,
                            !disDiffable, // display relative offset
 #ifdef DEBUG
-                           !disDiffable // Display code bytes?
+                           !disDiffable  // Display code bytes?
 #else
                            false // Display code bytes?
 #endif
@@ -1737,8 +1737,7 @@ void DisAssembler::DisasmBuffer(FILE* pfile, bool printit)
     unsigned              errorCount    = 0;
     static const unsigned maxErrorCount = 50;
 
-    auto disasmRegion = [&](size_t executionAddress, size_t blockAddress, size_t blockSize)
-    {
+    auto disasmRegion = [&](size_t executionAddress, size_t blockAddress, size_t blockSize) {
         uint8_t* address       = (uint8_t*)executionAddress;
         uint8_t* codeBytes     = (uint8_t*)blockAddress;
         size_t   codeSizeBytes = blockSize;

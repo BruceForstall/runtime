@@ -15,16 +15,15 @@ typedef unsigned int code_t;
 
 struct CnsVal
 {
-    ssize_t cnsVal;
-    bool    cnsReloc;
+        ssize_t cnsVal;
+        bool    cnsReloc;
 };
 
 #ifdef DEBUG
 /************************************************************************/
 /*             Debug-only routines to display instructions              */
 /************************************************************************/
-enum insDisasmFmt
-{
+enum insDisasmFmt {
     DF_G_INVALID = 0,
     DF_G_ALIAS   = 1, // alias instructions.
     DF_G_B2,
@@ -321,8 +320,7 @@ void emitIns_R_AI(instruction  ins,
                   regNumber    reg,
                   ssize_t disp DEBUGARG(size_t targetHandle = 0) DEBUGARG(GenTreeFlags gtFlags = GTF_EMPTY));
 
-enum EmitCallType
-{
+enum EmitCallType {
 
     // I have included here, but commented out, all the values used by the x86 emitter.
     // However, LOONGARCH has a much reduced instruction set, and so the LOONGARCH emitter only
@@ -335,7 +333,7 @@ enum EmitCallType
                    //  EC_FUNC_TOKEN_INDIR,    // Indirect call to a helper/static/nonvirtual/global method
                    // EC_FUNC_ADDR,  // Direct call to an absolute address
 
-    EC_INDIR_R, // Indirect call via register
+    EC_INDIR_R,    // Indirect call via register
 
     EC_COUNT
 };
@@ -360,4 +358,4 @@ unsigned emitOutputCall(insGroup* ig, BYTE* dst, instrDesc* id, code_t code);
 
 unsigned get_curTotalCodeSize(); // bytes of code
 
-#endif // TARGET_LOONGARCH64
+#endif                           // TARGET_LOONGARCH64

@@ -340,69 +340,69 @@ void DefaultPolicy::NoteBool(InlineObservation obs, bool value)
                 break;
 
             case InlineObservation::CALLEE_BEGIN_OPCODE_SCAN:
-            {
-                // Set up the state machine, if this inline is
-                // discretionary and is still a candidate.
-                if (InlDecisionIsCandidate(m_Decision) &&
-                    (m_Observation == InlineObservation::CALLEE_IS_DISCRETIONARY_INLINE))
                 {
-                    // Better not have a state machine already.
-                    assert(m_StateMachine == nullptr);
-                    m_StateMachine = new (m_RootCompiler, CMK_Inlining) CodeSeqSM;
-                    m_StateMachine->Start(m_RootCompiler);
+                    // Set up the state machine, if this inline is
+                    // discretionary and is still a candidate.
+                    if (InlDecisionIsCandidate(m_Decision) &&
+                        (m_Observation == InlineObservation::CALLEE_IS_DISCRETIONARY_INLINE))
+                    {
+                        // Better not have a state machine already.
+                        assert(m_StateMachine == nullptr);
+                        m_StateMachine = new (m_RootCompiler, CMK_Inlining) CodeSeqSM;
+                        m_StateMachine->Start(m_RootCompiler);
+                    }
+                    break;
                 }
-                break;
-            }
 
             case InlineObservation::CALLEE_END_OPCODE_SCAN:
-            {
-                if (m_StateMachine != nullptr)
                 {
-                    m_StateMachine->End();
-                }
+                    if (m_StateMachine != nullptr)
+                    {
+                        m_StateMachine->End();
+                    }
 
-                // If this function is mostly loads and stores, we
-                // should try harder to inline it.  You can't just use
-                // the percentage test because if the method has 8
-                // instructions and 6 are loads, it's only 75% loads.
-                // This allows for CALL, RET, and one more non-ld/st
-                // instruction.
-                if (((m_InstructionCount - m_LoadStoreCount) < 4) ||
-                    (((double)m_LoadStoreCount / (double)m_InstructionCount) > .90))
-                {
-                    m_MethodIsMostlyLoadStore = true;
-                }
+                    // If this function is mostly loads and stores, we
+                    // should try harder to inline it.  You can't just use
+                    // the percentage test because if the method has 8
+                    // instructions and 6 are loads, it's only 75% loads.
+                    // This allows for CALL, RET, and one more non-ld/st
+                    // instruction.
+                    if (((m_InstructionCount - m_LoadStoreCount) < 4) ||
+                        (((double)m_LoadStoreCount / (double)m_InstructionCount) > .90))
+                    {
+                        m_MethodIsMostlyLoadStore = true;
+                    }
 
-                // Budget check.
-                //
-                // Conceptually this should happen when we
-                // observe the candidate's IL size.
-                //
-                // However, we do this here to avoid potential
-                // inconsistency between the state of the budget
-                // during candidate scan and the state when the IL is
-                // being scanned.
-                //
-                // Consider the case where we're just below the budget
-                // during candidate scan, and we have three possible
-                // inlines, any two of which put us over budget. We
-                // allow them all to become candidates. We then move
-                // on to inlining and the first two get inlined and
-                // put us over budget. Now the third can't be inlined
-                // anymore, but we have a policy that when we replay
-                // the candidate IL size during the inlining pass it
-                // "reestablishes" candidacy rather than alters
-                // candidacy ... so instead we bail out here.
-                //
-                bool overBudget = this->BudgetCheck();
+                    // Budget check.
+                    //
+                    // Conceptually this should happen when we
+                    // observe the candidate's IL size.
+                    //
+                    // However, we do this here to avoid potential
+                    // inconsistency between the state of the budget
+                    // during candidate scan and the state when the IL is
+                    // being scanned.
+                    //
+                    // Consider the case where we're just below the budget
+                    // during candidate scan, and we have three possible
+                    // inlines, any two of which put us over budget. We
+                    // allow them all to become candidates. We then move
+                    // on to inlining and the first two get inlined and
+                    // put us over budget. Now the third can't be inlined
+                    // anymore, but we have a policy that when we replay
+                    // the candidate IL size during the inlining pass it
+                    // "reestablishes" candidacy rather than alters
+                    // candidacy ... so instead we bail out here.
+                    //
+                    bool overBudget = this->BudgetCheck();
 
-                if (overBudget)
-                {
-                    SetFailure(InlineObservation::CALLSITE_OVER_BUDGET);
-                    return;
+                    if (overBudget)
+                    {
+                        SetFailure(InlineObservation::CALLSITE_OVER_BUDGET);
+                        return;
+                    }
+                    break;
                 }
-                break;
-            }
 
             case InlineObservation::CALLSITE_IN_LOOP:
                 m_CallsiteIsInLoop = true;
@@ -538,139 +538,140 @@ void DefaultPolicy::NoteInt(InlineObservation obs, int value)
     switch (obs)
     {
         case InlineObservation::CALLEE_MAXSTACK:
-        {
-            assert(m_IsForceInlineKnown);
-
-            unsigned calleeMaxStack = static_cast<unsigned>(value);
-
-            if (!m_IsForceInline && (calleeMaxStack > SMALL_STACK_SIZE))
             {
-                SetNever(InlineObservation::CALLEE_MAXSTACK_TOO_BIG);
-            }
+                assert(m_IsForceInlineKnown);
 
-            break;
-        }
+                unsigned calleeMaxStack = static_cast<unsigned>(value);
+
+                if (!m_IsForceInline && (calleeMaxStack > SMALL_STACK_SIZE))
+                {
+                    SetNever(InlineObservation::CALLEE_MAXSTACK_TOO_BIG);
+                }
+
+                break;
+            }
 
         case InlineObservation::CALLEE_NUMBER_OF_BASIC_BLOCKS:
-        {
-            assert(m_IsForceInlineKnown);
-            assert(value != 0);
-            assert(m_IsNoReturnKnown);
-
-            //
-            // Let's be conservative for now and reject inlining of "no return" methods only
-            // if the callee contains a single basic block. This covers most of the use cases
-            // (typical throw helpers simply do "throw new X();" and so they have a single block)
-            // without affecting more exotic cases (loops that do actual work for example) where
-            // failure to inline could negatively impact code quality.
-            //
-
-            unsigned basicBlockCount = static_cast<unsigned>(value);
-
-            // CALLEE_IS_FORCE_INLINE overrides CALLEE_DOES_NOT_RETURN
-            if (!m_IsForceInline && m_IsNoReturn && (basicBlockCount == 1))
             {
-                SetNever(InlineObservation::CALLEE_DOES_NOT_RETURN);
-            }
-            else if (!m_IsForceInline && (basicBlockCount > MAX_BASIC_BLOCKS))
-            {
-                SetNever(InlineObservation::CALLEE_TOO_MANY_BASIC_BLOCKS);
-            }
+                assert(m_IsForceInlineKnown);
+                assert(value != 0);
+                assert(m_IsNoReturnKnown);
 
-            break;
-        }
+                //
+                // Let's be conservative for now and reject inlining of "no return" methods only
+                // if the callee contains a single basic block. This covers most of the use cases
+                // (typical throw helpers simply do "throw new X();" and so they have a single block)
+                // without affecting more exotic cases (loops that do actual work for example) where
+                // failure to inline could negatively impact code quality.
+                //
+
+                unsigned basicBlockCount = static_cast<unsigned>(value);
+
+                // CALLEE_IS_FORCE_INLINE overrides CALLEE_DOES_NOT_RETURN
+                if (!m_IsForceInline && m_IsNoReturn && (basicBlockCount == 1))
+                {
+                    SetNever(InlineObservation::CALLEE_DOES_NOT_RETURN);
+                }
+                else if (!m_IsForceInline && (basicBlockCount > MAX_BASIC_BLOCKS))
+                {
+                    SetNever(InlineObservation::CALLEE_TOO_MANY_BASIC_BLOCKS);
+                }
+
+                break;
+            }
 
         case InlineObservation::CALLEE_IL_CODE_SIZE:
-        {
-            assert(m_IsForceInlineKnown);
-            assert(value != 0);
-            m_CodeSize = static_cast<unsigned>(value);
+            {
+                assert(m_IsForceInlineKnown);
+                assert(value != 0);
+                m_CodeSize = static_cast<unsigned>(value);
 
-            unsigned alwaysInlineSize = InlineStrategy::ALWAYS_INLINE_SIZE;
-            unsigned maxCodeSize      = m_RootCompiler->m_inlineStrategy->GetMaxInlineILSize();
-            if (m_InsideThrowBlock)
-            {
-                // Inline only small code in BBJ_THROW blocks, e.g. <= 8 bytes of IL
-                alwaysInlineSize /= 2;
-                maxCodeSize = min(alwaysInlineSize + 1, maxCodeSize);
-            }
+                unsigned alwaysInlineSize = InlineStrategy::ALWAYS_INLINE_SIZE;
+                unsigned maxCodeSize      = m_RootCompiler->m_inlineStrategy->GetMaxInlineILSize();
+                if (m_InsideThrowBlock)
+                {
+                    // Inline only small code in BBJ_THROW blocks, e.g. <= 8 bytes of IL
+                    alwaysInlineSize /= 2;
+                    maxCodeSize = min(alwaysInlineSize + 1, maxCodeSize);
+                }
 
-            // Now that we know size and forceinline state,
-            // update candidacy.
-            if (m_IsForceInline)
-            {
-                // Candidate based on force inline
-                SetCandidate(InlineObservation::CALLEE_IS_FORCE_INLINE);
-            }
-            else if (m_CodeSize <= alwaysInlineSize)
-            {
-                // Candidate based on small size
-                SetCandidate(InlineObservation::CALLEE_BELOW_ALWAYS_INLINE_SIZE);
-            }
-            else if (m_CodeSize <= maxCodeSize)
-            {
-                // Candidate, pending profitability evaluation
-                SetCandidate(InlineObservation::CALLEE_IS_DISCRETIONARY_INLINE);
-            }
-            else
-            {
-                // Callee too big, not a candidate
-                SetNever(InlineObservation::CALLEE_TOO_MUCH_IL);
-            }
+                // Now that we know size and forceinline state,
+                // update candidacy.
+                if (m_IsForceInline)
+                {
+                    // Candidate based on force inline
+                    SetCandidate(InlineObservation::CALLEE_IS_FORCE_INLINE);
+                }
+                else if (m_CodeSize <= alwaysInlineSize)
+                {
+                    // Candidate based on small size
+                    SetCandidate(InlineObservation::CALLEE_BELOW_ALWAYS_INLINE_SIZE);
+                }
+                else if (m_CodeSize <= maxCodeSize)
+                {
+                    // Candidate, pending profitability evaluation
+                    SetCandidate(InlineObservation::CALLEE_IS_DISCRETIONARY_INLINE);
+                }
+                else
+                {
+                    // Callee too big, not a candidate
+                    SetNever(InlineObservation::CALLEE_TOO_MUCH_IL);
+                }
 
-            break;
-        }
+                break;
+            }
 
         case InlineObservation::CALLSITE_DEPTH:
-        {
-            m_CallsiteDepth = static_cast<unsigned>(value);
-
-            if (m_CallsiteDepth > m_RootCompiler->m_inlineStrategy->GetMaxInlineDepth())
             {
-                SetFailure(InlineObservation::CALLSITE_IS_TOO_DEEP);
-            }
+                m_CallsiteDepth = static_cast<unsigned>(value);
 
-            break;
-        }
+                if (m_CallsiteDepth > m_RootCompiler->m_inlineStrategy->GetMaxInlineDepth())
+                {
+                    SetFailure(InlineObservation::CALLSITE_IS_TOO_DEEP);
+                }
+
+                break;
+            }
 
         case InlineObservation::CALLEE_OPCODE_NORMED:
         case InlineObservation::CALLEE_OPCODE:
-        {
-            m_InstructionCount++;
-            OPCODE opcode = static_cast<OPCODE>(value);
-
-            if (m_StateMachine != nullptr)
             {
-                SM_OPCODE smOpcode = CodeSeqSM::MapToSMOpcode(opcode);
-                noway_assert(smOpcode < SM_COUNT);
-                noway_assert(smOpcode != SM_PREFIX_N);
-                if (obs == InlineObservation::CALLEE_OPCODE_NORMED)
+                m_InstructionCount++;
+                OPCODE opcode = static_cast<OPCODE>(value);
+
+                if (m_StateMachine != nullptr)
                 {
-                    if (smOpcode == SM_LDARGA_S)
+                    SM_OPCODE smOpcode = CodeSeqSM::MapToSMOpcode(opcode);
+                    noway_assert(smOpcode < SM_COUNT);
+                    noway_assert(smOpcode != SM_PREFIX_N);
+                    if (obs == InlineObservation::CALLEE_OPCODE_NORMED)
                     {
-                        smOpcode = SM_LDARGA_S_NORMED;
+                        if (smOpcode == SM_LDARGA_S)
+                        {
+                            smOpcode = SM_LDARGA_S_NORMED;
+                        }
+                        else if (smOpcode == SM_LDLOCA_S)
+                        {
+                            smOpcode = SM_LDLOCA_S_NORMED;
+                        }
                     }
-                    else if (smOpcode == SM_LDLOCA_S)
-                    {
-                        smOpcode = SM_LDLOCA_S_NORMED;
-                    }
+
+                    m_StateMachine->Run(smOpcode DEBUGARG(0));
                 }
 
-                m_StateMachine->Run(smOpcode DEBUGARG(0));
-            }
+                // Look for opcodes that imply loads and stores.
+                // Logic here is as it is to match legacy behavior.
+                if ((opcode >= CEE_LDARG_0 && opcode <= CEE_STLOC_S) || (opcode >= CEE_LDARG && opcode <= CEE_STLOC) ||
+                    (opcode >= CEE_LDNULL && opcode <= CEE_LDC_R8) ||
+                    (opcode >= CEE_LDIND_I1 && opcode <= CEE_STIND_R8) ||
+                    (opcode >= CEE_LDFLD && opcode <= CEE_STOBJ) || (opcode >= CEE_LDELEMA && opcode <= CEE_STELEM) ||
+                    (opcode == CEE_POP))
+                {
+                    m_LoadStoreCount++;
+                }
 
-            // Look for opcodes that imply loads and stores.
-            // Logic here is as it is to match legacy behavior.
-            if ((opcode >= CEE_LDARG_0 && opcode <= CEE_STLOC_S) || (opcode >= CEE_LDARG && opcode <= CEE_STLOC) ||
-                (opcode >= CEE_LDNULL && opcode <= CEE_LDC_R8) || (opcode >= CEE_LDIND_I1 && opcode <= CEE_STIND_R8) ||
-                (opcode >= CEE_LDFLD && opcode <= CEE_STOBJ) || (opcode >= CEE_LDELEMA && opcode <= CEE_STELEM) ||
-                (opcode == CEE_POP))
-            {
-                m_LoadStoreCount++;
+                break;
             }
-
-            break;
-        }
 
         case InlineObservation::CALLSITE_FREQUENCY:
             assert(m_CallsiteFrequency == InlineCallsiteFrequency::UNUSED);
@@ -1074,7 +1075,8 @@ bool DefaultPolicy::PropagateNeverToRuntime() const
 //    compiler -- compiler instance doing the inlining (root compiler)
 //    isPrejitRoot -- true if this compiler is prejitting the root method
 
-RandomPolicy::RandomPolicy(Compiler* compiler, bool isPrejitRoot) : DiscretionaryPolicy(compiler, isPrejitRoot)
+RandomPolicy::RandomPolicy(Compiler* compiler, bool isPrejitRoot)
+    : DiscretionaryPolicy(compiler, isPrejitRoot)
 {
     m_Random = compiler->m_inlineStrategy->GetRandom();
 }
@@ -1091,24 +1093,24 @@ void RandomPolicy::NoteInt(InlineObservation obs, int value)
     switch (obs)
     {
         case InlineObservation::CALLEE_IL_CODE_SIZE:
-        {
-            assert(m_IsForceInlineKnown);
-            assert(value != 0);
-            m_CodeSize = static_cast<unsigned>(value);
-
-            if (m_IsForceInline)
             {
-                // Candidate based on force inline
-                SetCandidate(InlineObservation::CALLEE_IS_FORCE_INLINE);
-            }
-            else
-            {
-                // Candidate, pending profitability evaluation
-                SetCandidate(InlineObservation::CALLEE_IS_DISCRETIONARY_INLINE);
-            }
+                assert(m_IsForceInlineKnown);
+                assert(value != 0);
+                m_CodeSize = static_cast<unsigned>(value);
 
-            break;
-        }
+                if (m_IsForceInline)
+                {
+                    // Candidate based on force inline
+                    SetCandidate(InlineObservation::CALLEE_IS_FORCE_INLINE);
+                }
+                else
+                {
+                    // Candidate, pending profitability evaluation
+                    SetCandidate(InlineObservation::CALLEE_IS_DISCRETIONARY_INLINE);
+                }
+
+                break;
+            }
 
         default:
             // Defer to superclass for all other information
@@ -1379,73 +1381,73 @@ void ExtendedDefaultPolicy::NoteInt(InlineObservation obs, int value)
     switch (obs)
     {
         case InlineObservation::CALLEE_IL_CODE_SIZE:
-        {
-            assert(m_IsForceInlineKnown);
-            assert(value != 0);
-            m_CodeSize           = static_cast<unsigned>(value);
-            unsigned maxCodeSize = static_cast<unsigned>(JitConfig.JitExtDefaultPolicyMaxIL());
+            {
+                assert(m_IsForceInlineKnown);
+                assert(value != 0);
+                m_CodeSize           = static_cast<unsigned>(value);
+                unsigned maxCodeSize = static_cast<unsigned>(JitConfig.JitExtDefaultPolicyMaxIL());
 
-            // TODO: Enable for PgoSource::Static as well if it's not the generic profile we bundle.
-            if (m_HasProfileWeights && (m_RootCompiler->fgHaveTrustedProfileWeights()))
-            {
-                maxCodeSize = static_cast<unsigned>(JitConfig.JitExtDefaultPolicyMaxILProf());
-            }
+                // TODO: Enable for PgoSource::Static as well if it's not the generic profile we bundle.
+                if (m_HasProfileWeights && (m_RootCompiler->fgHaveTrustedProfileWeights()))
+                {
+                    maxCodeSize = static_cast<unsigned>(JitConfig.JitExtDefaultPolicyMaxILProf());
+                }
 
-            unsigned alwaysInlineSize = InlineStrategy::ALWAYS_INLINE_SIZE;
-            if (m_InsideThrowBlock)
-            {
-                // Inline only small code in BBJ_THROW blocks, e.g. <= 8 bytes of IL
-                alwaysInlineSize /= 2;
-                maxCodeSize = min(alwaysInlineSize + 1, maxCodeSize);
-            }
+                unsigned alwaysInlineSize = InlineStrategy::ALWAYS_INLINE_SIZE;
+                if (m_InsideThrowBlock)
+                {
+                    // Inline only small code in BBJ_THROW blocks, e.g. <= 8 bytes of IL
+                    alwaysInlineSize /= 2;
+                    maxCodeSize = min(alwaysInlineSize + 1, maxCodeSize);
+                }
 
-            if (m_IsForceInline)
-            {
-                // Candidate based on force inline
-                SetCandidate(InlineObservation::CALLEE_IS_FORCE_INLINE);
+                if (m_IsForceInline)
+                {
+                    // Candidate based on force inline
+                    SetCandidate(InlineObservation::CALLEE_IS_FORCE_INLINE);
+                }
+                else if (m_CodeSize <= alwaysInlineSize)
+                {
+                    // Candidate based on small size
+                    SetCandidate(InlineObservation::CALLEE_BELOW_ALWAYS_INLINE_SIZE);
+                }
+                else if (m_CodeSize <= maxCodeSize)
+                {
+                    // Candidate, pending profitability evaluation
+                    SetCandidate(InlineObservation::CALLEE_IS_DISCRETIONARY_INLINE);
+                }
+                else
+                {
+                    // Callee too big, not a candidate
+                    SetNever(InlineObservation::CALLEE_TOO_MUCH_IL);
+                }
+                break;
             }
-            else if (m_CodeSize <= alwaysInlineSize)
-            {
-                // Candidate based on small size
-                SetCandidate(InlineObservation::CALLEE_BELOW_ALWAYS_INLINE_SIZE);
-            }
-            else if (m_CodeSize <= maxCodeSize)
-            {
-                // Candidate, pending profitability evaluation
-                SetCandidate(InlineObservation::CALLEE_IS_DISCRETIONARY_INLINE);
-            }
-            else
-            {
-                // Callee too big, not a candidate
-                SetNever(InlineObservation::CALLEE_TOO_MUCH_IL);
-            }
-            break;
-        }
         case InlineObservation::CALLEE_NUMBER_OF_BASIC_BLOCKS:
-        {
-            if (!m_IsForceInline && m_IsNoReturn && (value == 1))
             {
-                SetNever(InlineObservation::CALLEE_DOES_NOT_RETURN);
-            }
-            else if (!m_IsForceInline && !m_HasProfileWeights && !m_ConstArgFeedsIsKnownConst &&
-                     !m_ArgFeedsIsKnownConst)
-            {
-                unsigned bbLimit = (unsigned)JitConfig.JitExtDefaultPolicyMaxBB();
-                if (m_IsPrejitRoot)
+                if (!m_IsForceInline && m_IsNoReturn && (value == 1))
                 {
-                    // We're not able to recognize arg-specific foldable branches
-                    // in prejit-root mode.
-                    bbLimit += 5 + m_Switch * 10;
+                    SetNever(InlineObservation::CALLEE_DOES_NOT_RETURN);
                 }
-                bbLimit += m_FoldableBranch + m_FoldableSwitch * 10 + m_UnrollableMemop * 2;
+                else if (!m_IsForceInline && !m_HasProfileWeights && !m_ConstArgFeedsIsKnownConst &&
+                         !m_ArgFeedsIsKnownConst)
+                {
+                    unsigned bbLimit = (unsigned)JitConfig.JitExtDefaultPolicyMaxBB();
+                    if (m_IsPrejitRoot)
+                    {
+                        // We're not able to recognize arg-specific foldable branches
+                        // in prejit-root mode.
+                        bbLimit += 5 + m_Switch * 10;
+                    }
+                    bbLimit += m_FoldableBranch + m_FoldableSwitch * 10 + m_UnrollableMemop * 2;
 
-                if ((unsigned)value > bbLimit)
-                {
-                    SetNever(InlineObservation::CALLEE_TOO_MANY_BASIC_BLOCKS);
+                    if ((unsigned)value > bbLimit)
+                    {
+                        SetNever(InlineObservation::CALLEE_TOO_MANY_BASIC_BLOCKS);
+                    }
                 }
+                break;
             }
-            break;
-        }
         default:
             DefaultPolicy::NoteInt(obs, value);
             break;
@@ -2029,14 +2031,14 @@ void DiscretionaryPolicy::NoteInt(InlineObservation obs, int value)
             }
 
         case InlineObservation::CALLEE_OPCODE:
-        {
-            // This tries to do a rough binning of opcodes based
-            // on similarity of impact on codegen.
-            OPCODE opcode = static_cast<OPCODE>(value);
-            ComputeOpcodeBin(opcode);
-            DefaultPolicy::NoteInt(obs, value);
-            break;
-        }
+            {
+                // This tries to do a rough binning of opcodes based
+                // on similarity of impact on codegen.
+                OPCODE opcode = static_cast<OPCODE>(value);
+                ComputeOpcodeBin(opcode);
+                DefaultPolicy::NoteInt(obs, value);
+                break;
+            }
 
         case InlineObservation::CALLEE_MAXSTACK:
             m_Maxstack = value;
@@ -2770,7 +2772,8 @@ void DiscretionaryPolicy::DumpData(FILE* file) const
 //    compiler -- compiler instance doing the inlining (root compiler)
 //    isPrejitRoot -- true if this compiler is prejitting the root method
 
-ModelPolicy::ModelPolicy(Compiler* compiler, bool isPrejitRoot) : DiscretionaryPolicy(compiler, isPrejitRoot)
+ModelPolicy::ModelPolicy(Compiler* compiler, bool isPrejitRoot)
+    : DiscretionaryPolicy(compiler, isPrejitRoot)
 {
     // Empty
 }
@@ -2971,7 +2974,8 @@ void ModelPolicy::DetermineProfitability(CORINFO_METHOD_INFO* methodInfo)
 //    compiler -- compiler instance doing the inlining (root compiler)
 //    isPrejitRoot -- true if this compiler is prejitting the root method
 
-ProfilePolicy::ProfilePolicy(Compiler* compiler, bool isPrejitRoot) : DiscretionaryPolicy(compiler, isPrejitRoot)
+ProfilePolicy::ProfilePolicy(Compiler* compiler, bool isPrejitRoot)
+    : DiscretionaryPolicy(compiler, isPrejitRoot)
 {
     // Empty
 }
@@ -3171,7 +3175,8 @@ void ProfilePolicy::DetermineProfitability(CORINFO_METHOD_INFO* methodInfo)
 //    compiler -- compiler instance doing the inlining (root compiler)
 //    isPrejitRoot -- true if this compiler is prejitting the root method
 
-FullPolicy::FullPolicy(Compiler* compiler, bool isPrejitRoot) : DiscretionaryPolicy(compiler, isPrejitRoot)
+FullPolicy::FullPolicy(Compiler* compiler, bool isPrejitRoot)
+    : DiscretionaryPolicy(compiler, isPrejitRoot)
 {
     // Empty
 }
@@ -3238,7 +3243,8 @@ void FullPolicy::DetermineProfitability(CORINFO_METHOD_INFO* methodInfo)
 //    compiler -- compiler instance doing the inlining (root compiler)
 //    isPrejitRoot -- true if this compiler is prejitting the root method
 
-SizePolicy::SizePolicy(Compiler* compiler, bool isPrejitRoot) : DiscretionaryPolicy(compiler, isPrejitRoot)
+SizePolicy::SizePolicy(Compiler* compiler, bool isPrejitRoot)
+    : DiscretionaryPolicy(compiler, isPrejitRoot)
 {
     // Empty
 }

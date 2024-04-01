@@ -85,22 +85,22 @@ int LinearScan::BuildNode(GenTree* tree)
             }
             FALLTHROUGH;
         case GT_LCL_FLD:
-        {
-            srcCount = 0;
-#ifdef FEATURE_SIMD
-            // Need an additional register to read upper 4 bytes of Vector3.
-            if (tree->TypeGet() == TYP_SIMD12)
             {
-                // We need an internal register different from targetReg in which 'tree' produces its result
-                // because both targetReg and internal reg will be in use at the same time.
-                buildInternalFloatRegisterDefForNode(tree, allSIMDRegs());
-                setInternalRegsDelayFree = true;
-                buildInternalRegisterUses();
-            }
+                srcCount = 0;
+#ifdef FEATURE_SIMD
+                // Need an additional register to read upper 4 bytes of Vector3.
+                if (tree->TypeGet() == TYP_SIMD12)
+                {
+                    // We need an internal register different from targetReg in which 'tree' produces its result
+                    // because both targetReg and internal reg will be in use at the same time.
+                    buildInternalFloatRegisterDefForNode(tree, allSIMDRegs());
+                    setInternalRegsDelayFree = true;
+                    buildInternalRegisterUses();
+                }
 #endif
-            BuildDef(tree);
-        }
-        break;
+                BuildDef(tree);
+            }
+            break;
 
         case GT_STORE_LCL_VAR:
             if (tree->IsMultiRegLclVar() && isCandidateMultiRegLclVar(tree->AsLclVar()))
@@ -141,22 +141,22 @@ int LinearScan::BuildNode(GenTree* tree)
             break;
 
         case GT_CNS_DBL:
-        {
-            // There is no instruction for loading float/double imm directly into FPR.
-            // Reserve int to load constant from memory (IF_LARGELDC)
-            buildInternalIntRegisterDefForNode(tree);
-            buildInternalRegisterUses();
-        }
+            {
+                // There is no instruction for loading float/double imm directly into FPR.
+                // Reserve int to load constant from memory (IF_LARGELDC)
+                buildInternalIntRegisterDefForNode(tree);
+                buildInternalRegisterUses();
+            }
             FALLTHROUGH;
 
         case GT_CNS_INT:
-        {
-            srcCount = 0;
-            assert(dstCount == 1);
-            RefPosition* def               = BuildDef(tree);
-            def->getInterval()->isConstant = true;
-        }
-        break;
+            {
+                srcCount = 0;
+                assert(dstCount == 1);
+                RefPosition* def               = BuildDef(tree);
+                def->getInterval()->isConstant = true;
+            }
+            break;
 
         case GT_BOX:
         case GT_COMMA:
@@ -284,33 +284,33 @@ int LinearScan::BuildNode(GenTree* tree)
         case GT_DIV:
         case GT_MULHI:
         case GT_UDIV:
-        {
-            srcCount = BuildBinaryUses(tree->AsOp());
-            buildInternalRegisterUses();
-            assert(dstCount == 1);
-            BuildDef(tree);
-        }
-        break;
+            {
+                srcCount = BuildBinaryUses(tree->AsOp());
+                buildInternalRegisterUses();
+                assert(dstCount == 1);
+                BuildDef(tree);
+            }
+            break;
 
         case GT_INTRINSIC:
-        {
-            noway_assert((tree->AsIntrinsic()->gtIntrinsicName == NI_System_Math_Abs) ||
-                         (tree->AsIntrinsic()->gtIntrinsicName == NI_System_Math_Ceiling) ||
-                         (tree->AsIntrinsic()->gtIntrinsicName == NI_System_Math_Floor) ||
-                         (tree->AsIntrinsic()->gtIntrinsicName == NI_System_Math_Round) ||
-                         (tree->AsIntrinsic()->gtIntrinsicName == NI_System_Math_Sqrt));
+            {
+                noway_assert((tree->AsIntrinsic()->gtIntrinsicName == NI_System_Math_Abs) ||
+                             (tree->AsIntrinsic()->gtIntrinsicName == NI_System_Math_Ceiling) ||
+                             (tree->AsIntrinsic()->gtIntrinsicName == NI_System_Math_Floor) ||
+                             (tree->AsIntrinsic()->gtIntrinsicName == NI_System_Math_Round) ||
+                             (tree->AsIntrinsic()->gtIntrinsicName == NI_System_Math_Sqrt));
 
-            // Both operand and its result must be of the same floating point type.
-            GenTree* op1 = tree->gtGetOp1();
-            assert(varTypeIsFloating(op1));
-            assert(op1->TypeGet() == tree->TypeGet());
+                // Both operand and its result must be of the same floating point type.
+                GenTree* op1 = tree->gtGetOp1();
+                assert(varTypeIsFloating(op1));
+                assert(op1->TypeGet() == tree->TypeGet());
 
-            BuildUse(op1);
-            srcCount = 1;
-            assert(dstCount == 1);
-            BuildDef(tree);
-        }
-        break;
+                BuildUse(op1);
+                srcCount = 1;
+                assert(dstCount == 1);
+                BuildDef(tree);
+            }
+            break;
 
 #ifdef FEATURE_HW_INTRINSICS
         case GT_HWINTRINSIC:
@@ -351,20 +351,20 @@ int LinearScan::BuildNode(GenTree* tree)
             break;
 
         case GT_CMPXCHG:
-        {
-            NYI_LOONGARCH64("-----unimplemented on LOONGARCH64 yet----");
-        }
-        break;
+            {
+                NYI_LOONGARCH64("-----unimplemented on LOONGARCH64 yet----");
+            }
+            break;
 
         case GT_LOCKADD:
         case GT_XORR:
         case GT_XAND:
         case GT_XADD:
         case GT_XCHG:
-        {
-            NYI_LOONGARCH64("-----unimplemented on LOONGARCH64 yet----");
-        }
-        break;
+            {
+                NYI_LOONGARCH64("-----unimplemented on LOONGARCH64 yet----");
+            }
+            break;
 
         case GT_PUTARG_SPLIT:
             srcCount = BuildPutArgSplit(tree->AsPutArgSplit());
@@ -404,87 +404,87 @@ int LinearScan::BuildNode(GenTree* tree)
             break;
 
         case GT_LCLHEAP:
-        {
-            assert(dstCount == 1);
-
-            // Need a variable number of temp regs (see genLclHeap() in codegenloongarch64.cpp):
-            // Here '-' means don't care.
-            //
-            //  Size?                   Init Memory?    # temp regs
-            //   0                          -               0
-            //   const and <=UnrollLimit    -               0
-            //   const and <PageSize        No              0
-            //   >UnrollLimit               Yes             0
-            //   Non-const                  Yes             0
-            //   Non-const                  No              2
-            //
-
-            GenTree* size = tree->gtGetOp1();
-            if (size->IsCnsIntOrI())
             {
-                assert(size->isContained());
-                srcCount = 0;
+                assert(dstCount == 1);
 
-                size_t sizeVal = size->AsIntCon()->gtIconVal;
+                // Need a variable number of temp regs (see genLclHeap() in codegenloongarch64.cpp):
+                // Here '-' means don't care.
+                //
+                //  Size?                   Init Memory?    # temp regs
+                //   0                          -               0
+                //   const and <=UnrollLimit    -               0
+                //   const and <PageSize        No              0
+                //   >UnrollLimit               Yes             0
+                //   Non-const                  Yes             0
+                //   Non-const                  No              2
+                //
 
-                if (sizeVal != 0)
+                GenTree* size = tree->gtGetOp1();
+                if (size->IsCnsIntOrI())
                 {
-                    // Compute the amount of memory to properly STACK_ALIGN.
-                    // Note: The GenTree node is not updated here as it is cheap to recompute stack aligned size.
-                    // This should also help in debugging as we can examine the original size specified with
-                    // localloc.
-                    sizeVal = AlignUp(sizeVal, STACK_ALIGN);
+                    assert(size->isContained());
+                    srcCount = 0;
 
-                    // For small allocations up to 4 'st' instructions (i.e. 16 to 64 bytes of localloc)
-                    // TODO-LoongArch64: maybe use paird-load/store or SIMD in future.
-                    if (sizeVal <= (REGSIZE_BYTES * 2 * 4))
+                    size_t sizeVal = size->AsIntCon()->gtIconVal;
+
+                    if (sizeVal != 0)
                     {
-                        // Need no internal registers
-                    }
-                    else if (!compiler->info.compInitMem)
-                    {
-                        // No need to initialize allocated stack space.
-                        if (sizeVal < compiler->eeGetPageSize())
+                        // Compute the amount of memory to properly STACK_ALIGN.
+                        // Note: The GenTree node is not updated here as it is cheap to recompute stack aligned size.
+                        // This should also help in debugging as we can examine the original size specified with
+                        // localloc.
+                        sizeVal = AlignUp(sizeVal, STACK_ALIGN);
+
+                        // For small allocations up to 4 'st' instructions (i.e. 16 to 64 bytes of localloc)
+                        // TODO-LoongArch64: maybe use paird-load/store or SIMD in future.
+                        if (sizeVal <= (REGSIZE_BYTES * 2 * 4))
                         {
                             // Need no internal registers
                         }
-                        else
+                        else if (!compiler->info.compInitMem)
                         {
-                            // We need two registers: regCnt and RegTmp
-                            buildInternalIntRegisterDefForNode(tree);
-                            buildInternalIntRegisterDefForNode(tree);
+                            // No need to initialize allocated stack space.
+                            if (sizeVal < compiler->eeGetPageSize())
+                            {
+                                // Need no internal registers
+                            }
+                            else
+                            {
+                                // We need two registers: regCnt and RegTmp
+                                buildInternalIntRegisterDefForNode(tree);
+                                buildInternalIntRegisterDefForNode(tree);
+                            }
                         }
                     }
                 }
-            }
-            else
-            {
-                srcCount = 1;
-                if (!compiler->info.compInitMem)
+                else
                 {
-                    buildInternalIntRegisterDefForNode(tree);
-                    buildInternalIntRegisterDefForNode(tree);
+                    srcCount = 1;
+                    if (!compiler->info.compInitMem)
+                    {
+                        buildInternalIntRegisterDefForNode(tree);
+                        buildInternalIntRegisterDefForNode(tree);
+                    }
                 }
-            }
 
-            if (!size->isContained())
-            {
-                BuildUse(size);
+                if (!size->isContained())
+                {
+                    BuildUse(size);
+                }
+                buildInternalRegisterUses();
+                BuildDef(tree);
             }
-            buildInternalRegisterUses();
-            BuildDef(tree);
-        }
-        break;
+            break;
 
         case GT_BOUNDS_CHECK:
-        {
-            GenTreeBoundsChk* node = tree->AsBoundsChk();
-            // Consumes arrLen & index - has no result
-            assert(dstCount == 0);
-            srcCount = BuildOperandUses(node->GetIndex());
-            srcCount += BuildOperandUses(node->GetArrayLength());
-        }
-        break;
+            {
+                GenTreeBoundsChk* node = tree->AsBoundsChk();
+                // Consumes arrLen & index - has no result
+                assert(dstCount == 0);
+                srcCount = BuildOperandUses(node->GetIndex());
+                srcCount += BuildOperandUses(node->GetArrayLength());
+            }
+            break;
 
         case GT_ARR_ELEM:
             // These must have been lowered
@@ -494,62 +494,62 @@ int LinearScan::BuildNode(GenTree* tree)
             break;
 
         case GT_LEA:
-        {
-            GenTreeAddrMode* lea = tree->AsAddrMode();
+            {
+                GenTreeAddrMode* lea = tree->AsAddrMode();
 
-            GenTree* base  = lea->Base();
-            GenTree* index = lea->Index();
-            int      cns   = lea->Offset();
+                GenTree* base  = lea->Base();
+                GenTree* index = lea->Index();
+                int      cns   = lea->Offset();
 
-            // This LEA is instantiating an address, so we set up the srcCount here.
-            srcCount = 0;
-            if (base != nullptr)
-            {
-                srcCount++;
-                BuildUse(base);
-            }
-            if (index != nullptr)
-            {
-                srcCount++;
-                BuildUse(index);
-            }
-            assert(dstCount == 1);
+                // This LEA is instantiating an address, so we set up the srcCount here.
+                srcCount = 0;
+                if (base != nullptr)
+                {
+                    srcCount++;
+                    BuildUse(base);
+                }
+                if (index != nullptr)
+                {
+                    srcCount++;
+                    BuildUse(index);
+                }
+                assert(dstCount == 1);
 
-            // On LOONGARCH64 we may need a single internal register
-            // (when both conditions are true then we still only need a single internal register)
-            if ((index != nullptr) && (cns != 0))
-            {
-                // LOONGARCH64 does not support both Index and offset so we need an internal register
-                buildInternalIntRegisterDefForNode(tree);
+                // On LOONGARCH64 we may need a single internal register
+                // (when both conditions are true then we still only need a single internal register)
+                if ((index != nullptr) && (cns != 0))
+                {
+                    // LOONGARCH64 does not support both Index and offset so we need an internal register
+                    buildInternalIntRegisterDefForNode(tree);
+                }
+                else if (!emitter::isValidSimm12(cns))
+                {
+                    // This offset can't be contained in the add instruction, so we need an internal register
+                    buildInternalIntRegisterDefForNode(tree);
+                }
+                buildInternalRegisterUses();
+                BuildDef(tree);
             }
-            else if (!emitter::isValidSimm12(cns))
-            {
-                // This offset can't be contained in the add instruction, so we need an internal register
-                buildInternalIntRegisterDefForNode(tree);
-            }
-            buildInternalRegisterUses();
-            BuildDef(tree);
-        }
-        break;
+            break;
 
         case GT_STOREIND:
-        {
-            assert(dstCount == 0);
-
-            if (compiler->codeGen->gcInfo.gcIsWriteBarrierStoreIndNode(tree->AsStoreInd()))
             {
-                srcCount = BuildGCWriteBarrier(tree);
-                break;
-            }
+                assert(dstCount == 0);
 
-            srcCount = BuildIndir(tree->AsIndir());
-            if (!tree->gtGetOp2()->isContained())
-            {
-                BuildUse(tree->gtGetOp2());
-                srcCount++;
+                if (compiler->codeGen->gcInfo.gcIsWriteBarrierStoreIndNode(tree->AsStoreInd()))
+                {
+                    srcCount = BuildGCWriteBarrier(tree);
+                    break;
+                }
+
+                srcCount = BuildIndir(tree->AsIndir());
+                if (!tree->gtGetOp2()->isContained())
+                {
+                    BuildUse(tree->gtGetOp2());
+                    srcCount++;
+                }
             }
-        }
-        break;
+            break;
 
         case GT_NULLCHECK:
         case GT_IND:
@@ -1079,24 +1079,24 @@ int LinearScan::BuildBlockStore(GenTreeBlk* blkNode)
         switch (blkNode->gtBlkOpKind)
         {
             case GenTreeBlk::BlkOpKindUnroll:
-            {
-                if (dstAddr->isContained())
                 {
-                    // Since the dstAddr is contained the address will be computed in CodeGen.
-                    // This might require an integer register to store the value.
-                    buildInternalIntRegisterDefForNode(blkNode);
-                }
+                    if (dstAddr->isContained())
+                    {
+                        // Since the dstAddr is contained the address will be computed in CodeGen.
+                        // This might require an integer register to store the value.
+                        buildInternalIntRegisterDefForNode(blkNode);
+                    }
 
-                const bool isDstRegAddrAlignmentKnown = dstAddr->OperIs(GT_LCL_ADDR);
+                    const bool isDstRegAddrAlignmentKnown = dstAddr->OperIs(GT_LCL_ADDR);
 
-                if (isDstRegAddrAlignmentKnown && (size > FP_REGSIZE_BYTES))
-                {
-                    // TODO-LoongArch64: For larger block sizes CodeGen can choose to use 16-byte SIMD instructions.
-                    // here just used a temp register.
-                    buildInternalIntRegisterDefForNode(blkNode);
+                    if (isDstRegAddrAlignmentKnown && (size > FP_REGSIZE_BYTES))
+                    {
+                        // TODO-LoongArch64: For larger block sizes CodeGen can choose to use 16-byte SIMD instructions.
+                        // here just used a temp register.
+                        buildInternalIntRegisterDefForNode(blkNode);
+                    }
                 }
-            }
-            break;
+                break;
 
             case GenTreeBlk::BlkOpKindLoop:
                 // Needed for offsetReg
@@ -1118,34 +1118,34 @@ int LinearScan::BuildBlockStore(GenTreeBlk* blkNode)
         switch (blkNode->gtBlkOpKind)
         {
             case GenTreeBlk::BlkOpKindCpObjUnroll:
-            {
-                // We don't need to materialize the struct size but we still need
-                // a temporary register to perform the sequence of loads and stores.
-                // We can't use the special Write Barrier registers, so exclude them from the mask
-                regMaskTP internalIntCandidates =
-                    allRegs(TYP_INT) & ~(RBM_WRITE_BARRIER_DST_BYREF | RBM_WRITE_BARRIER_SRC_BYREF);
-                buildInternalIntRegisterDefForNode(blkNode, internalIntCandidates);
-
-                if (size >= 2 * REGSIZE_BYTES)
                 {
-                    // TODO-LoongArch64: We will use ld/st paired to reduce code size and improve performance
-                    // so we need to reserve an extra internal register.
+                    // We don't need to materialize the struct size but we still need
+                    // a temporary register to perform the sequence of loads and stores.
+                    // We can't use the special Write Barrier registers, so exclude them from the mask
+                    regMaskTP internalIntCandidates =
+                        allRegs(TYP_INT) & ~(RBM_WRITE_BARRIER_DST_BYREF | RBM_WRITE_BARRIER_SRC_BYREF);
                     buildInternalIntRegisterDefForNode(blkNode, internalIntCandidates);
-                }
 
-                // If we have a dest address we want it in RBM_WRITE_BARRIER_DST_BYREF.
-                dstAddrRegMask = RBM_WRITE_BARRIER_DST_BYREF;
+                    if (size >= 2 * REGSIZE_BYTES)
+                    {
+                        // TODO-LoongArch64: We will use ld/st paired to reduce code size and improve performance
+                        // so we need to reserve an extra internal register.
+                        buildInternalIntRegisterDefForNode(blkNode, internalIntCandidates);
+                    }
 
-                // If we have a source address we want it in REG_WRITE_BARRIER_SRC_BYREF.
-                // Otherwise, if it is a local, codegen will put its address in REG_WRITE_BARRIER_SRC_BYREF,
-                // which is killed by a StoreObj (and thus needn't be reserved).
-                if (srcAddrOrFill != nullptr)
-                {
-                    assert(!srcAddrOrFill->isContained());
-                    srcRegMask = RBM_WRITE_BARRIER_SRC_BYREF;
+                    // If we have a dest address we want it in RBM_WRITE_BARRIER_DST_BYREF.
+                    dstAddrRegMask = RBM_WRITE_BARRIER_DST_BYREF;
+
+                    // If we have a source address we want it in REG_WRITE_BARRIER_SRC_BYREF.
+                    // Otherwise, if it is a local, codegen will put its address in REG_WRITE_BARRIER_SRC_BYREF,
+                    // which is killed by a StoreObj (and thus needn't be reserved).
+                    if (srcAddrOrFill != nullptr)
+                    {
+                        assert(!srcAddrOrFill->isContained());
+                        srcRegMask = RBM_WRITE_BARRIER_SRC_BYREF;
+                    }
                 }
-            }
-            break;
+                break;
 
             case GenTreeBlk::BlkOpKindUnroll:
                 buildInternalIntRegisterDefForNode(blkNode);

@@ -29,70 +29,84 @@ XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
 //
 class methodPointerInfo
 {
-public:
-    CORINFO_RESOLVED_TOKEN m_token;
-    mdToken                m_tokenConstraint;
+    public:
+        CORINFO_RESOLVED_TOKEN m_token;
+        mdToken                m_tokenConstraint;
 };
 
 // Declares the typeInfo class, which represents the type of an entity on the stack.
 //
 class typeInfo
 {
-private:
-    var_types m_type;
+    private:
+        var_types m_type;
 
-    union
-    {
-        CORINFO_CLASS_HANDLE m_cls;               // Valid, but not always available, for TYP_REFs.
-        methodPointerInfo*   m_methodPointerInfo; // Valid only for function pointers.
-    };
+        union
+        {
+                CORINFO_CLASS_HANDLE m_cls;               // Valid, but not always available, for TYP_REFs.
+                methodPointerInfo*   m_methodPointerInfo; // Valid only for function pointers.
+        };
 
-public:
-    typeInfo() : m_type(TYP_UNDEF), m_cls(NO_CLASS_HANDLE) {}
+    public:
+        typeInfo()
+            : m_type(TYP_UNDEF)
+            , m_cls(NO_CLASS_HANDLE)
+        {
+        }
 
-    typeInfo(var_types type) : m_type(type), m_cls(NO_CLASS_HANDLE) {}
+        typeInfo(var_types type)
+            : m_type(type)
+            , m_cls(NO_CLASS_HANDLE)
+        {
+        }
 
-    typeInfo(CORINFO_CLASS_HANDLE cls) : m_type(TYP_REF), m_cls(cls) {}
+        typeInfo(CORINFO_CLASS_HANDLE cls)
+            : m_type(TYP_REF)
+            , m_cls(cls)
+        {
+        }
 
-    typeInfo(methodPointerInfo* methodPointerInfo) : m_type(TYP_I_IMPL), m_methodPointerInfo(methodPointerInfo)
-    {
-        assert(methodPointerInfo != nullptr);
-        assert(methodPointerInfo->m_token.hMethod != nullptr);
-    }
+        typeInfo(methodPointerInfo* methodPointerInfo)
+            : m_type(TYP_I_IMPL)
+            , m_methodPointerInfo(methodPointerInfo)
+        {
+            assert(methodPointerInfo != nullptr);
+            assert(methodPointerInfo->m_token.hMethod != nullptr);
+        }
 
-public:
-    CORINFO_CLASS_HANDLE GetClassHandleForObjRef() const
-    {
-        assert((m_type == TYP_REF) || (m_type == TYP_UNDEF));
-        return m_cls;
-    }
+    public:
+        CORINFO_CLASS_HANDLE GetClassHandleForObjRef() const
+        {
+            assert((m_type == TYP_REF) || (m_type == TYP_UNDEF));
+            return m_cls;
+        }
 
-    CORINFO_METHOD_HANDLE GetMethod() const
-    {
-        assert(IsMethod());
-        return m_methodPointerInfo->m_token.hMethod;
-    }
+        CORINFO_METHOD_HANDLE GetMethod() const
+        {
+            assert(IsMethod());
+            return m_methodPointerInfo->m_token.hMethod;
+        }
 
-    methodPointerInfo* GetMethodPointerInfo() const
-    {
-        assert(IsMethod());
-        return m_methodPointerInfo;
-    }
+        methodPointerInfo* GetMethodPointerInfo() const
+        {
+            assert(IsMethod());
+            return m_methodPointerInfo;
+        }
 
-    var_types GetType() const
-    {
-        return m_type;
-    }
+        var_types GetType() const
+        {
+            return m_type;
+        }
 
-    bool IsType(var_types type) const
-    {
-        return m_type == type;
-    }
+        bool IsType(var_types type) const
+        {
+            return m_type == type;
+        }
 
-    // Returns whether this is a method desc
-    bool IsMethod() const
-    {
-        return IsType(TYP_I_IMPL) && (m_methodPointerInfo != nullptr);
-    }
+        // Returns whether this is a method desc
+        bool IsMethod() const
+        {
+            return IsType(TYP_I_IMPL) && (m_methodPointerInfo != nullptr);
+        }
 };
 #endif // _TYPEINFO_H_

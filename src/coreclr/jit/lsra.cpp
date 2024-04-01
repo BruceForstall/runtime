@@ -539,10 +539,10 @@ regMaskTP LinearScan::stressLimitRegs(RefPosition* refPosition, regMaskTP mask)
                 break;
 
             case LSRA_LIMIT_CALLER:
-            {
-                mask = getConstrainedRegMask(refPosition, mask, RBM_CALLEE_TRASH, minRegCount);
-            }
-            break;
+                {
+                    mask = getConstrainedRegMask(refPosition, mask, RBM_CALLEE_TRASH, minRegCount);
+                }
+                break;
 
             case LSRA_LIMIT_SMALL_SET:
                 if ((mask & LsraLimitSmallIntSet) != RBM_NONE)
@@ -565,9 +565,9 @@ regMaskTP LinearScan::stressLimitRegs(RefPosition* refPosition, regMaskTP mask)
 #endif
 
             default:
-            {
-                unreached();
-            }
+                {
+                    unreached();
+                }
         }
 
         if (refPosition != nullptr && refPosition->isFixedRegRef)
@@ -1731,25 +1731,25 @@ bool LinearScan::isRegCandidate(LclVarDsc* varDsc)
         case TYP_SIMD64:
         case TYP_MASK:
 #endif // TARGET_XARCH
-        {
-            return !varDsc->lvPromoted;
-        }
+            {
+                return !varDsc->lvPromoted;
+            }
 #endif // FEATURE_SIMD
 
         case TYP_STRUCT:
-        {
-            // TODO-1stClassStructs: support vars with GC pointers. The issue is that such
-            // vars will have `lvMustInit` set, because emitter has poor support for struct liveness,
-            // but if the variable is tracked the prolog generator would expect it to be in liveIn set,
-            // so an assert in `genFnProlog` will fire.
-            bool isRegCandidate = compiler->compEnregStructLocals() && !varDsc->HasGCPtr();
+            {
+                // TODO-1stClassStructs: support vars with GC pointers. The issue is that such
+                // vars will have `lvMustInit` set, because emitter has poor support for struct liveness,
+                // but if the variable is tracked the prolog generator would expect it to be in liveIn set,
+                // so an assert in `genFnProlog` will fire.
+                bool isRegCandidate = compiler->compEnregStructLocals() && !varDsc->HasGCPtr();
 #if defined(TARGET_LOONGARCH64) || defined(TARGET_RISCV64)
-            // The LoongArch64's ABI which the float args within a struct maybe passed by integer register
-            // when no float register left but free integer register.
-            isRegCandidate &= !genIsValidFloatReg(varDsc->GetOtherArgReg());
+                // The LoongArch64's ABI which the float args within a struct maybe passed by integer register
+                // when no float register left but free integer register.
+                isRegCandidate &= !genIsValidFloatReg(varDsc->GetOtherArgReg());
 #endif
-            return isRegCandidate;
-        }
+                return isRegCandidate;
+            }
 
         case TYP_UNDEF:
         case TYP_UNKNOWN:
@@ -1770,8 +1770,7 @@ template void LinearScan::identifyCandidates<false>();
 // Identify locals & compiler temps that are register candidates
 // TODO-Cleanup: This was cloned from Compiler::lvaSortByRefCount() in lclvars.cpp in order
 // to avoid perturbation, but should be merged.
-template <bool localVarsEnregistered>
-void LinearScan::identifyCandidates()
+template <bool localVarsEnregistered> void LinearScan::identifyCandidates()
 {
     if (localVarsEnregistered)
     {
@@ -2883,47 +2882,47 @@ bool LinearScan::isMatchingConstant(RegRecord* physRegRecord, RefPosition* refPo
     switch (otherTreeNode->OperGet())
     {
         case GT_CNS_INT:
-        {
-            ssize_t v1 = refPosition->treeNode->AsIntCon()->IconValue();
-            ssize_t v2 = otherTreeNode->AsIntCon()->IconValue();
-            if ((v1 == v2) && (varTypeIsGC(refPosition->treeNode) == varTypeIsGC(otherTreeNode) || v1 == 0))
             {
+                ssize_t v1 = refPosition->treeNode->AsIntCon()->IconValue();
+                ssize_t v2 = otherTreeNode->AsIntCon()->IconValue();
+                if ((v1 == v2) && (varTypeIsGC(refPosition->treeNode) == varTypeIsGC(otherTreeNode) || v1 == 0))
+                {
 #ifdef TARGET_64BIT
-                // If the constant is negative, only reuse registers of the same type.
-                // This is because, on a 64-bit system, we do not sign-extend immediates in registers to
-                // 64-bits unless they are actually longs, as this requires a longer instruction.
-                // This doesn't apply to a 32-bit system, on which long values occupy multiple registers.
-                // (We could sign-extend, but we would have to always sign-extend, because if we reuse more
-                // than once, we won't have access to the instruction that originally defines the constant).
-                if ((refPosition->treeNode->TypeGet() == otherTreeNode->TypeGet()) || (v1 >= 0))
+                    // If the constant is negative, only reuse registers of the same type.
+                    // This is because, on a 64-bit system, we do not sign-extend immediates in registers to
+                    // 64-bits unless they are actually longs, as this requires a longer instruction.
+                    // This doesn't apply to a 32-bit system, on which long values occupy multiple registers.
+                    // (We could sign-extend, but we would have to always sign-extend, because if we reuse more
+                    // than once, we won't have access to the instruction that originally defines the constant).
+                    if ((refPosition->treeNode->TypeGet() == otherTreeNode->TypeGet()) || (v1 >= 0))
 #endif // TARGET_64BIT
+                    {
+                        return true;
+                    }
+                }
+                break;
+            }
+
+        case GT_CNS_DBL:
+            {
+                // For floating point constants, the values must be identical, not simply compare
+                // equal.  So we compare the bits.
+                if (refPosition->treeNode->AsDblCon()->isBitwiseEqual(otherTreeNode->AsDblCon()) &&
+                    (refPosition->treeNode->TypeGet() == otherTreeNode->TypeGet()))
                 {
                     return true;
                 }
+                break;
             }
-            break;
-        }
-
-        case GT_CNS_DBL:
-        {
-            // For floating point constants, the values must be identical, not simply compare
-            // equal.  So we compare the bits.
-            if (refPosition->treeNode->AsDblCon()->isBitwiseEqual(otherTreeNode->AsDblCon()) &&
-                (refPosition->treeNode->TypeGet() == otherTreeNode->TypeGet()))
-            {
-                return true;
-            }
-            break;
-        }
 
         case GT_CNS_VEC:
-        {
-            return
+            {
+                return
 #if FEATURE_PARTIAL_SIMD_CALLEE_SAVE
-                !Compiler::varTypeNeedsPartialCalleeSave(physRegRecord->assignedInterval->registerType) &&
+                    !Compiler::varTypeNeedsPartialCalleeSave(physRegRecord->assignedInterval->registerType) &&
 #endif
-                GenTreeVecCon::Equals(refPosition->treeNode->AsVecCon(), otherTreeNode->AsVecCon());
-        }
+                    GenTreeVecCon::Equals(refPosition->treeNode->AsVecCon(), otherTreeNode->AsVecCon());
+            }
 
         default:
             break;
@@ -3336,8 +3335,7 @@ regNumber LinearScan::assignCopyRegMinimal(RefPosition* refPosition)
 // Prefer a free register that's got the earliest next use.
 // Otherwise, spill something with the farthest next use
 //
-template <bool needsConsecutiveRegisters>
-regNumber LinearScan::assignCopyReg(RefPosition* refPosition)
+template <bool needsConsecutiveRegisters> regNumber LinearScan::assignCopyReg(RefPosition* refPosition)
 {
     Interval* currentInterval = refPosition->getInterval();
     assert(currentInterval != nullptr);
@@ -4034,8 +4032,7 @@ void LinearScan::spillGCRefs(RefPosition* killRefPosition)
 //    Calls processBlockEndLocations() to set the outVarToRegMap, then gets the next block,
 //    and sets the inVarToRegMap appropriately.
 //
-template <bool localVarsEnregistered>
-void LinearScan::processBlockEndAllocation(BasicBlock* currentBlock)
+template <bool localVarsEnregistered> void LinearScan::processBlockEndAllocation(BasicBlock* currentBlock)
 {
     assert(currentBlock != nullptr);
     markBlockVisited(currentBlock);
@@ -7828,8 +7825,7 @@ void LinearScan::updateMaxSpill(RefPosition* refPosition)
 // This is the final phase of register allocation.  It writes the register assignments to
 // the tree, and performs resolution across joins and back edges.
 //
-template <bool localVarsEnregistered>
-void LinearScan::resolveRegisters()
+template <bool localVarsEnregistered> void LinearScan::resolveRegisters()
 {
     // Iterate over the tree and the RefPositions in lockstep
     //  - annotate the tree with register assignments by setting GetRegNum() or gtRegPair (for longs)
@@ -9952,7 +9948,7 @@ const char* LinearScan::getStatName(unsigned stat)
 #define LSRA_STAT_DEF(stat, name) name,
 #include "lsra_stats.h"
 #undef LSRA_STAT_DEF
-#define REG_SEL_DEF(stat, value, shortname, orderSeqId) #stat,
+#define REG_SEL_DEF(stat, value, shortname, orderSeqId)      #stat,
 #define BUSY_REG_SEL_DEF(stat, value, shortname, orderSeqId) REG_SEL_DEF(stat, value, shortname, orderSeqId)
 #include "lsra_score.h"
     };
@@ -10549,34 +10545,34 @@ void LinearScan::lsraGetOperandString(GenTree*          tree,
             _snprintf_s(operandString, operandStringLength, operandStringLength, "t%d%s", tree->gtTreeID, lastUseChar);
             break;
         case LinearScan::LSRA_DUMP_POST:
-        {
-            Compiler* compiler = JitTls::GetCompiler();
-
-            if (!tree->gtHasReg(compiler))
             {
-                _snprintf_s(operandString, operandStringLength, operandStringLength, "STK%s", lastUseChar);
-            }
-            else
-            {
-                int charCount = _snprintf_s(operandString, operandStringLength, operandStringLength, "%s%s",
-                                            getRegName(tree->GetRegNum()), lastUseChar);
-                operandString += charCount;
-                operandStringLength -= charCount;
+                Compiler* compiler = JitTls::GetCompiler();
 
-                if (tree->IsMultiRegNode())
+                if (!tree->gtHasReg(compiler))
                 {
-                    unsigned regCount = tree->GetMultiRegCount(compiler);
-                    for (unsigned regIndex = 1; regIndex < regCount; regIndex++)
+                    _snprintf_s(operandString, operandStringLength, operandStringLength, "STK%s", lastUseChar);
+                }
+                else
+                {
+                    int charCount = _snprintf_s(operandString, operandStringLength, operandStringLength, "%s%s",
+                                                getRegName(tree->GetRegNum()), lastUseChar);
+                    operandString += charCount;
+                    operandStringLength -= charCount;
+
+                    if (tree->IsMultiRegNode())
                     {
-                        charCount = _snprintf_s(operandString, operandStringLength, operandStringLength, ",%s%s",
-                                                getRegName(tree->GetRegByIndex(regIndex)), lastUseChar);
-                        operandString += charCount;
-                        operandStringLength -= charCount;
+                        unsigned regCount = tree->GetMultiRegCount(compiler);
+                        for (unsigned regIndex = 1; regIndex < regCount; regIndex++)
+                        {
+                            charCount = _snprintf_s(operandString, operandStringLength, operandStringLength, ",%s%s",
+                                                    getRegName(tree->GetRegByIndex(regIndex)), lastUseChar);
+                            operandString += charCount;
+                            operandStringLength -= charCount;
+                        }
                     }
                 }
             }
-        }
-        break;
+            break;
         default:
             printf("ERROR: INVALID TUPLE DUMP MODE\n");
             break;
@@ -10929,32 +10925,32 @@ void LinearScan::TupleStyleDump(LsraTupleDumpMode mode)
                             }
                             break;
                         case RefTypeDef:
-                        {
-                            // Print each def on a new line
-                            assert(interval != nullptr);
-                            printf("\n        Def:");
-                            interval->microDump();
-                            printf("(#%d)", currentRefPosition->rpNum);
-                            if (currentRefPosition->isFixedRegRef)
                             {
-                                assert(genMaxOneBit(currentRefPosition->registerAssignment));
-                                printf(" %s", getRegName(currentRefPosition->assignedReg()));
+                                // Print each def on a new line
+                                assert(interval != nullptr);
+                                printf("\n        Def:");
+                                interval->microDump();
+                                printf("(#%d)", currentRefPosition->rpNum);
+                                if (currentRefPosition->isFixedRegRef)
+                                {
+                                    assert(genMaxOneBit(currentRefPosition->registerAssignment));
+                                    printf(" %s", getRegName(currentRefPosition->assignedReg()));
+                                }
+                                if (currentRefPosition->isLocalDefUse)
+                                {
+                                    printf(" LocalDefUse");
+                                }
+                                if (currentRefPosition->lastUse)
+                                {
+                                    printf(" *");
+                                }
+                                if (interval->relatedInterval != nullptr)
+                                {
+                                    printf(" Pref:");
+                                    interval->relatedInterval->microDump();
+                                }
                             }
-                            if (currentRefPosition->isLocalDefUse)
-                            {
-                                printf(" LocalDefUse");
-                            }
-                            if (currentRefPosition->lastUse)
-                            {
-                                printf(" *");
-                            }
-                            if (interval->relatedInterval != nullptr)
-                            {
-                                printf(" Pref:");
-                                interval->relatedInterval->microDump();
-                            }
-                        }
-                        break;
+                            break;
                         case RefTypeKill:
                             if (!killPrinted)
                             {
@@ -11839,122 +11835,122 @@ void LinearScan::verifyFinalAllocation()
         switch (currentRefPosition.refType)
         {
             case RefTypeBB:
-            {
-                if (currentBlock == nullptr)
                 {
-                    currentBlock = startBlockSequence();
-                }
-                else
-                {
-                    // Verify the resolution moves at the end of the previous block.
-                    for (GenTree* node = firstBlockEndResolutionNode; node != nullptr; node = node->gtNext)
+                    if (currentBlock == nullptr)
                     {
-                        assert(enregisterLocalVars);
-                        // Only verify nodes that are actually moves; don't bother with the nodes that are
-                        // operands to moves.
-                        if (IsResolutionMove(node))
-                        {
-                            verifyResolutionMove(node, currentLocation);
-                        }
+                        currentBlock = startBlockSequence();
                     }
-
-                    // Validate the locations at the end of the previous block.
-                    if (enregisterLocalVars)
+                    else
                     {
-                        VarToRegMap     outVarToRegMap = outVarToRegMaps[currentBlock->bbNum];
-                        VarSetOps::Iter iter(compiler, currentBlock->bbLiveOut);
-                        unsigned        varIndex = 0;
-                        while (iter.NextElem(&varIndex))
-                        {
-                            if (localVarIntervals[varIndex] == nullptr)
-                            {
-                                assert(!compiler->lvaGetDescByTrackedIndex(varIndex)->lvLRACandidate);
-                                continue;
-                            }
-                            regNumber regNum = getVarReg(outVarToRegMap, varIndex);
-                            interval         = getIntervalForLocalVar(varIndex);
-                            if (interval->physReg != regNum)
-                            {
-                                assert(regNum == REG_STK);
-                                assert((interval->physReg == REG_NA) || interval->isWriteThru);
-                            }
-                            interval->physReg     = REG_NA;
-                            interval->assignedReg = nullptr;
-                            interval->isActive    = false;
-                        }
-                    }
-
-                    // Clear register assignments.
-                    for (regNumber reg = REG_FIRST; reg < AVAILABLE_REG_COUNT; reg = REG_NEXT(reg))
-                    {
-                        RegRecord* physRegRecord        = getRegisterRecord(reg);
-                        physRegRecord->assignedInterval = nullptr;
-                    }
-
-                    // Now, record the locations at the beginning of this block.
-                    currentBlock = moveToNextBlock();
-                }
-
-                if (currentBlock != nullptr)
-                {
-                    if (enregisterLocalVars)
-                    {
-                        VarToRegMap     inVarToRegMap = inVarToRegMaps[currentBlock->bbNum];
-                        VarSetOps::Iter iter(compiler, currentBlock->bbLiveIn);
-                        unsigned        varIndex = 0;
-                        while (iter.NextElem(&varIndex))
-                        {
-                            if (localVarIntervals[varIndex] == nullptr)
-                            {
-                                assert(!compiler->lvaGetDescByTrackedIndex(varIndex)->lvLRACandidate);
-                                continue;
-                            }
-                            regNumber regNum                  = getVarReg(inVarToRegMap, varIndex);
-                            interval                          = getIntervalForLocalVar(varIndex);
-                            interval->physReg                 = regNum;
-                            interval->assignedReg             = &(physRegs[regNum]);
-                            interval->isActive                = true;
-                            physRegs[regNum].assignedInterval = interval;
-                        }
-                    }
-
-                    if (VERBOSE)
-                    {
-                        dumpRefPositionShort(&currentRefPosition, currentBlock);
-                        dumpRegRecords();
-                    }
-
-                    // Finally, handle the resolution moves, if any, at the beginning of the next block.
-                    firstBlockEndResolutionNode = nullptr;
-                    bool foundNonResolutionNode = false;
-
-                    LIR::Range& currentBlockRange = LIR::AsRange(currentBlock);
-                    for (GenTree* node : currentBlockRange)
-                    {
-                        if (IsResolutionNode(currentBlockRange, node))
+                        // Verify the resolution moves at the end of the previous block.
+                        for (GenTree* node = firstBlockEndResolutionNode; node != nullptr; node = node->gtNext)
                         {
                             assert(enregisterLocalVars);
-                            if (foundNonResolutionNode)
+                            // Only verify nodes that are actually moves; don't bother with the nodes that are
+                            // operands to moves.
+                            if (IsResolutionMove(node))
                             {
-                                firstBlockEndResolutionNode = node;
-                                break;
-                            }
-                            else if (IsResolutionMove(node))
-                            {
-                                // Only verify nodes that are actually moves; don't bother with the nodes that are
-                                // operands to moves.
                                 verifyResolutionMove(node, currentLocation);
                             }
                         }
-                        else
+
+                        // Validate the locations at the end of the previous block.
+                        if (enregisterLocalVars)
                         {
-                            foundNonResolutionNode = true;
+                            VarToRegMap     outVarToRegMap = outVarToRegMaps[currentBlock->bbNum];
+                            VarSetOps::Iter iter(compiler, currentBlock->bbLiveOut);
+                            unsigned        varIndex = 0;
+                            while (iter.NextElem(&varIndex))
+                            {
+                                if (localVarIntervals[varIndex] == nullptr)
+                                {
+                                    assert(!compiler->lvaGetDescByTrackedIndex(varIndex)->lvLRACandidate);
+                                    continue;
+                                }
+                                regNumber regNum = getVarReg(outVarToRegMap, varIndex);
+                                interval         = getIntervalForLocalVar(varIndex);
+                                if (interval->physReg != regNum)
+                                {
+                                    assert(regNum == REG_STK);
+                                    assert((interval->physReg == REG_NA) || interval->isWriteThru);
+                                }
+                                interval->physReg     = REG_NA;
+                                interval->assignedReg = nullptr;
+                                interval->isActive    = false;
+                            }
+                        }
+
+                        // Clear register assignments.
+                        for (regNumber reg = REG_FIRST; reg < AVAILABLE_REG_COUNT; reg = REG_NEXT(reg))
+                        {
+                            RegRecord* physRegRecord        = getRegisterRecord(reg);
+                            physRegRecord->assignedInterval = nullptr;
+                        }
+
+                        // Now, record the locations at the beginning of this block.
+                        currentBlock = moveToNextBlock();
+                    }
+
+                    if (currentBlock != nullptr)
+                    {
+                        if (enregisterLocalVars)
+                        {
+                            VarToRegMap     inVarToRegMap = inVarToRegMaps[currentBlock->bbNum];
+                            VarSetOps::Iter iter(compiler, currentBlock->bbLiveIn);
+                            unsigned        varIndex = 0;
+                            while (iter.NextElem(&varIndex))
+                            {
+                                if (localVarIntervals[varIndex] == nullptr)
+                                {
+                                    assert(!compiler->lvaGetDescByTrackedIndex(varIndex)->lvLRACandidate);
+                                    continue;
+                                }
+                                regNumber regNum                  = getVarReg(inVarToRegMap, varIndex);
+                                interval                          = getIntervalForLocalVar(varIndex);
+                                interval->physReg                 = regNum;
+                                interval->assignedReg             = &(physRegs[regNum]);
+                                interval->isActive                = true;
+                                physRegs[regNum].assignedInterval = interval;
+                            }
+                        }
+
+                        if (VERBOSE)
+                        {
+                            dumpRefPositionShort(&currentRefPosition, currentBlock);
+                            dumpRegRecords();
+                        }
+
+                        // Finally, handle the resolution moves, if any, at the beginning of the next block.
+                        firstBlockEndResolutionNode = nullptr;
+                        bool foundNonResolutionNode = false;
+
+                        LIR::Range& currentBlockRange = LIR::AsRange(currentBlock);
+                        for (GenTree* node : currentBlockRange)
+                        {
+                            if (IsResolutionNode(currentBlockRange, node))
+                            {
+                                assert(enregisterLocalVars);
+                                if (foundNonResolutionNode)
+                                {
+                                    firstBlockEndResolutionNode = node;
+                                    break;
+                                }
+                                else if (IsResolutionMove(node))
+                                {
+                                    // Only verify nodes that are actually moves; don't bother with the nodes that are
+                                    // operands to moves.
+                                    verifyResolutionMove(node, currentLocation);
+                                }
+                            }
+                            else
+                            {
+                                foundNonResolutionNode = true;
+                            }
                         }
                     }
                 }
-            }
 
-            break;
+                break;
 
             case RefTypeKill:
                 assert(regRecord != nullptr);

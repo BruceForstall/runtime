@@ -13,66 +13,66 @@
 class BitSetSupport
 {
 #ifdef DEBUG
-    template <typename BitSetType, unsigned Brand, typename Env, typename BitSetTraits>
-    static void RunTests(Env env);
+        template <typename BitSetType, unsigned Brand, typename Env, typename BitSetTraits>
+        static void RunTests(Env env);
 #endif
 
-public:
-    static const unsigned BitsInByte = 8;
+    public:
+        static const unsigned BitsInByte = 8;
 
-    // This maps 4-bit ("nibble") values into the number of 1 bits they contain.
-    static unsigned BitCountTable[16];
+        // This maps 4-bit ("nibble") values into the number of 1 bits they contain.
+        static unsigned BitCountTable[16];
 
-    // Returns the number of 1 bits in the binary representation of "u".
-    template <typename T>
-    static unsigned CountBitsInIntegral(T u)
-    {
-        unsigned res = 0;
-        // We process "u" in 4-bit nibbles, hence the "*2" below.
-        for (unsigned int i = 0; i < sizeof(T) * 2; i++)
+        // Returns the number of 1 bits in the binary representation of "u".
+        template <typename T> static unsigned CountBitsInIntegral(T u)
         {
-            res += BitCountTable[u & 0xf];
-            u >>= 4;
+            unsigned res = 0;
+            // We process "u" in 4-bit nibbles, hence the "*2" below.
+            for (unsigned int i = 0; i < sizeof(T) * 2; i++)
+            {
+                res += BitCountTable[u & 0xf];
+                u >>= 4;
+            }
+            return res;
         }
-        return res;
-    }
 
 #ifdef DEBUG
-    // This runs the "TestSuite" method for a few important instantiations of BitSet.
-    static void TestSuite(CompAllocator env);
+        // This runs the "TestSuite" method for a few important instantiations of BitSet.
+        static void TestSuite(CompAllocator env);
 #endif
 
-    enum Operation
-    {
+        enum Operation {
 #define BSOPNAME(x) x,
 #include "bitsetops.h"
 #undef BSOPNAME
-        BSOP_NUMOPS
-    };
-    static const char* OpNames[BSOP_NUMOPS];
+            BSOP_NUMOPS
+        };
+        static const char* OpNames[BSOP_NUMOPS];
 
-    class BitSetOpCounter
-    {
-        unsigned    TotalOps;
-        unsigned    OpCounts[BSOP_NUMOPS];
-        const char* m_fileName;
-        FILE*       OpOutputFile;
-
-    public:
-        BitSetOpCounter(const char* fileName) : TotalOps(0), m_fileName(fileName), OpOutputFile(nullptr)
+        class BitSetOpCounter
         {
-            for (unsigned i = 0; i < BSOP_NUMOPS; i++)
-            {
-                OpCounts[i] = 0;
-            }
-        }
+                unsigned    TotalOps;
+                unsigned    OpCounts[BSOP_NUMOPS];
+                const char* m_fileName;
+                FILE*       OpOutputFile;
 
-        void RecordOp(Operation op);
-    };
+            public:
+                BitSetOpCounter(const char* fileName)
+                    : TotalOps(0)
+                    , m_fileName(fileName)
+                    , OpOutputFile(nullptr)
+                {
+                    for (unsigned i = 0; i < BSOP_NUMOPS; i++)
+                    {
+                        OpCounts[i] = 0;
+                    }
+                }
+
+                void RecordOp(Operation op);
+        };
 };
 
-template <>
-FORCEINLINE unsigned BitSetSupport::CountBitsInIntegral<unsigned>(unsigned c)
+template <> FORCEINLINE unsigned BitSetSupport::CountBitsInIntegral<unsigned>(unsigned c)
 {
     // Make sure we're 32 bit.
     assert(sizeof(unsigned) == 4);
@@ -154,8 +154,7 @@ FORCEINLINE unsigned BitSetSupport::CountBitsInIntegral<unsigned>(unsigned c)
 // however, ValArgType may need to be "const BitSetType&", and RetValArg may need to be a helper class, if the
 // class hides default copy constructors and assignment operators to detect erroneous usage.
 //
-template <typename BitSetType, unsigned Brand, typename Env, typename BitSetTraits>
-class BitSetOps
+template <typename BitSetType, unsigned Brand, typename Env, typename BitSetTraits> class BitSetOps
 {
 #if 0
     // Below are the set of methods that an instantiation of BitSetOps should provide.  This is
@@ -285,170 +284,174 @@ template <typename BitSetType,
           typename BaseIter>
 class BitSetOpsWithCounter
 {
-    typedef BitSetOps<BitSetType, Brand, Env, BitSetTraits> BSO;
-
-public:
-    static BitSetValueRetType UninitVal()
-    {
-        return BSO::UninitVal();
-    }
-    static bool MayBeUninit(BitSetValueArgType bs)
-    {
-        return BSO::MayBeUninit(bs);
-    }
-    static BitSetValueRetType MakeEmpty(Env env)
-    {
-        BitSetTraits::GetOpCounter(env)->RecordOp(BitSetSupport::BSOP_MakeEmpty);
-        return BSO::MakeEmpty(env);
-    }
-    static BitSetValueRetType MakeFull(Env env)
-    {
-        BitSetTraits::GetOpCounter(env)->RecordOp(BitSetSupport::BSOP_MakeFull);
-        return BSO::MakeFull(env);
-    }
-    static BitSetValueRetType MakeSingleton(Env env, unsigned bitNum)
-    {
-        BitSetTraits::GetOpCounter(env)->RecordOp(BitSetSupport::BSOP_MakeSingleton);
-        return BSO::MakeSingleton(env, bitNum);
-    }
-    static void Assign(Env env, BitSetType& lhs, BitSetValueArgType rhs)
-    {
-        BitSetTraits::GetOpCounter(env)->RecordOp(BitSetSupport::BSOP_Assign);
-        BSO::Assign(env, lhs, rhs);
-    }
-    static void AssignAllowUninitRhs(Env env, BitSetType& lhs, BitSetValueArgType rhs)
-    {
-        BitSetTraits::GetOpCounter(env)->RecordOp(BitSetSupport::BSOP_AssignAllowUninitRhs);
-        BSO::AssignAllowUninitRhs(env, lhs, rhs);
-    }
-    static void AssignNoCopy(Env env, BitSetType& lhs, BitSetValueArgType rhs)
-    {
-        BitSetTraits::GetOpCounter(env)->RecordOp(BitSetSupport::BSOP_AssignNocopy);
-        BSO::AssignNoCopy(env, lhs, rhs);
-    }
-    static void ClearD(Env env, BitSetType& bs)
-    {
-        BitSetTraits::GetOpCounter(env)->RecordOp(BitSetSupport::BSOP_ClearD);
-        BSO::ClearD(env, bs);
-    }
-    static BitSetValueRetType MakeCopy(Env env, BitSetValueArgType bs)
-    {
-        BitSetTraits::GetOpCounter(env)->RecordOp(BitSetSupport::BSOP_MakeCopy);
-        return BSO::MakeCopy(env, bs);
-    }
-    static bool IsEmpty(Env env, BitSetValueArgType bs)
-    {
-        BitSetTraits::GetOpCounter(env)->RecordOp(BitSetSupport::BSOP_IsEmpty);
-        return BSO::IsEmpty(env, bs);
-    }
-    static unsigned Count(Env env, BitSetValueArgType bs)
-    {
-        BitSetTraits::GetOpCounter(env)->RecordOp(BitSetSupport::BSOP_Count);
-        return BSO::Count(env, bs);
-    }
-    static bool IsMember(Env env, const BitSetValueArgType bs, unsigned i)
-    {
-        BitSetTraits::GetOpCounter(env)->RecordOp(BitSetSupport::BSOP_IsMember);
-        return BSO::IsMember(env, bs, i);
-    }
-    static void AddElemD(Env env, BitSetType& bs, unsigned i)
-    {
-        BitSetTraits::GetOpCounter(env)->RecordOp(BitSetSupport::BSOP_AddElemD);
-        BSO::AddElemD(env, bs, i);
-    }
-    static BitSetValueRetType AddElem(Env env, BitSetValueArgType bs, unsigned i)
-    {
-        BitSetTraits::GetOpCounter(env)->RecordOp(BitSetSupport::BSOP_AddElem);
-        return BSO::AddElem(env, bs, i);
-    }
-    static void RemoveElemD(Env env, BitSetType& bs, unsigned i)
-    {
-        BitSetTraits::GetOpCounter(env)->RecordOp(BitSetSupport::BSOP_RemoveElemD);
-        BSO::RemoveElemD(env, bs, i);
-    }
-    static BitSetValueRetType RemoveElem(Env env, BitSetValueArgType bs1, unsigned i)
-    {
-        BitSetTraits::GetOpCounter(env)->RecordOp(BitSetSupport::BSOP_RemoveElem);
-        return BSO::RemoveElem(env, bs1, i);
-    }
-    static void UnionD(Env env, BitSetType& bs1, BitSetValueArgType bs2)
-    {
-        BitSetTraits::GetOpCounter(env)->RecordOp(BitSetSupport::BSOP_UnionD);
-        BSO::UnionD(env, bs1, bs2);
-    }
-    static bool UnionDChanged(Env env, BitSetType& bs1, BitSetValueArgType bs2)
-    {
-        BitSetTraits::GetOpCounter(env)->RecordOp(BitSetSupport::BSOP_UnionDChanged);
-        return BSO::UnionDChanged(env, bs1, bs2);
-    }
-    static BitSetValueRetType Union(Env env, BitSetValueArgType bs1, BitSetValueArgType bs2)
-    {
-        BitSetTraits::GetOpCounter(env)->RecordOp(BitSetSupport::BSOP_Union);
-        return BSO::Union(env, bs1, bs2);
-    }
-    static void IntersectionD(Env env, BitSetType& bs1, BitSetValueArgType bs2)
-    {
-        BitSetTraits::GetOpCounter(env)->RecordOp(BitSetSupport::BSOP_IntersectionD);
-        BSO::IntersectionD(env, bs1, bs2);
-    }
-    static BitSetValueRetType Intersection(Env env, BitSetValueArgType bs1, BitSetValueArgType bs2)
-    {
-        BitSetTraits::GetOpCounter(env)->RecordOp(BitSetSupport::BSOP_Intersection);
-        return BSO::Intersection(env, bs1, bs2);
-    }
-    static bool IsEmptyIntersection(Env env, BitSetValueArgType bs1, BitSetValueArgType bs2)
-    {
-        BitSetTraits::GetOpCounter(env)->RecordOp(BitSetSupport::BSOP_IsEmptyIntersection);
-        return BSO::IsEmptyIntersection(env, bs1, bs2);
-    }
-    static void DiffD(Env env, BitSetType& bs1, BitSetValueArgType bs2)
-    {
-        BitSetTraits::GetOpCounter(env)->RecordOp(BitSetSupport::BSOP_DiffD);
-        BSO::DiffD(env, bs1, bs2);
-    }
-    static BitSetValueRetType Diff(Env env, BitSetValueArgType bs1, BitSetValueArgType bs2)
-    {
-        BitSetTraits::GetOpCounter(env)->RecordOp(BitSetSupport::BSOP_Diff);
-        return BSO::Diff(env, bs1, bs2);
-    }
-    static bool IsSubset(Env env, BitSetValueArgType bs1, BitSetValueArgType bs2)
-    {
-        BitSetTraits::GetOpCounter(env)->RecordOp(BitSetSupport::BSOP_IsSubset);
-        return BSO::IsSubset(env, bs1, bs2);
-    }
-    static bool Equal(Env env, BitSetValueArgType bs1, BitSetValueArgType bs2)
-    {
-        BitSetTraits::GetOpCounter(env)->RecordOp(BitSetSupport::BSOP_Equal);
-        return BSO::Equal(env, bs1, bs2);
-    }
-#ifdef DEBUG
-    static const char* ToString(Env env, BitSetValueArgType bs)
-    {
-        BitSetTraits::GetOpCounter(env)->RecordOp(BitSetSupport::BSOP_ToString);
-        return BSO::ToString(env, bs);
-    }
-#endif
-
-    class Iter
-    {
-        BaseIter m_iter;
-        Env      m_env;
+        typedef BitSetOps<BitSetType, Brand, Env, BitSetTraits> BSO;
 
     public:
-        Iter(Env env, BitSetValueArgType bs) : m_iter(env, bs), m_env(env) {}
-
-        bool NextElem(unsigned* pElem)
+        static BitSetValueRetType UninitVal()
         {
-            BitSetTraits::GetOpCounter(m_env)->RecordOp(BitSetSupport::BSOP_NextBit);
-            return m_iter.NextElem(pElem);
+            return BSO::UninitVal();
         }
-    };
+        static bool MayBeUninit(BitSetValueArgType bs)
+        {
+            return BSO::MayBeUninit(bs);
+        }
+        static BitSetValueRetType MakeEmpty(Env env)
+        {
+            BitSetTraits::GetOpCounter(env)->RecordOp(BitSetSupport::BSOP_MakeEmpty);
+            return BSO::MakeEmpty(env);
+        }
+        static BitSetValueRetType MakeFull(Env env)
+        {
+            BitSetTraits::GetOpCounter(env)->RecordOp(BitSetSupport::BSOP_MakeFull);
+            return BSO::MakeFull(env);
+        }
+        static BitSetValueRetType MakeSingleton(Env env, unsigned bitNum)
+        {
+            BitSetTraits::GetOpCounter(env)->RecordOp(BitSetSupport::BSOP_MakeSingleton);
+            return BSO::MakeSingleton(env, bitNum);
+        }
+        static void Assign(Env env, BitSetType& lhs, BitSetValueArgType rhs)
+        {
+            BitSetTraits::GetOpCounter(env)->RecordOp(BitSetSupport::BSOP_Assign);
+            BSO::Assign(env, lhs, rhs);
+        }
+        static void AssignAllowUninitRhs(Env env, BitSetType& lhs, BitSetValueArgType rhs)
+        {
+            BitSetTraits::GetOpCounter(env)->RecordOp(BitSetSupport::BSOP_AssignAllowUninitRhs);
+            BSO::AssignAllowUninitRhs(env, lhs, rhs);
+        }
+        static void AssignNoCopy(Env env, BitSetType& lhs, BitSetValueArgType rhs)
+        {
+            BitSetTraits::GetOpCounter(env)->RecordOp(BitSetSupport::BSOP_AssignNocopy);
+            BSO::AssignNoCopy(env, lhs, rhs);
+        }
+        static void ClearD(Env env, BitSetType& bs)
+        {
+            BitSetTraits::GetOpCounter(env)->RecordOp(BitSetSupport::BSOP_ClearD);
+            BSO::ClearD(env, bs);
+        }
+        static BitSetValueRetType MakeCopy(Env env, BitSetValueArgType bs)
+        {
+            BitSetTraits::GetOpCounter(env)->RecordOp(BitSetSupport::BSOP_MakeCopy);
+            return BSO::MakeCopy(env, bs);
+        }
+        static bool IsEmpty(Env env, BitSetValueArgType bs)
+        {
+            BitSetTraits::GetOpCounter(env)->RecordOp(BitSetSupport::BSOP_IsEmpty);
+            return BSO::IsEmpty(env, bs);
+        }
+        static unsigned Count(Env env, BitSetValueArgType bs)
+        {
+            BitSetTraits::GetOpCounter(env)->RecordOp(BitSetSupport::BSOP_Count);
+            return BSO::Count(env, bs);
+        }
+        static bool IsMember(Env env, const BitSetValueArgType bs, unsigned i)
+        {
+            BitSetTraits::GetOpCounter(env)->RecordOp(BitSetSupport::BSOP_IsMember);
+            return BSO::IsMember(env, bs, i);
+        }
+        static void AddElemD(Env env, BitSetType& bs, unsigned i)
+        {
+            BitSetTraits::GetOpCounter(env)->RecordOp(BitSetSupport::BSOP_AddElemD);
+            BSO::AddElemD(env, bs, i);
+        }
+        static BitSetValueRetType AddElem(Env env, BitSetValueArgType bs, unsigned i)
+        {
+            BitSetTraits::GetOpCounter(env)->RecordOp(BitSetSupport::BSOP_AddElem);
+            return BSO::AddElem(env, bs, i);
+        }
+        static void RemoveElemD(Env env, BitSetType& bs, unsigned i)
+        {
+            BitSetTraits::GetOpCounter(env)->RecordOp(BitSetSupport::BSOP_RemoveElemD);
+            BSO::RemoveElemD(env, bs, i);
+        }
+        static BitSetValueRetType RemoveElem(Env env, BitSetValueArgType bs1, unsigned i)
+        {
+            BitSetTraits::GetOpCounter(env)->RecordOp(BitSetSupport::BSOP_RemoveElem);
+            return BSO::RemoveElem(env, bs1, i);
+        }
+        static void UnionD(Env env, BitSetType& bs1, BitSetValueArgType bs2)
+        {
+            BitSetTraits::GetOpCounter(env)->RecordOp(BitSetSupport::BSOP_UnionD);
+            BSO::UnionD(env, bs1, bs2);
+        }
+        static bool UnionDChanged(Env env, BitSetType& bs1, BitSetValueArgType bs2)
+        {
+            BitSetTraits::GetOpCounter(env)->RecordOp(BitSetSupport::BSOP_UnionDChanged);
+            return BSO::UnionDChanged(env, bs1, bs2);
+        }
+        static BitSetValueRetType Union(Env env, BitSetValueArgType bs1, BitSetValueArgType bs2)
+        {
+            BitSetTraits::GetOpCounter(env)->RecordOp(BitSetSupport::BSOP_Union);
+            return BSO::Union(env, bs1, bs2);
+        }
+        static void IntersectionD(Env env, BitSetType& bs1, BitSetValueArgType bs2)
+        {
+            BitSetTraits::GetOpCounter(env)->RecordOp(BitSetSupport::BSOP_IntersectionD);
+            BSO::IntersectionD(env, bs1, bs2);
+        }
+        static BitSetValueRetType Intersection(Env env, BitSetValueArgType bs1, BitSetValueArgType bs2)
+        {
+            BitSetTraits::GetOpCounter(env)->RecordOp(BitSetSupport::BSOP_Intersection);
+            return BSO::Intersection(env, bs1, bs2);
+        }
+        static bool IsEmptyIntersection(Env env, BitSetValueArgType bs1, BitSetValueArgType bs2)
+        {
+            BitSetTraits::GetOpCounter(env)->RecordOp(BitSetSupport::BSOP_IsEmptyIntersection);
+            return BSO::IsEmptyIntersection(env, bs1, bs2);
+        }
+        static void DiffD(Env env, BitSetType& bs1, BitSetValueArgType bs2)
+        {
+            BitSetTraits::GetOpCounter(env)->RecordOp(BitSetSupport::BSOP_DiffD);
+            BSO::DiffD(env, bs1, bs2);
+        }
+        static BitSetValueRetType Diff(Env env, BitSetValueArgType bs1, BitSetValueArgType bs2)
+        {
+            BitSetTraits::GetOpCounter(env)->RecordOp(BitSetSupport::BSOP_Diff);
+            return BSO::Diff(env, bs1, bs2);
+        }
+        static bool IsSubset(Env env, BitSetValueArgType bs1, BitSetValueArgType bs2)
+        {
+            BitSetTraits::GetOpCounter(env)->RecordOp(BitSetSupport::BSOP_IsSubset);
+            return BSO::IsSubset(env, bs1, bs2);
+        }
+        static bool Equal(Env env, BitSetValueArgType bs1, BitSetValueArgType bs2)
+        {
+            BitSetTraits::GetOpCounter(env)->RecordOp(BitSetSupport::BSOP_Equal);
+            return BSO::Equal(env, bs1, bs2);
+        }
+#ifdef DEBUG
+        static const char* ToString(Env env, BitSetValueArgType bs)
+        {
+            BitSetTraits::GetOpCounter(env)->RecordOp(BitSetSupport::BSOP_ToString);
+            return BSO::ToString(env, bs);
+        }
+#endif
+
+        class Iter
+        {
+                BaseIter m_iter;
+                Env      m_env;
+
+            public:
+                Iter(Env env, BitSetValueArgType bs)
+                    : m_iter(env, bs)
+                    , m_env(env)
+                {
+                }
+
+                bool NextElem(unsigned* pElem)
+                {
+                    BitSetTraits::GetOpCounter(m_env)->RecordOp(BitSetSupport::BSOP_NextBit);
+                    return m_iter.NextElem(pElem);
+                }
+        };
 };
 
 // We define symbolic names for the various bitset implementations available, to allow choices between them.
 
-#define BSUInt64 0
-#define BSShortLong 1
+#define BSUInt64      0
+#define BSShortLong   1
 #define BSUInt64Class 2
 
 /*****************************************************************************/

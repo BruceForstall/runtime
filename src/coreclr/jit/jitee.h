@@ -5,8 +5,8 @@
 // If this changes, also change spmidumphelper.cpp.
 class JitFlags
 {
-public:
-    // clang-format off
+    public:
+        // clang-format off
     enum JitFlag
     {
         JIT_FLAG_SPEED_OPT               = 0, // optimize for speed
@@ -52,108 +52,110 @@ public:
         // See EXTRA_JIT_FLAGS and spmidumphelper.cpp. Currently, these are bits 56 through 63. If they overlap,
         // something needs to change.
     };
-    // clang-format on
+        // clang-format on
 
-    JitFlags() : m_jitFlags(0)
-    {
-        // empty
-    }
+        JitFlags()
+            : m_jitFlags(0)
+        {
+            // empty
+        }
 
-    // Convenience constructor to set exactly one flags.
-    JitFlags(JitFlag flag) : m_jitFlags(0)
-    {
-        Set(flag);
-    }
+        // Convenience constructor to set exactly one flags.
+        JitFlags(JitFlag flag)
+            : m_jitFlags(0)
+        {
+            Set(flag);
+        }
 
-    void Reset()
-    {
-        m_jitFlags = 0;
-    }
+        void Reset()
+        {
+            m_jitFlags = 0;
+        }
 
-    CORINFO_InstructionSetFlags GetInstructionSetFlags() const
-    {
-        return m_instructionSetFlags;
-    }
+        CORINFO_InstructionSetFlags GetInstructionSetFlags() const
+        {
+            return m_instructionSetFlags;
+        }
 
-    void SetInstructionSetFlags(CORINFO_InstructionSetFlags instructionSetFlags)
-    {
-        m_instructionSetFlags = instructionSetFlags;
-    }
+        void SetInstructionSetFlags(CORINFO_InstructionSetFlags instructionSetFlags)
+        {
+            m_instructionSetFlags = instructionSetFlags;
+        }
 
-    void Set(JitFlag flag)
-    {
-        m_jitFlags |= 1ULL << (unsigned __int64)flag;
-    }
+        void Set(JitFlag flag)
+        {
+            m_jitFlags |= 1ULL << (unsigned __int64)flag;
+        }
 
-    void Clear(JitFlag flag)
-    {
-        m_jitFlags &= ~(1ULL << (unsigned __int64)flag);
-    }
+        void Clear(JitFlag flag)
+        {
+            m_jitFlags &= ~(1ULL << (unsigned __int64)flag);
+        }
 
-    bool IsSet(JitFlag flag) const
-    {
-        return (m_jitFlags & (1ULL << (unsigned __int64)flag)) != 0;
-    }
+        bool IsSet(JitFlag flag) const
+        {
+            return (m_jitFlags & (1ULL << (unsigned __int64)flag)) != 0;
+        }
 
-    bool IsEmpty() const
-    {
-        return m_jitFlags == 0;
-    }
+        bool IsEmpty() const
+        {
+            return m_jitFlags == 0;
+        }
 
-    void SetFromFlags(CORJIT_FLAGS flags)
-    {
-        // We don't want to have to check every one, so we assume it is exactly the same values as the JitFlag
-        // values defined in this type.
-        m_jitFlags            = flags.GetFlagsRaw();
-        m_instructionSetFlags = flags.GetInstructionSetFlags();
+        void SetFromFlags(CORJIT_FLAGS flags)
+        {
+            // We don't want to have to check every one, so we assume it is exactly the same values as the JitFlag
+            // values defined in this type.
+            m_jitFlags            = flags.GetFlagsRaw();
+            m_instructionSetFlags = flags.GetInstructionSetFlags();
 
-        C_ASSERT(sizeof(JitFlags) == sizeof(CORJIT_FLAGS));
+            C_ASSERT(sizeof(JitFlags) == sizeof(CORJIT_FLAGS));
 
 #define FLAGS_EQUAL(a, b) C_ASSERT((unsigned)(a) == (unsigned)(b))
 
-        FLAGS_EQUAL(CORJIT_FLAGS::CORJIT_FLAG_SPEED_OPT, JIT_FLAG_SPEED_OPT);
-        FLAGS_EQUAL(CORJIT_FLAGS::CORJIT_FLAG_SIZE_OPT, JIT_FLAG_SIZE_OPT);
-        FLAGS_EQUAL(CORJIT_FLAGS::CORJIT_FLAG_DEBUG_CODE, JIT_FLAG_DEBUG_CODE);
-        FLAGS_EQUAL(CORJIT_FLAGS::CORJIT_FLAG_DEBUG_EnC, JIT_FLAG_DEBUG_EnC);
-        FLAGS_EQUAL(CORJIT_FLAGS::CORJIT_FLAG_DEBUG_INFO, JIT_FLAG_DEBUG_INFO);
-        FLAGS_EQUAL(CORJIT_FLAGS::CORJIT_FLAG_MIN_OPT, JIT_FLAG_MIN_OPT);
-        FLAGS_EQUAL(CORJIT_FLAGS::CORJIT_FLAG_ENABLE_CFG, JIT_FLAG_ENABLE_CFG);
-        FLAGS_EQUAL(CORJIT_FLAGS::CORJIT_FLAG_OSR, JIT_FLAG_OSR);
-        FLAGS_EQUAL(CORJIT_FLAGS::CORJIT_FLAG_ALT_JIT, JIT_FLAG_ALT_JIT);
-        FLAGS_EQUAL(CORJIT_FLAGS::CORJIT_FLAG_FROZEN_ALLOC_ALLOWED, JIT_FLAG_FROZEN_ALLOC_ALLOWED);
-        FLAGS_EQUAL(CORJIT_FLAGS::CORJIT_FLAG_MAKEFINALCODE, JIT_FLAG_MAKEFINALCODE);
-        FLAGS_EQUAL(CORJIT_FLAGS::CORJIT_FLAG_READYTORUN, JIT_FLAG_READYTORUN);
-        FLAGS_EQUAL(CORJIT_FLAGS::CORJIT_FLAG_PROF_ENTERLEAVE, JIT_FLAG_PROF_ENTERLEAVE);
-        FLAGS_EQUAL(CORJIT_FLAGS::CORJIT_FLAG_PROF_NO_PINVOKE_INLINE, JIT_FLAG_PROF_NO_PINVOKE_INLINE);
-        FLAGS_EQUAL(CORJIT_FLAGS::CORJIT_FLAG_PREJIT, JIT_FLAG_PREJIT);
-        FLAGS_EQUAL(CORJIT_FLAGS::CORJIT_FLAG_RELOC, JIT_FLAG_RELOC);
-        FLAGS_EQUAL(CORJIT_FLAGS::CORJIT_FLAG_IL_STUB, JIT_FLAG_IL_STUB);
-        FLAGS_EQUAL(CORJIT_FLAGS::CORJIT_FLAG_PROCSPLIT, JIT_FLAG_PROCSPLIT);
-        FLAGS_EQUAL(CORJIT_FLAGS::CORJIT_FLAG_BBINSTR, JIT_FLAG_BBINSTR);
-        FLAGS_EQUAL(CORJIT_FLAGS::CORJIT_FLAG_BBINSTR_IF_LOOPS, JIT_FLAG_BBINSTR_IF_LOOPS);
-        FLAGS_EQUAL(CORJIT_FLAGS::CORJIT_FLAG_BBOPT, JIT_FLAG_BBOPT);
-        FLAGS_EQUAL(CORJIT_FLAGS::CORJIT_FLAG_FRAMED, JIT_FLAG_FRAMED);
-        FLAGS_EQUAL(CORJIT_FLAGS::CORJIT_FLAG_PUBLISH_SECRET_PARAM, JIT_FLAG_PUBLISH_SECRET_PARAM);
-        FLAGS_EQUAL(CORJIT_FLAGS::CORJIT_FLAG_USE_PINVOKE_HELPERS, JIT_FLAG_USE_PINVOKE_HELPERS);
-        FLAGS_EQUAL(CORJIT_FLAGS::CORJIT_FLAG_REVERSE_PINVOKE, JIT_FLAG_REVERSE_PINVOKE);
-        FLAGS_EQUAL(CORJIT_FLAGS::CORJIT_FLAG_TRACK_TRANSITIONS, JIT_FLAG_TRACK_TRANSITIONS);
-        FLAGS_EQUAL(CORJIT_FLAGS::CORJIT_FLAG_TIER0, JIT_FLAG_TIER0);
-        FLAGS_EQUAL(CORJIT_FLAGS::CORJIT_FLAG_TIER1, JIT_FLAG_TIER1);
-        FLAGS_EQUAL(CORJIT_FLAGS::CORJIT_FLAG_NO_INLINING, JIT_FLAG_NO_INLINING);
+            FLAGS_EQUAL(CORJIT_FLAGS::CORJIT_FLAG_SPEED_OPT, JIT_FLAG_SPEED_OPT);
+            FLAGS_EQUAL(CORJIT_FLAGS::CORJIT_FLAG_SIZE_OPT, JIT_FLAG_SIZE_OPT);
+            FLAGS_EQUAL(CORJIT_FLAGS::CORJIT_FLAG_DEBUG_CODE, JIT_FLAG_DEBUG_CODE);
+            FLAGS_EQUAL(CORJIT_FLAGS::CORJIT_FLAG_DEBUG_EnC, JIT_FLAG_DEBUG_EnC);
+            FLAGS_EQUAL(CORJIT_FLAGS::CORJIT_FLAG_DEBUG_INFO, JIT_FLAG_DEBUG_INFO);
+            FLAGS_EQUAL(CORJIT_FLAGS::CORJIT_FLAG_MIN_OPT, JIT_FLAG_MIN_OPT);
+            FLAGS_EQUAL(CORJIT_FLAGS::CORJIT_FLAG_ENABLE_CFG, JIT_FLAG_ENABLE_CFG);
+            FLAGS_EQUAL(CORJIT_FLAGS::CORJIT_FLAG_OSR, JIT_FLAG_OSR);
+            FLAGS_EQUAL(CORJIT_FLAGS::CORJIT_FLAG_ALT_JIT, JIT_FLAG_ALT_JIT);
+            FLAGS_EQUAL(CORJIT_FLAGS::CORJIT_FLAG_FROZEN_ALLOC_ALLOWED, JIT_FLAG_FROZEN_ALLOC_ALLOWED);
+            FLAGS_EQUAL(CORJIT_FLAGS::CORJIT_FLAG_MAKEFINALCODE, JIT_FLAG_MAKEFINALCODE);
+            FLAGS_EQUAL(CORJIT_FLAGS::CORJIT_FLAG_READYTORUN, JIT_FLAG_READYTORUN);
+            FLAGS_EQUAL(CORJIT_FLAGS::CORJIT_FLAG_PROF_ENTERLEAVE, JIT_FLAG_PROF_ENTERLEAVE);
+            FLAGS_EQUAL(CORJIT_FLAGS::CORJIT_FLAG_PROF_NO_PINVOKE_INLINE, JIT_FLAG_PROF_NO_PINVOKE_INLINE);
+            FLAGS_EQUAL(CORJIT_FLAGS::CORJIT_FLAG_PREJIT, JIT_FLAG_PREJIT);
+            FLAGS_EQUAL(CORJIT_FLAGS::CORJIT_FLAG_RELOC, JIT_FLAG_RELOC);
+            FLAGS_EQUAL(CORJIT_FLAGS::CORJIT_FLAG_IL_STUB, JIT_FLAG_IL_STUB);
+            FLAGS_EQUAL(CORJIT_FLAGS::CORJIT_FLAG_PROCSPLIT, JIT_FLAG_PROCSPLIT);
+            FLAGS_EQUAL(CORJIT_FLAGS::CORJIT_FLAG_BBINSTR, JIT_FLAG_BBINSTR);
+            FLAGS_EQUAL(CORJIT_FLAGS::CORJIT_FLAG_BBINSTR_IF_LOOPS, JIT_FLAG_BBINSTR_IF_LOOPS);
+            FLAGS_EQUAL(CORJIT_FLAGS::CORJIT_FLAG_BBOPT, JIT_FLAG_BBOPT);
+            FLAGS_EQUAL(CORJIT_FLAGS::CORJIT_FLAG_FRAMED, JIT_FLAG_FRAMED);
+            FLAGS_EQUAL(CORJIT_FLAGS::CORJIT_FLAG_PUBLISH_SECRET_PARAM, JIT_FLAG_PUBLISH_SECRET_PARAM);
+            FLAGS_EQUAL(CORJIT_FLAGS::CORJIT_FLAG_USE_PINVOKE_HELPERS, JIT_FLAG_USE_PINVOKE_HELPERS);
+            FLAGS_EQUAL(CORJIT_FLAGS::CORJIT_FLAG_REVERSE_PINVOKE, JIT_FLAG_REVERSE_PINVOKE);
+            FLAGS_EQUAL(CORJIT_FLAGS::CORJIT_FLAG_TRACK_TRANSITIONS, JIT_FLAG_TRACK_TRANSITIONS);
+            FLAGS_EQUAL(CORJIT_FLAGS::CORJIT_FLAG_TIER0, JIT_FLAG_TIER0);
+            FLAGS_EQUAL(CORJIT_FLAGS::CORJIT_FLAG_TIER1, JIT_FLAG_TIER1);
+            FLAGS_EQUAL(CORJIT_FLAGS::CORJIT_FLAG_NO_INLINING, JIT_FLAG_NO_INLINING);
 
 #if defined(TARGET_ARM)
-        FLAGS_EQUAL(CORJIT_FLAGS::CORJIT_FLAG_RELATIVE_CODE_RELOCS, JIT_FLAG_RELATIVE_CODE_RELOCS);
-        FLAGS_EQUAL(CORJIT_FLAGS::CORJIT_FLAG_SOFTFP_ABI, JIT_FLAG_SOFTFP_ABI);
+            FLAGS_EQUAL(CORJIT_FLAGS::CORJIT_FLAG_RELATIVE_CODE_RELOCS, JIT_FLAG_RELATIVE_CODE_RELOCS);
+            FLAGS_EQUAL(CORJIT_FLAGS::CORJIT_FLAG_SOFTFP_ABI, JIT_FLAG_SOFTFP_ABI);
 #endif // TARGET_ARM
 
 #if defined(TARGET_X86) || defined(TARGET_AMD64)
-        FLAGS_EQUAL(CORJIT_FLAGS::CORJIT_FLAG_VECTOR512_THROTTLING, JIT_FLAG_VECTOR512_THROTTLING);
+            FLAGS_EQUAL(CORJIT_FLAGS::CORJIT_FLAG_VECTOR512_THROTTLING, JIT_FLAG_VECTOR512_THROTTLING);
 #endif // TARGET_ARM
 
 #undef FLAGS_EQUAL
-    }
+        }
 
-private:
-    unsigned __int64            m_jitFlags;
-    CORINFO_InstructionSetFlags m_instructionSetFlags;
+    private:
+        unsigned __int64            m_jitFlags;
+        CORINFO_InstructionSetFlags m_instructionSetFlags;
 };

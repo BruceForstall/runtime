@@ -161,8 +161,8 @@ void Compiler::fgDebugCheckUpdate()
 
 struct escapeMapping_t
 {
-    char        ch;
-    const char* sub;
+        char        ch;
+        const char* sub;
 };
 
 // clang-format off
@@ -375,8 +375,7 @@ void Compiler::fgDumpTree(FILE* fgxFile, GenTree* const tree)
 }
 
 #ifdef DEBUG
-namespace
-{
+namespace {
 const char* ConvertToUtf8(LPCWSTR wideString, CompAllocator& allocator)
 {
     int utf8Len = WszWideCharToMultiByte(CP_UTF8, 0, wideString, -1, nullptr, 0, nullptr, nullptr);
@@ -544,9 +543,9 @@ FILE* Compiler::fgOpenFlowGraphFile(bool* wbDontClose, Phases phase, PhasePositi
     else if (strcmp(filename, "all") == 0)
     {
 
-    ONE_FILE_PER_METHOD:;
+ONE_FILE_PER_METHOD:;
 
-#define FILENAME_PATTERN "%s-%s-%s-%s.%s"
+#define FILENAME_PATTERN             "%s-%s-%s-%s.%s"
 #define FILENAME_PATTERN_WITH_NUMBER "%s-%s-%s-%s~%d.%s"
 
         const size_t MaxFileNameLength = MAX_PATH_FNAME - 20 /* give us some extra buffer */;
@@ -1219,426 +1218,430 @@ bool Compiler::fgDumpFlowGraph(Phases phase, PhasePosition pos)
             // RegionGraph: represent non-overlapping, possibly nested, block ranges in the flow graph.
             class RegionGraph
             {
-            public:
-                enum class RegionType
-                {
-                    Root,
-                    EH,
-                };
+                public:
+                    enum class RegionType {
+                        Root,
+                        EH,
+                    };
 
-            private:
-                struct Region
-                {
-                    Region(RegionType rgnType, const char* rgnName, BasicBlock* bbStart, BasicBlock* bbEnd)
-                        : m_rgnNext(nullptr)
-                        , m_rgnChild(nullptr)
-                        , m_rgnType(rgnType)
-                        , m_bbStart(bbStart)
-                        , m_bbEnd(bbEnd)
+                private:
+                    struct Region
                     {
-                        strcpy_s(m_rgnName, sizeof(m_rgnName), rgnName);
-                    }
-
-                    Region*     m_rgnNext;
-                    Region*     m_rgnChild;
-                    RegionType  m_rgnType;
-                    char        m_rgnName[30];
-                    BasicBlock* m_bbStart;
-                    BasicBlock* m_bbEnd;
-                };
-
-            public:
-                RegionGraph(Compiler* comp, unsigned* blkMap, unsigned blkMapSize)
-                    : m_comp(comp), m_rgnRoot(nullptr), m_blkMap(blkMap), m_blkMapSize(blkMapSize)
-                {
-                    // Create a root region that encompasses the whole function.
-                    m_rgnRoot =
-                        new (m_comp, CMK_DebugOnly) Region(RegionType::Root, "Root", comp->fgFirstBB, comp->fgLastBB);
-                }
-
-                //------------------------------------------------------------------------
-                // Insert: Insert a region [start..end] (inclusive) into the graph.
-                //
-                // Arguments:
-                //    name    - the textual label to use for the region
-                //    rgnType - the region type
-                //    start   - start block of the region
-                //    end     - last block of the region
-                //
-                void Insert(const char* name, RegionType rgnType, BasicBlock* start, BasicBlock* end)
-                {
-                    JITDUMP("Insert region: %s, type: %s, start: " FMT_BB ", end: " FMT_BB "\n", name,
-                            GetRegionType(rgnType), start->bbNum, end->bbNum);
-
-                    assert(start != nullptr);
-                    assert(end != nullptr);
-
-                    Region*  newRgn          = new (m_comp, CMK_DebugOnly) Region(rgnType, name, start, end);
-                    unsigned newStartOrdinal = m_blkMap[start->bbNum];
-                    unsigned newEndOrdinal   = m_blkMap[end->bbNum];
-
-                    Region*  curRgn          = m_rgnRoot;
-                    unsigned curStartOrdinal = m_blkMap[curRgn->m_bbStart->bbNum];
-                    unsigned curEndOrdinal   = m_blkMap[curRgn->m_bbEnd->bbNum];
-
-                    // A range can be a single block, but there can be no overlap between ranges.
-                    assert(newStartOrdinal <= newEndOrdinal);
-                    assert(curStartOrdinal <= curEndOrdinal);
-                    assert(newStartOrdinal >= curStartOrdinal);
-                    assert(newEndOrdinal <= curEndOrdinal);
-
-                    // We know the new region will be part of the current region. Should it be a direct
-                    // child, or put within one of the existing children?
-                    Region** lastChildPtr = &curRgn->m_rgnChild;
-                    Region*  child        = curRgn->m_rgnChild;
-                    while (child != nullptr)
-                    {
-                        unsigned childStartOrdinal = m_blkMap[child->m_bbStart->bbNum];
-                        unsigned childEndOrdinal   = m_blkMap[child->m_bbEnd->bbNum];
-
-                        // Consider the following cases, where each "x" is a block in the range:
-                        //    xxxxxxx      // current 'child' range; we're comparing against this
-                        //    xxxxxxx      // (1) same range; could be considered child or parent
-                        //  xxxxxxxxx      // (2) parent range, shares last block
-                        //    xxxxxxxxx    // (3) parent range, shares first block
-                        //  xxxxxxxxxxx    // (4) fully overlapping parent range
-                        // xx              // (5) non-overlapping preceding sibling range
-                        //            xx   // (6) non-overlapping following sibling range
-                        //      xxx        // (7) child range
-                        //    xxx          // (8) child range, shares same start block
-                        //    x            // (9) single-block child range, shares same start block
-                        //        xxx      // (10) child range, shares same end block
-                        //          x      // (11) single-block child range, shares same end block
-                        //  xxxxxxx        // illegal: overlapping ranges
-                        //  xxx            // illegal: overlapping ranges (shared child start block and new end block)
-                        //      xxxxxxx    // illegal: overlapping ranges
-                        //          xxx    // illegal: overlapping ranges (shared child end block and new start block)
-
-                        // Assert the child is properly nested within the parent.
-                        // Note that if regions have the same start and end, you can't tell which is nested within the
-                        // other, though it shouldn't matter.
-                        assert(childStartOrdinal <= childEndOrdinal);
-                        assert(curStartOrdinal <= childStartOrdinal);
-                        assert(childEndOrdinal <= curEndOrdinal);
-
-                        // Should the new region be before this child?
-                        // Case (5).
-                        if (newEndOrdinal < childStartOrdinal)
-                        {
-                            // Insert before this child.
-                            newRgn->m_rgnNext = child;
-                            *lastChildPtr     = newRgn;
-                            break;
-                        }
-                        else if ((newStartOrdinal >= childStartOrdinal) && (newEndOrdinal <= childEndOrdinal))
-                        {
-                            // Insert as a child of this child.
-                            // Need to recurse to walk the child's children list to see where it belongs.
-                            // Case (1), (7), (8), (9), (10), (11).
-
-                            curStartOrdinal = m_blkMap[child->m_bbStart->bbNum];
-                            curEndOrdinal   = m_blkMap[child->m_bbEnd->bbNum];
-
-                            lastChildPtr = &child->m_rgnChild;
-                            child        = child->m_rgnChild;
-
-                            continue;
-                        }
-                        else if (newStartOrdinal <= childStartOrdinal)
-                        {
-                            // The new region is a parent of one or more of the existing children.
-                            // Case (2), (3), (4).
-
-                            // Find all the children it encompasses.
-                            Region** lastEndChildPtr = &child->m_rgnNext;
-                            Region*  endChild        = child->m_rgnNext;
-                            while (endChild != nullptr)
+                            Region(RegionType rgnType, const char* rgnName, BasicBlock* bbStart, BasicBlock* bbEnd)
+                                : m_rgnNext(nullptr)
+                                , m_rgnChild(nullptr)
+                                , m_rgnType(rgnType)
+                                , m_bbStart(bbStart)
+                                , m_bbEnd(bbEnd)
                             {
-                                unsigned endChildStartOrdinal = m_blkMap[endChild->m_bbStart->bbNum];
-                                unsigned endChildEndOrdinal   = m_blkMap[endChild->m_bbEnd->bbNum];
-                                assert(endChildStartOrdinal <= endChildEndOrdinal);
-
-                                if (newEndOrdinal < endChildStartOrdinal)
-                                {
-                                    // Found the range
-                                    break;
-                                }
-
-                                lastEndChildPtr = &endChild->m_rgnNext;
-                                endChild        = endChild->m_rgnNext;
+                                strcpy_s(m_rgnName, sizeof(m_rgnName), rgnName);
                             }
 
-                            // The range is [child..endChild previous]. If endChild is nullptr, then
-                            // the range is to the end of the parent. Move these all to be
-                            // children of newRgn, and put newRgn in where `child` is.
-                            newRgn->m_rgnNext = endChild;
-                            *lastChildPtr     = newRgn;
+                            Region*     m_rgnNext;
+                            Region*     m_rgnChild;
+                            RegionType  m_rgnType;
+                            char        m_rgnName[30];
+                            BasicBlock* m_bbStart;
+                            BasicBlock* m_bbEnd;
+                    };
 
-                            newRgn->m_rgnChild = child;
-                            *lastEndChildPtr   = nullptr;
-
-                            break;
-                        }
-
-                        // Else, look for next child.
-                        // Case (6).
-
-                        lastChildPtr = &child->m_rgnNext;
-                        child        = child->m_rgnNext;
+                public:
+                    RegionGraph(Compiler* comp, unsigned* blkMap, unsigned blkMapSize)
+                        : m_comp(comp)
+                        , m_rgnRoot(nullptr)
+                        , m_blkMap(blkMap)
+                        , m_blkMapSize(blkMapSize)
+                    {
+                        // Create a root region that encompasses the whole function.
+                        m_rgnRoot = new (m_comp, CMK_DebugOnly)
+                            Region(RegionType::Root, "Root", comp->fgFirstBB, comp->fgLastBB);
                     }
 
-                    if (child == nullptr)
+                    //------------------------------------------------------------------------
+                    // Insert: Insert a region [start..end] (inclusive) into the graph.
+                    //
+                    // Arguments:
+                    //    name    - the textual label to use for the region
+                    //    rgnType - the region type
+                    //    start   - start block of the region
+                    //    end     - last block of the region
+                    //
+                    void Insert(const char* name, RegionType rgnType, BasicBlock* start, BasicBlock* end)
                     {
-                        // Insert as the last child (could be the only child).
-                        *lastChildPtr = newRgn;
-                    }
-                }
+                        JITDUMP("Insert region: %s, type: %s, start: " FMT_BB ", end: " FMT_BB "\n", name,
+                                GetRegionType(rgnType), start->bbNum, end->bbNum);
 
-#ifdef DEBUG
+                        assert(start != nullptr);
+                        assert(end != nullptr);
 
-                const unsigned dumpIndentIncrement = 2; // How much to indent each nested level.
+                        Region*  newRgn          = new (m_comp, CMK_DebugOnly) Region(rgnType, name, start, end);
+                        unsigned newStartOrdinal = m_blkMap[start->bbNum];
+                        unsigned newEndOrdinal   = m_blkMap[end->bbNum];
 
-                //------------------------------------------------------------------------
-                // GetRegionType: get a textual name for the region type, to be used in dumps.
-                //
-                // Arguments:
-                //    rgnType - the region type
-                //
-                static const char* GetRegionType(RegionType rgnType)
-                {
-                    switch (rgnType)
-                    {
-                        case RegionType::Root:
-                            return "Root";
-                        case RegionType::EH:
-                            return "EH";
-                        default:
-                            return "UNKNOWN";
-                    }
-                }
+                        Region*  curRgn          = m_rgnRoot;
+                        unsigned curStartOrdinal = m_blkMap[curRgn->m_bbStart->bbNum];
+                        unsigned curEndOrdinal   = m_blkMap[curRgn->m_bbEnd->bbNum];
 
-                //------------------------------------------------------------------------
-                // DumpRegionNode: Region graph dump helper to dump a region node at the given indent,
-                // and recursive dump its children.
-                //
-                // Arguments:
-                //    rgn    - the region to dump
-                //    indent - number of leading characters to indent all output
-                //
-                void DumpRegionNode(Region* rgn, unsigned indent) const
-                {
-                    printf("%*s======\n", indent, "");
-                    printf("%*sType: %s\n", indent, "", GetRegionType(rgn->m_rgnType));
-                    printf("%*sName: %s\n", indent, "", rgn->m_rgnName);
-                    printf("%*sRange: " FMT_BB ".." FMT_BB "\n", indent, "", rgn->m_bbStart->bbNum,
-                           rgn->m_bbEnd->bbNum);
+                        // A range can be a single block, but there can be no overlap between ranges.
+                        assert(newStartOrdinal <= newEndOrdinal);
+                        assert(curStartOrdinal <= curEndOrdinal);
+                        assert(newStartOrdinal >= curStartOrdinal);
+                        assert(newEndOrdinal <= curEndOrdinal);
 
-                    for (Region* child = rgn->m_rgnChild; child != nullptr; child = child->m_rgnNext)
-                    {
-                        DumpRegionNode(child, indent + dumpIndentIncrement);
-                    }
-                }
-
-                //------------------------------------------------------------------------
-                // Dump: dump the entire region graph
-                //
-                void Dump()
-                {
-                    printf("Region graph:\n");
-                    DumpRegionNode(m_rgnRoot, 0);
-                    printf("\n");
-                }
-
-                //------------------------------------------------------------------------
-                // VerifyNode: verify the region graph rooted at `rgn`.
-                //
-                // Arguments:
-                //    rgn  - the node (and its children) to check.
-                //
-                void Verify(Region* rgn)
-                {
-                    // The region needs to be a non-overlapping parent to all its children.
-                    // The children need to be non-overlapping, and in increasing order.
-
-                    unsigned rgnStartOrdinal = m_blkMap[rgn->m_bbStart->bbNum];
-                    unsigned rgnEndOrdinal   = m_blkMap[rgn->m_bbEnd->bbNum];
-                    assert(rgnStartOrdinal <= rgnEndOrdinal);
-
-                    Region* child     = rgn->m_rgnChild;
-                    Region* lastChild = nullptr;
-                    if (child != nullptr)
-                    {
-                        unsigned childStartOrdinal = m_blkMap[child->m_bbStart->bbNum];
-                        unsigned childEndOrdinal   = m_blkMap[child->m_bbEnd->bbNum];
-                        assert(childStartOrdinal <= childEndOrdinal);
-                        assert(rgnStartOrdinal <= childStartOrdinal);
-
-                        while (true)
+                        // We know the new region will be part of the current region. Should it be a direct
+                        // child, or put within one of the existing children?
+                        Region** lastChildPtr = &curRgn->m_rgnChild;
+                        Region*  child        = curRgn->m_rgnChild;
+                        while (child != nullptr)
                         {
-                            Verify(child);
+                            unsigned childStartOrdinal = m_blkMap[child->m_bbStart->bbNum];
+                            unsigned childEndOrdinal   = m_blkMap[child->m_bbEnd->bbNum];
 
-                            lastChild                      = child;
-                            unsigned lastChildStartOrdinal = childStartOrdinal;
-                            unsigned lastChildEndOrdinal   = childEndOrdinal;
+                            // Consider the following cases, where each "x" is a block in the range:
+                            //    xxxxxxx      // current 'child' range; we're comparing against this
+                            //    xxxxxxx      // (1) same range; could be considered child or parent
+                            //  xxxxxxxxx      // (2) parent range, shares last block
+                            //    xxxxxxxxx    // (3) parent range, shares first block
+                            //  xxxxxxxxxxx    // (4) fully overlapping parent range
+                            // xx              // (5) non-overlapping preceding sibling range
+                            //            xx   // (6) non-overlapping following sibling range
+                            //      xxx        // (7) child range
+                            //    xxx          // (8) child range, shares same start block
+                            //    x            // (9) single-block child range, shares same start block
+                            //        xxx      // (10) child range, shares same end block
+                            //          x      // (11) single-block child range, shares same end block
+                            //  xxxxxxx        // illegal: overlapping ranges
+                            //  xxx            // illegal: overlapping ranges (shared child start block and new end
+                            //  block)
+                            //      xxxxxxx    // illegal: overlapping ranges
+                            //          xxx    // illegal: overlapping ranges (shared child end block and new start
+                            //          block)
 
-                            child = child->m_rgnNext;
-                            if (child == nullptr)
+                            // Assert the child is properly nested within the parent.
+                            // Note that if regions have the same start and end, you can't tell which is nested within
+                            // the other, though it shouldn't matter.
+                            assert(childStartOrdinal <= childEndOrdinal);
+                            assert(curStartOrdinal <= childStartOrdinal);
+                            assert(childEndOrdinal <= curEndOrdinal);
+
+                            // Should the new region be before this child?
+                            // Case (5).
+                            if (newEndOrdinal < childStartOrdinal)
                             {
+                                // Insert before this child.
+                                newRgn->m_rgnNext = child;
+                                *lastChildPtr     = newRgn;
+                                break;
+                            }
+                            else if ((newStartOrdinal >= childStartOrdinal) && (newEndOrdinal <= childEndOrdinal))
+                            {
+                                // Insert as a child of this child.
+                                // Need to recurse to walk the child's children list to see where it belongs.
+                                // Case (1), (7), (8), (9), (10), (11).
+
+                                curStartOrdinal = m_blkMap[child->m_bbStart->bbNum];
+                                curEndOrdinal   = m_blkMap[child->m_bbEnd->bbNum];
+
+                                lastChildPtr = &child->m_rgnChild;
+                                child        = child->m_rgnChild;
+
+                                continue;
+                            }
+                            else if (newStartOrdinal <= childStartOrdinal)
+                            {
+                                // The new region is a parent of one or more of the existing children.
+                                // Case (2), (3), (4).
+
+                                // Find all the children it encompasses.
+                                Region** lastEndChildPtr = &child->m_rgnNext;
+                                Region*  endChild        = child->m_rgnNext;
+                                while (endChild != nullptr)
+                                {
+                                    unsigned endChildStartOrdinal = m_blkMap[endChild->m_bbStart->bbNum];
+                                    unsigned endChildEndOrdinal   = m_blkMap[endChild->m_bbEnd->bbNum];
+                                    assert(endChildStartOrdinal <= endChildEndOrdinal);
+
+                                    if (newEndOrdinal < endChildStartOrdinal)
+                                    {
+                                        // Found the range
+                                        break;
+                                    }
+
+                                    lastEndChildPtr = &endChild->m_rgnNext;
+                                    endChild        = endChild->m_rgnNext;
+                                }
+
+                                // The range is [child..endChild previous]. If endChild is nullptr, then
+                                // the range is to the end of the parent. Move these all to be
+                                // children of newRgn, and put newRgn in where `child` is.
+                                newRgn->m_rgnNext = endChild;
+                                *lastChildPtr     = newRgn;
+
+                                newRgn->m_rgnChild = child;
+                                *lastEndChildPtr   = nullptr;
+
                                 break;
                             }
 
-                            childStartOrdinal = m_blkMap[child->m_bbStart->bbNum];
-                            childEndOrdinal   = m_blkMap[child->m_bbEnd->bbNum];
-                            assert(childStartOrdinal <= childEndOrdinal);
+                            // Else, look for next child.
+                            // Case (6).
 
-                            // The children can't overlap; they can't share any blocks.
-                            assert(lastChildEndOrdinal < childStartOrdinal);
+                            lastChildPtr = &child->m_rgnNext;
+                            child        = child->m_rgnNext;
                         }
 
-                        // The parent region must fully include the last child.
-                        assert(childEndOrdinal <= rgnEndOrdinal);
+                        if (child == nullptr)
+                        {
+                            // Insert as the last child (could be the only child).
+                            *lastChildPtr = newRgn;
+                        }
                     }
-                }
 
-                //------------------------------------------------------------------------
-                // Verify: verify the region graph satisfies proper nesting, and other legality rules.
-                //
-                void Verify()
-                {
-                    assert(m_comp != nullptr);
-                    assert(m_blkMap != nullptr);
-                    for (unsigned i = 0; i < m_blkMapSize; i++)
+#ifdef DEBUG
+
+                    const unsigned dumpIndentIncrement = 2; // How much to indent each nested level.
+
+                    //------------------------------------------------------------------------
+                    // GetRegionType: get a textual name for the region type, to be used in dumps.
+                    //
+                    // Arguments:
+                    //    rgnType - the region type
+                    //
+                    static const char* GetRegionType(RegionType rgnType)
                     {
-                        assert(m_blkMap[i] < m_blkMapSize);
+                        switch (rgnType)
+                        {
+                            case RegionType::Root:
+                                return "Root";
+                            case RegionType::EH:
+                                return "EH";
+                            default:
+                                return "UNKNOWN";
+                        }
                     }
 
-                    // The root region has no siblings.
-                    assert(m_rgnRoot != nullptr);
-                    assert(m_rgnRoot->m_rgnNext == nullptr);
-                    Verify(m_rgnRoot);
-                }
+                    //------------------------------------------------------------------------
+                    // DumpRegionNode: Region graph dump helper to dump a region node at the given indent,
+                    // and recursive dump its children.
+                    //
+                    // Arguments:
+                    //    rgn    - the region to dump
+                    //    indent - number of leading characters to indent all output
+                    //
+                    void DumpRegionNode(Region* rgn, unsigned indent) const
+                    {
+                        printf("%*s======\n", indent, "");
+                        printf("%*sType: %s\n", indent, "", GetRegionType(rgn->m_rgnType));
+                        printf("%*sName: %s\n", indent, "", rgn->m_rgnName);
+                        printf("%*sRange: " FMT_BB ".." FMT_BB "\n", indent, "", rgn->m_bbStart->bbNum,
+                               rgn->m_bbEnd->bbNum);
+
+                        for (Region* child = rgn->m_rgnChild; child != nullptr; child = child->m_rgnNext)
+                        {
+                            DumpRegionNode(child, indent + dumpIndentIncrement);
+                        }
+                    }
+
+                    //------------------------------------------------------------------------
+                    // Dump: dump the entire region graph
+                    //
+                    void Dump()
+                    {
+                        printf("Region graph:\n");
+                        DumpRegionNode(m_rgnRoot, 0);
+                        printf("\n");
+                    }
+
+                    //------------------------------------------------------------------------
+                    // VerifyNode: verify the region graph rooted at `rgn`.
+                    //
+                    // Arguments:
+                    //    rgn  - the node (and its children) to check.
+                    //
+                    void Verify(Region* rgn)
+                    {
+                        // The region needs to be a non-overlapping parent to all its children.
+                        // The children need to be non-overlapping, and in increasing order.
+
+                        unsigned rgnStartOrdinal = m_blkMap[rgn->m_bbStart->bbNum];
+                        unsigned rgnEndOrdinal   = m_blkMap[rgn->m_bbEnd->bbNum];
+                        assert(rgnStartOrdinal <= rgnEndOrdinal);
+
+                        Region* child     = rgn->m_rgnChild;
+                        Region* lastChild = nullptr;
+                        if (child != nullptr)
+                        {
+                            unsigned childStartOrdinal = m_blkMap[child->m_bbStart->bbNum];
+                            unsigned childEndOrdinal   = m_blkMap[child->m_bbEnd->bbNum];
+                            assert(childStartOrdinal <= childEndOrdinal);
+                            assert(rgnStartOrdinal <= childStartOrdinal);
+
+                            while (true)
+                            {
+                                Verify(child);
+
+                                lastChild                      = child;
+                                unsigned lastChildStartOrdinal = childStartOrdinal;
+                                unsigned lastChildEndOrdinal   = childEndOrdinal;
+
+                                child = child->m_rgnNext;
+                                if (child == nullptr)
+                                {
+                                    break;
+                                }
+
+                                childStartOrdinal = m_blkMap[child->m_bbStart->bbNum];
+                                childEndOrdinal   = m_blkMap[child->m_bbEnd->bbNum];
+                                assert(childStartOrdinal <= childEndOrdinal);
+
+                                // The children can't overlap; they can't share any blocks.
+                                assert(lastChildEndOrdinal < childStartOrdinal);
+                            }
+
+                            // The parent region must fully include the last child.
+                            assert(childEndOrdinal <= rgnEndOrdinal);
+                        }
+                    }
+
+                    //------------------------------------------------------------------------
+                    // Verify: verify the region graph satisfies proper nesting, and other legality rules.
+                    //
+                    void Verify()
+                    {
+                        assert(m_comp != nullptr);
+                        assert(m_blkMap != nullptr);
+                        for (unsigned i = 0; i < m_blkMapSize; i++)
+                        {
+                            assert(m_blkMap[i] < m_blkMapSize);
+                        }
+
+                        // The root region has no siblings.
+                        assert(m_rgnRoot != nullptr);
+                        assert(m_rgnRoot->m_rgnNext == nullptr);
+                        Verify(m_rgnRoot);
+                    }
 
 #endif // DEBUG
 
-                //------------------------------------------------------------------------
-                // Output: output the region graph to the .dot file
-                //
-                // Arguments:
-                //    file - the file to write output to.
-                //
-                void Output(FILE* file)
-                {
-                    unsigned clusterNum = 0;
-
-                    // Output the regions; don't output the top (root) region that represents the whole function.
-                    for (Region* child = m_rgnRoot->m_rgnChild; child != nullptr; child = child->m_rgnNext)
+                    //------------------------------------------------------------------------
+                    // Output: output the region graph to the .dot file
+                    //
+                    // Arguments:
+                    //    file - the file to write output to.
+                    //
+                    void Output(FILE* file)
                     {
-                        OutputRegion(file, clusterNum, child, 4);
-                    }
-                    fprintf(file, "\n");
-                }
+                        unsigned clusterNum = 0;
 
-            private:
-                //------------------------------------------------------------------------
-                // GetColorForRegion: get a color name to use for a region
-                //
-                // Arguments:
-                //    rgn - the region for which we need a color
-                //
-                static const char* GetColorForRegion(Region* rgn)
-                {
-                    RegionType rgnType = rgn->m_rgnType;
-                    switch (rgnType)
-                    {
-                        case RegionType::EH:
-                            return "red";
-                        default:
-                            return "black";
-                    }
-                }
-
-                //------------------------------------------------------------------------
-                // OutputRegion: helper function to output a region and its nested children
-                // to the .dot file.
-                //
-                // Arguments:
-                //    file       - the file to write output to.
-                //    clusterNum - the number of this dot "cluster". This is updated as we
-                //                 create new clusters.
-                //    rgn        - the region to output.
-                //    indent     - the current indent level, in characters.
-                //
-                void OutputRegion(FILE* file, unsigned& clusterNum, Region* rgn, unsigned indent)
-                {
-                    fprintf(file, "%*ssubgraph cluster_%u {\n", indent, "", clusterNum);
-                    indent += 4;
-                    fprintf(file, "%*slabel = \"%s\";\n", indent, "", rgn->m_rgnName);
-                    fprintf(file, "%*scolor = %s;\n", indent, "", GetColorForRegion(rgn));
-                    clusterNum++;
-
-                    bool        needIndent = true;
-                    BasicBlock* bbCur      = rgn->m_bbStart;
-                    BasicBlock* bbEnd      = rgn->m_bbEnd->Next();
-                    Region*     child      = rgn->m_rgnChild;
-                    BasicBlock* childCurBB = (child == nullptr) ? nullptr : child->m_bbStart;
-
-                    // Count the children and assert we output all of them.
-                    unsigned totalChildren = 0;
-                    unsigned childCount    = 0;
-                    for (Region* tmpChild = child; tmpChild != nullptr; tmpChild = tmpChild->m_rgnNext)
-                    {
-                        totalChildren++;
-                    }
-
-                    while (bbCur != bbEnd)
-                    {
-                        // Output from bbCur to current child first block.
-                        while ((bbCur != childCurBB) && (bbCur != bbEnd))
+                        // Output the regions; don't output the top (root) region that represents the whole function.
+                        for (Region* child = m_rgnRoot->m_rgnChild; child != nullptr; child = child->m_rgnNext)
                         {
-                            fprintf(file, "%*s" FMT_BB ";", needIndent ? indent : 0, "", bbCur->bbNum);
-                            needIndent = false;
-                            bbCur      = bbCur->Next();
+                            OutputRegion(file, clusterNum, child, 4);
+                        }
+                        fprintf(file, "\n");
+                    }
+
+                private:
+                    //------------------------------------------------------------------------
+                    // GetColorForRegion: get a color name to use for a region
+                    //
+                    // Arguments:
+                    //    rgn - the region for which we need a color
+                    //
+                    static const char* GetColorForRegion(Region* rgn)
+                    {
+                        RegionType rgnType = rgn->m_rgnType;
+                        switch (rgnType)
+                        {
+                            case RegionType::EH:
+                                return "red";
+                            default:
+                                return "black";
+                        }
+                    }
+
+                    //------------------------------------------------------------------------
+                    // OutputRegion: helper function to output a region and its nested children
+                    // to the .dot file.
+                    //
+                    // Arguments:
+                    //    file       - the file to write output to.
+                    //    clusterNum - the number of this dot "cluster". This is updated as we
+                    //                 create new clusters.
+                    //    rgn        - the region to output.
+                    //    indent     - the current indent level, in characters.
+                    //
+                    void OutputRegion(FILE* file, unsigned& clusterNum, Region* rgn, unsigned indent)
+                    {
+                        fprintf(file, "%*ssubgraph cluster_%u {\n", indent, "", clusterNum);
+                        indent += 4;
+                        fprintf(file, "%*slabel = \"%s\";\n", indent, "", rgn->m_rgnName);
+                        fprintf(file, "%*scolor = %s;\n", indent, "", GetColorForRegion(rgn));
+                        clusterNum++;
+
+                        bool        needIndent = true;
+                        BasicBlock* bbCur      = rgn->m_bbStart;
+                        BasicBlock* bbEnd      = rgn->m_bbEnd->Next();
+                        Region*     child      = rgn->m_rgnChild;
+                        BasicBlock* childCurBB = (child == nullptr) ? nullptr : child->m_bbStart;
+
+                        // Count the children and assert we output all of them.
+                        unsigned totalChildren = 0;
+                        unsigned childCount    = 0;
+                        for (Region* tmpChild = child; tmpChild != nullptr; tmpChild = tmpChild->m_rgnNext)
+                        {
+                            totalChildren++;
                         }
 
-                        if (bbCur == bbEnd)
+                        while (bbCur != bbEnd)
                         {
-                            // We're done at this level.
-                            break;
-                        }
-                        else
-                        {
-                            assert(bbCur != nullptr); // Or else we should also have `bbCur == bbEnd`
-                            assert(child != nullptr);
-
-                            // If there is a child, output that child.
-                            if (!needIndent)
+                            // Output from bbCur to current child first block.
+                            while ((bbCur != childCurBB) && (bbCur != bbEnd))
                             {
-                                // We've printed some basic blocks, so put the subgraph on a new line.
-                                fprintf(file, "\n");
+                                fprintf(file, "%*s" FMT_BB ";", needIndent ? indent : 0, "", bbCur->bbNum);
+                                needIndent = false;
+                                bbCur      = bbCur->Next();
                             }
-                            OutputRegion(file, clusterNum, child, indent);
-                            needIndent = true;
 
-                            childCount++;
+                            if (bbCur == bbEnd)
+                            {
+                                // We're done at this level.
+                                break;
+                            }
+                            else
+                            {
+                                assert(bbCur != nullptr); // Or else we should also have `bbCur == bbEnd`
+                                assert(child != nullptr);
 
-                            bbCur      = child->m_bbEnd->Next(); // Next, output blocks after this child.
-                            child      = child->m_rgnNext;       // Move to the next child, if any.
-                            childCurBB = (child == nullptr) ? nullptr : child->m_bbStart;
+                                // If there is a child, output that child.
+                                if (!needIndent)
+                                {
+                                    // We've printed some basic blocks, so put the subgraph on a new line.
+                                    fprintf(file, "\n");
+                                }
+                                OutputRegion(file, clusterNum, child, indent);
+                                needIndent = true;
+
+                                childCount++;
+
+                                bbCur      = child->m_bbEnd->Next(); // Next, output blocks after this child.
+                                child      = child->m_rgnNext;       // Move to the next child, if any.
+                                childCurBB = (child == nullptr) ? nullptr : child->m_bbStart;
+                            }
                         }
+
+                        // Put the end brace on its own line and leave the cursor at the beginning of the line for the
+                        // parent.
+                        indent -= 4;
+                        fprintf(file, "\n%*s}\n", indent, "");
+
+                        assert(childCount == totalChildren);
                     }
 
-                    // Put the end brace on its own line and leave the cursor at the beginning of the line for the
-                    // parent.
-                    indent -= 4;
-                    fprintf(file, "\n%*s}\n", indent, "");
-
-                    assert(childCount == totalChildren);
-                }
-
-                Compiler* m_comp;
-                Region*   m_rgnRoot;
-                unsigned* m_blkMap;
-                unsigned  m_blkMapSize;
+                    Compiler* m_comp;
+                    Region*   m_rgnRoot;
+                    unsigned* m_blkMap;
+                    unsigned  m_blkMapSize;
             };
 
             // Define the region graph object. We'll add regions to this, then output the graph.
@@ -1732,35 +1735,33 @@ void Compiler::fgDumpFlowGraphLoops(FILE* file)
 {
     class Dumper
     {
-        FlowGraphNaturalLoops* m_loops;
-        BitVecTraits           m_traits;
-        BitVec                 m_outputBlocks;
-        FILE*                  m_file;
-        int                    m_indent    = 4;
-        int                    m_loopIndex = 0;
+            FlowGraphNaturalLoops* m_loops;
+            BitVecTraits           m_traits;
+            BitVec                 m_outputBlocks;
+            FILE*                  m_file;
+            int                    m_indent    = 4;
+            int                    m_loopIndex = 0;
 
-    public:
-        Dumper(FlowGraphNaturalLoops* loops, FILE* file)
-            : m_loops(loops)
-            , m_traits(loops->GetDfsTree()->PostOrderTraits())
-            , m_outputBlocks(BitVecOps::MakeEmpty(&m_traits))
-            , m_file(file)
-        {
-        }
+        public:
+            Dumper(FlowGraphNaturalLoops* loops, FILE* file)
+                : m_loops(loops)
+                , m_traits(loops->GetDfsTree()->PostOrderTraits())
+                , m_outputBlocks(BitVecOps::MakeEmpty(&m_traits))
+                , m_file(file)
+            {
+            }
 
-        void Output(FlowGraphNaturalLoop* loop)
-        {
-            Compiler* comp = loop->GetDfsTree()->GetCompiler();
-            fprintf(m_file, "%*ssubgraph cluster_%d {\n", m_indent, "", m_loopIndex++);
-            m_indent += 4;
+            void Output(FlowGraphNaturalLoop* loop)
+            {
+                Compiler* comp = loop->GetDfsTree()->GetCompiler();
+                fprintf(m_file, "%*ssubgraph cluster_%d {\n", m_indent, "", m_loopIndex++);
+                m_indent += 4;
 
-            fprintf(m_file, "%*slabel = \"" FMT_LP "\";\n", m_indent, "", loop->GetIndex());
-            fprintf(m_file, "%*scolor = blue;\n", m_indent, "");
-            fprintf(m_file, "%*s", m_indent, "");
+                fprintf(m_file, "%*slabel = \"" FMT_LP "\";\n", m_indent, "", loop->GetIndex());
+                fprintf(m_file, "%*scolor = blue;\n", m_indent, "");
+                fprintf(m_file, "%*s", m_indent, "");
 
-            loop->VisitLoopBlocksReversePostOrder(
-                [=](BasicBlock* block)
-                {
+                loop->VisitLoopBlocksReversePostOrder([=](BasicBlock* block) {
                     if (BitVecOps::IsMember(&m_traits, m_outputBlocks, block->bbPostorderNum))
                     {
                         return BasicBlockVisit::Continue;
@@ -1784,9 +1785,9 @@ void Compiler::fgDumpFlowGraphLoops(FILE* file)
                     return BasicBlockVisit::Continue;
                 });
 
-            m_indent -= 4;
-            fprintf(m_file, "\n%*s}", m_indent, "");
-        }
+                m_indent -= 4;
+                fprintf(m_file, "\n%*s}", m_indent, "");
+            }
     };
 
     Dumper dumper(m_loops, file);
@@ -1935,8 +1936,7 @@ void Compiler::fgTableDispBasicBlock(const BasicBlock* block,
     // of the generated string. Note that any computation using `printedBlockWidth` must be done after all
     // calls to this function.
     auto dspBlockNum = [printEdgeLikelihoods, terseNext, nextBlock,
-                        &printedBlockWidth](const FlowEdge* e) -> const char*
-    {
+                        &printedBlockWidth](const FlowEdge* e) -> const char* {
         static char buffers[3][64]; // static array of 3 to allow 3 concurrent calls in one printf()
         static int  nextBufferIndex = 0;
 
@@ -2017,38 +2017,38 @@ void Compiler::fgTableDispBasicBlock(const BasicBlock* block,
                 break;
 
             case BBJ_EHFINALLYRET:
-            {
-                printf("->");
-                printedBlockWidth = 2 + 9 /* kind */;
-
-                const BBehfDesc* const ehfDesc = block->GetEhfTargets();
-                if (ehfDesc == nullptr)
                 {
-                    printf(" ????");
-                    printedBlockWidth += 5;
-                }
-                else
-                {
-                    // Very early in compilation, we won't have fixed up the BBJ_EHFINALLYRET successors yet.
+                    printf("->");
+                    printedBlockWidth = 2 + 9 /* kind */;
 
-                    const unsigned   jumpCnt = ehfDesc->bbeCount;
-                    FlowEdge** const jumpTab = ehfDesc->bbeSuccs;
-
-                    for (unsigned i = 0; i < jumpCnt; i++)
+                    const BBehfDesc* const ehfDesc = block->GetEhfTargets();
+                    if (ehfDesc == nullptr)
                     {
-                        printedBlockWidth += 1 /* space/comma */;
-                        printf("%c%s", (i == 0) ? ' ' : ',', dspBlockNum(jumpTab[i]));
+                        printf(" ????");
+                        printedBlockWidth += 5;
                     }
-                }
+                    else
+                    {
+                        // Very early in compilation, we won't have fixed up the BBJ_EHFINALLYRET successors yet.
 
-                if (printedBlockWidth < blockTargetFieldWidth)
-                {
-                    printf("%*s", blockTargetFieldWidth - printedBlockWidth, "");
-                }
+                        const unsigned   jumpCnt = ehfDesc->bbeCount;
+                        FlowEdge** const jumpTab = ehfDesc->bbeSuccs;
 
-                printf(" (finret)");
-                break;
-            }
+                        for (unsigned i = 0; i < jumpCnt; i++)
+                        {
+                            printedBlockWidth += 1 /* space/comma */;
+                            printf("%c%s", (i == 0) ? ' ' : ',', dspBlockNum(jumpTab[i]));
+                        }
+                    }
+
+                    if (printedBlockWidth < blockTargetFieldWidth)
+                    {
+                        printf("%*s", blockTargetFieldWidth - printedBlockWidth, "");
+                    }
+
+                    printf(" (finret)");
+                    break;
+                }
 
             case BBJ_EHFAULTRET:
                 printedBlockWidth = 9 /* kind */;
@@ -2078,42 +2078,42 @@ void Compiler::fgTableDispBasicBlock(const BasicBlock* block,
                 break;
 
             case BBJ_SWITCH:
-            {
-                printf("->");
-                printedBlockWidth = 2 + 9 /* kind */;
-
-                const BBswtDesc* const jumpSwt = block->GetSwitchTargets();
-                const unsigned         jumpCnt = jumpSwt->bbsCount;
-                FlowEdge** const       jumpTab = jumpSwt->bbsDstTab;
-
-                for (unsigned i = 0; i < jumpCnt; i++)
                 {
-                    printedBlockWidth += 1 /* space/comma */;
-                    printf("%c%s", (i == 0) ? ' ' : ',', dspBlockNum(jumpTab[i]));
+                    printf("->");
+                    printedBlockWidth = 2 + 9 /* kind */;
 
-                    const bool isDefault = jumpSwt->bbsHasDefault && (i == jumpCnt - 1);
-                    if (isDefault)
+                    const BBswtDesc* const jumpSwt = block->GetSwitchTargets();
+                    const unsigned         jumpCnt = jumpSwt->bbsCount;
+                    FlowEdge** const       jumpTab = jumpSwt->bbsDstTab;
+
+                    for (unsigned i = 0; i < jumpCnt; i++)
                     {
-                        printf("[def]");
-                        printedBlockWidth += 5;
+                        printedBlockWidth += 1 /* space/comma */;
+                        printf("%c%s", (i == 0) ? ' ' : ',', dspBlockNum(jumpTab[i]));
+
+                        const bool isDefault = jumpSwt->bbsHasDefault && (i == jumpCnt - 1);
+                        if (isDefault)
+                        {
+                            printf("[def]");
+                            printedBlockWidth += 5;
+                        }
+
+                        const bool isDominant = jumpSwt->bbsHasDominantCase && (i == jumpSwt->bbsDominantCase);
+                        if (isDominant)
+                        {
+                            printf("[dom(" FMT_WT ")]", jumpSwt->bbsDominantFraction);
+                            printedBlockWidth += 10;
+                        }
                     }
 
-                    const bool isDominant = jumpSwt->bbsHasDominantCase && (i == jumpSwt->bbsDominantCase);
-                    if (isDominant)
+                    if (printedBlockWidth < blockTargetFieldWidth)
                     {
-                        printf("[dom(" FMT_WT ")]", jumpSwt->bbsDominantFraction);
-                        printedBlockWidth += 10;
+                        printf("%*s", blockTargetFieldWidth - printedBlockWidth, "");
                     }
-                }
 
-                if (printedBlockWidth < blockTargetFieldWidth)
-                {
-                    printf("%*s", blockTargetFieldWidth - printedBlockWidth, "");
+                    printf(" (switch)");
                 }
-
-                printf(" (switch)");
-            }
-            break;
+                break;
 
             default:
                 // Bad Kind
@@ -2307,18 +2307,18 @@ void Compiler::fgDispBasicBlocks(BasicBlock* firstBlock, BasicBlock* lastBlock, 
 
     struct fgBBNumCmp
     {
-        bool operator()(const BasicBlock* bb1, const BasicBlock* bb2)
-        {
-            return bb1->bbNum < bb2->bbNum;
-        }
+            bool operator()(const BasicBlock* bb1, const BasicBlock* bb2)
+            {
+                return bb1->bbNum < bb2->bbNum;
+            }
     };
 
     struct fgBBIDCmp
     {
-        bool operator()(const BasicBlock* bb1, const BasicBlock* bb2)
-        {
-            return bb1->bbID < bb2->bbID;
-        }
+            bool operator()(const BasicBlock* bb1, const BasicBlock* bb2)
+            {
+                return bb1->bbID < bb2->bbID;
+            }
     };
 
     // Optionally sort
@@ -2339,7 +2339,7 @@ void Compiler::fgDispBasicBlocks(BasicBlock* firstBlock, BasicBlock* lastBlock, 
     maxBlockNumWidth          = max(maxBlockNumWidth, 2);
     int padWidth              = maxBlockNumWidth - 2; // Account for functions with a large number of blocks.
 
-    const bool printEdgeLikelihoods = true; // TODO: parameterize?
+    const bool printEdgeLikelihoods = true;           // TODO: parameterize?
 
     // Edge likelihoods are printed as "(0.123)", so take 7 characters maxmimum.
     int edgeLikelihoodsWidth = printEdgeLikelihoods ? 7 : 0;
@@ -2415,7 +2415,7 @@ void Compiler::fgDispBasicBlocks(BasicBlock* firstBlock, BasicBlock* lastBlock, 
                    ibcColWidth, "++++++++++++",                                              //
                    blockTargetFieldWidth, "++++++++++++++++++++++++++++++++++++++++++++++"); //
         }
-#endif // FEATURE_EH_FUNCLETS
+#endif                                                                                       // FEATURE_EH_FUNCLETS
 
         fgTableDispBasicBlock(block, nextBlock, printEdgeLikelihoods, blockTargetFieldWidth, ibcColWidth);
 
@@ -2644,19 +2644,22 @@ void Compiler::fgStress64RsltMul()
 // BBPredsChecker checks jumps from the block's predecessors to the block.
 class BBPredsChecker
 {
-public:
-    BBPredsChecker(Compiler* compiler) : comp(compiler) {}
+    public:
+        BBPredsChecker(Compiler* compiler)
+            : comp(compiler)
+        {
+        }
 
-    unsigned CheckBBPreds(BasicBlock* block, unsigned curTraversalStamp);
+        unsigned CheckBBPreds(BasicBlock* block, unsigned curTraversalStamp);
 
-private:
-    bool CheckEhTryDsc(BasicBlock* block, BasicBlock* blockPred, EHblkDsc* ehTryDsc);
-    bool CheckEhHndDsc(BasicBlock* block, BasicBlock* blockPred, EHblkDsc* ehHndlDsc);
-    bool CheckJump(BasicBlock* blockPred, BasicBlock* block);
-    bool CheckEHFinallyRet(BasicBlock* blockPred, BasicBlock* block);
+    private:
+        bool CheckEhTryDsc(BasicBlock* block, BasicBlock* blockPred, EHblkDsc* ehTryDsc);
+        bool CheckEhHndDsc(BasicBlock* block, BasicBlock* blockPred, EHblkDsc* ehHndlDsc);
+        bool CheckJump(BasicBlock* blockPred, BasicBlock* block);
+        bool CheckEHFinallyRet(BasicBlock* blockPred, BasicBlock* block);
 
-private:
-    Compiler* comp;
+    private:
+        Compiler* comp;
 };
 
 //------------------------------------------------------------------------
@@ -3280,58 +3283,60 @@ void Compiler::fgDebugCheckTypes(GenTree* tree)
 {
     struct NodeTypeValidator : GenTreeVisitor<NodeTypeValidator>
     {
-        enum
-        {
-            DoPostOrder = true,
-        };
+            enum {
+                DoPostOrder = true,
+            };
 
-        NodeTypeValidator(Compiler* comp) : GenTreeVisitor(comp) {}
-
-        fgWalkResult PostOrderVisit(GenTree** use, GenTree* user) const
-        {
-            GenTree* node = *use;
-
-            // Validate types of nodes in the IR:
-            //
-            // * TYP_ULONG and TYP_UINT are not legal.
-            // * Small types are only legal for the following nodes:
-            //    * All kinds of indirections including GT_NULLCHECK
-            //    * All kinds of locals
-            //    * GT_COMMA wrapped around any of the above.
-            //
-            if (node->TypeIs(TYP_ULONG, TYP_UINT))
+            NodeTypeValidator(Compiler* comp)
+                : GenTreeVisitor(comp)
             {
-                m_compiler->gtDispTree(node);
-                assert(!"TYP_ULONG and TYP_UINT are not legal in IR");
             }
 
-            if (node->OperIs(GT_NOP))
+            fgWalkResult PostOrderVisit(GenTree** use, GenTree* user) const
             {
-                assert(node->TypeIs(TYP_VOID) && "GT_NOP should be TYP_VOID.");
-            }
+                GenTree* node = *use;
 
-            if (varTypeIsSmall(node))
-            {
-                if (node->OperIs(GT_COMMA))
+                // Validate types of nodes in the IR:
+                //
+                // * TYP_ULONG and TYP_UINT are not legal.
+                // * Small types are only legal for the following nodes:
+                //    * All kinds of indirections including GT_NULLCHECK
+                //    * All kinds of locals
+                //    * GT_COMMA wrapped around any of the above.
+                //
+                if (node->TypeIs(TYP_ULONG, TYP_UINT))
                 {
-                    // TODO: it's only allowed if its underlying effective node is also a small type.
-                    return WALK_CONTINUE;
+                    m_compiler->gtDispTree(node);
+                    assert(!"TYP_ULONG and TYP_UINT are not legal in IR");
                 }
 
-                if (node->OperIsIndir() || node->OperIs(GT_NULLCHECK) || node->IsPhiNode() || node->IsAnyLocal())
+                if (node->OperIs(GT_NOP))
                 {
-                    return WALK_CONTINUE;
+                    assert(node->TypeIs(TYP_VOID) && "GT_NOP should be TYP_VOID.");
                 }
 
-                m_compiler->gtDispTree(node);
-                assert(!"Unexpected small type in IR");
-            }
+                if (varTypeIsSmall(node))
+                {
+                    if (node->OperIs(GT_COMMA))
+                    {
+                        // TODO: it's only allowed if its underlying effective node is also a small type.
+                        return WALK_CONTINUE;
+                    }
 
-            // TODO: validate types in GT_CAST nodes.
-            // Validate mismatched types in binopt's arguments, etc.
-            //
-            return WALK_CONTINUE;
-        }
+                    if (node->OperIsIndir() || node->OperIs(GT_NULLCHECK) || node->IsPhiNode() || node->IsAnyLocal())
+                    {
+                        return WALK_CONTINUE;
+                    }
+
+                    m_compiler->gtDispTree(node);
+                    assert(!"Unexpected small type in IR");
+                }
+
+                // TODO: validate types in GT_CAST nodes.
+                // Validate mismatched types in binopt's arguments, etc.
+                //
+                return WALK_CONTINUE;
+            }
     };
 
     NodeTypeValidator walker(this);
@@ -3430,19 +3435,19 @@ void Compiler::fgDebugCheckFlags(GenTree* tree, BasicBlock* block)
             break;
 
         case GT_CALL:
-        {
-            GenTreeCall* const call = tree->AsCall();
-
-            // Before global morph, if there are recursive tail calls, we should have
-            // set the associated block and method flags.
-            //
-            if (!fgGlobalMorphDone && call->CanTailCall() && gtIsRecursiveCall(call))
             {
-                assert(doesMethodHaveRecursiveTailcall());
-                assert(block->HasFlag(BBF_RECURSIVE_TAILCALL));
+                GenTreeCall* const call = tree->AsCall();
+
+                // Before global morph, if there are recursive tail calls, we should have
+                // set the associated block and method flags.
+                //
+                if (!fgGlobalMorphDone && call->CanTailCall() && gtIsRecursiveCall(call))
+                {
+                    assert(doesMethodHaveRecursiveTailcall());
+                    assert(block->HasFlag(BBF_RECURSIVE_TAILCALL));
+                }
             }
-        }
-        break;
+            break;
 
         case GT_CMPXCHG:
             expectedFlags |= (GTF_GLOB_REF | GTF_ASG);
@@ -3450,81 +3455,79 @@ void Compiler::fgDebugCheckFlags(GenTree* tree, BasicBlock* block)
 
 #if defined(FEATURE_HW_INTRINSICS)
         case GT_HWINTRINSIC:
-        {
-            GenTreeHWIntrinsic* hwintrinsic = tree->AsHWIntrinsic();
-            NamedIntrinsic      intrinsicId = hwintrinsic->GetHWIntrinsicId();
+            {
+                GenTreeHWIntrinsic* hwintrinsic = tree->AsHWIntrinsic();
+                NamedIntrinsic      intrinsicId = hwintrinsic->GetHWIntrinsicId();
 
-            if (hwintrinsic->OperIsMemoryLoad())
-            {
-                assert(tree->OperMayThrow(this));
-                expectedFlags |= GTF_GLOB_REF;
-            }
-            else if (hwintrinsic->OperIsMemoryStore())
-            {
-                assert(tree->OperRequiresAsgFlag());
-                assert(tree->OperMayThrow(this));
-                expectedFlags |= GTF_GLOB_REF;
-            }
-            else if (HWIntrinsicInfo::HasSpecialSideEffect(intrinsicId))
-            {
-                switch (intrinsicId)
+                if (hwintrinsic->OperIsMemoryLoad())
                 {
+                    assert(tree->OperMayThrow(this));
+                    expectedFlags |= GTF_GLOB_REF;
+                }
+                else if (hwintrinsic->OperIsMemoryStore())
+                {
+                    assert(tree->OperRequiresAsgFlag());
+                    assert(tree->OperMayThrow(this));
+                    expectedFlags |= GTF_GLOB_REF;
+                }
+                else if (HWIntrinsicInfo::HasSpecialSideEffect(intrinsicId))
+                {
+                    switch (intrinsicId)
+                    {
 #if defined(TARGET_XARCH)
-                    case NI_SSE_StoreFence:
-                    case NI_SSE2_LoadFence:
-                    case NI_SSE2_MemoryFence:
-                    case NI_X86Serialize_Serialize:
-                    {
-                        assert(tree->OperRequiresAsgFlag());
-                        expectedFlags |= GTF_GLOB_REF;
-                        break;
-                    }
+                        case NI_SSE_StoreFence:
+                        case NI_SSE2_LoadFence:
+                        case NI_SSE2_MemoryFence:
+                        case NI_X86Serialize_Serialize:
+                            {
+                                assert(tree->OperRequiresAsgFlag());
+                                expectedFlags |= GTF_GLOB_REF;
+                                break;
+                            }
 
-                    case NI_X86Base_Pause:
-                    case NI_SSE_Prefetch0:
-                    case NI_SSE_Prefetch1:
-                    case NI_SSE_Prefetch2:
-                    case NI_SSE_PrefetchNonTemporal:
-                    {
-                        assert(tree->OperRequiresCallFlag(this));
-                        expectedFlags |= GTF_GLOB_REF;
-                        break;
-                    }
+                        case NI_X86Base_Pause:
+                        case NI_SSE_Prefetch0:
+                        case NI_SSE_Prefetch1:
+                        case NI_SSE_Prefetch2:
+                        case NI_SSE_PrefetchNonTemporal:
+                            {
+                                assert(tree->OperRequiresCallFlag(this));
+                                expectedFlags |= GTF_GLOB_REF;
+                                break;
+                            }
 #endif // TARGET_XARCH
 
 #if defined(TARGET_ARM64)
-                    case NI_ArmBase_Yield:
-                    {
-                        assert(tree->OperRequiresCallFlag(this));
-                        expectedFlags |= GTF_GLOB_REF;
-                        break;
-                    }
+                        case NI_ArmBase_Yield:
+                            {
+                                assert(tree->OperRequiresCallFlag(this));
+                                expectedFlags |= GTF_GLOB_REF;
+                                break;
+                            }
 #endif // TARGET_ARM64
 
-                    default:
-                    {
-                        assert(!"Unhandled HWIntrinsic with special side effect");
-                        break;
+                        default:
+                            {
+                                assert(!"Unhandled HWIntrinsic with special side effect");
+                                break;
+                            }
                     }
                 }
-            }
 
-            break;
-        }
+                break;
+            }
 #endif // FEATURE_HW_INTRINSICS
 
         default:
             break;
     }
 
-    tree->VisitOperands(
-        [&](GenTree* operand) -> GenTree::VisitResult
-        {
-            fgDebugCheckFlags(operand, block);
-            expectedFlags |= (operand->gtFlags & GTF_ALL_EFFECT);
+    tree->VisitOperands([&](GenTree* operand) -> GenTree::VisitResult {
+        fgDebugCheckFlags(operand, block);
+        expectedFlags |= (operand->gtFlags & GTF_ALL_EFFECT);
 
-            return GenTree::VisitResult::Continue;
-        });
+        return GenTree::VisitResult::Continue;
+    });
 
     fgDebugCheckFlagsHelper(tree, actualFlags, expectedFlags);
 }
@@ -3720,60 +3723,63 @@ void Compiler::fgDebugCheckLinkedLocals()
 
     class DebugLocalSequencer : public GenTreeVisitor<DebugLocalSequencer>
     {
-        ArrayStack<GenTree*> m_locals;
+            ArrayStack<GenTree*> m_locals;
 
-        bool ShouldLink(GenTree* node)
-        {
-            return node->OperIsAnyLocal();
-        }
-
-    public:
-        enum
-        {
-            DoPostOrder       = true,
-            UseExecutionOrder = true,
-        };
-
-        DebugLocalSequencer(Compiler* comp) : GenTreeVisitor(comp), m_locals(comp->getAllocator(CMK_DebugOnly)) {}
-
-        void Sequence(Statement* stmt)
-        {
-            m_locals.Reset();
-            WalkTree(stmt->GetRootNodePointer(), nullptr);
-        }
-
-        ArrayStack<GenTree*>* GetSequence()
-        {
-            return &m_locals;
-        }
-
-        fgWalkResult PostOrderVisit(GenTree** use, GenTree* user)
-        {
-            GenTree* node = *use;
-            if (ShouldLink(node))
+            bool ShouldLink(GenTree* node)
             {
-                if ((user != nullptr) && user->IsCall() &&
-                    (node == m_compiler->gtCallGetDefinedRetBufLclAddr(user->AsCall())))
-                {
-                }
-                else
-                {
-                    m_locals.Push(node);
-                }
+                return node->OperIsAnyLocal();
             }
 
-            if (node->IsCall())
+        public:
+            enum {
+                DoPostOrder       = true,
+                UseExecutionOrder = true,
+            };
+
+            DebugLocalSequencer(Compiler* comp)
+                : GenTreeVisitor(comp)
+                , m_locals(comp->getAllocator(CMK_DebugOnly))
             {
-                GenTree* defined = m_compiler->gtCallGetDefinedRetBufLclAddr(node->AsCall());
-                if (defined != nullptr)
-                {
-                    assert(ShouldLink(defined));
-                    m_locals.Push(defined);
-                }
             }
 
-            return WALK_CONTINUE;
-        }
+            void Sequence(Statement* stmt)
+            {
+                m_locals.Reset();
+                WalkTree(stmt->GetRootNodePointer(), nullptr);
+            }
+
+            ArrayStack<GenTree*>* GetSequence()
+            {
+                return &m_locals;
+            }
+
+            fgWalkResult PostOrderVisit(GenTree** use, GenTree* user)
+            {
+                GenTree* node = *use;
+                if (ShouldLink(node))
+                {
+                    if ((user != nullptr) && user->IsCall() &&
+                        (node == m_compiler->gtCallGetDefinedRetBufLclAddr(user->AsCall())))
+                    {
+                    }
+                    else
+                    {
+                        m_locals.Push(node);
+                    }
+                }
+
+                if (node->IsCall())
+                {
+                    GenTree* defined = m_compiler->gtCallGetDefinedRetBufLclAddr(node->AsCall());
+                    if (defined != nullptr)
+                    {
+                        assert(ShouldLink(defined));
+                        m_locals.Push(defined);
+                    }
+                }
+
+                return WALK_CONTINUE;
+            }
     };
 
     DebugLocalSequencer seq(this);
@@ -4011,56 +4017,58 @@ void Compiler::fgDebugCheckBlockLinks()
 // that each tree has it is own unique id and they do not repeat.
 class UniquenessCheckWalker
 {
-public:
-    UniquenessCheckWalker(Compiler* comp)
-        : comp(comp), nodesVecTraits(comp->compGenTreeID, comp), uniqueNodes(BitVecOps::MakeEmpty(&nodesVecTraits))
-    {
-    }
-
-    //------------------------------------------------------------------------
-    // fgMarkTreeId: Visit all subtrees in the tree and check gtTreeIDs.
-    //
-    // Arguments:
-    //    pTree     - Pointer to the tree to walk
-    //    fgWalkPre - the UniquenessCheckWalker instance
-    //
-    static Compiler::fgWalkResult MarkTreeId(GenTree** pTree, Compiler::fgWalkData* fgWalkPre)
-    {
-        UniquenessCheckWalker* walker   = static_cast<UniquenessCheckWalker*>(fgWalkPre->pCallbackData);
-        unsigned               gtTreeID = (*pTree)->gtTreeID;
-        walker->CheckTreeId(gtTreeID);
-        return Compiler::WALK_CONTINUE;
-    }
-
-    //------------------------------------------------------------------------
-    // CheckTreeId: Check that this tree was not visited before and memorize it as visited.
-    //
-    // Arguments:
-    //    gtTreeID - identificator of GenTree.
-    //
-    // Note:
-    //    This method causes an assert failure when we find a duplicated node in our tree
-    //
-    void CheckTreeId(unsigned gtTreeID)
-    {
-        if (BitVecOps::IsMember(&nodesVecTraits, uniqueNodes, gtTreeID))
+    public:
+        UniquenessCheckWalker(Compiler* comp)
+            : comp(comp)
+            , nodesVecTraits(comp->compGenTreeID, comp)
+            , uniqueNodes(BitVecOps::MakeEmpty(&nodesVecTraits))
         {
-            if (comp->verbose)
+        }
+
+        //------------------------------------------------------------------------
+        // fgMarkTreeId: Visit all subtrees in the tree and check gtTreeIDs.
+        //
+        // Arguments:
+        //    pTree     - Pointer to the tree to walk
+        //    fgWalkPre - the UniquenessCheckWalker instance
+        //
+        static Compiler::fgWalkResult MarkTreeId(GenTree** pTree, Compiler::fgWalkData* fgWalkPre)
+        {
+            UniquenessCheckWalker* walker   = static_cast<UniquenessCheckWalker*>(fgWalkPre->pCallbackData);
+            unsigned               gtTreeID = (*pTree)->gtTreeID;
+            walker->CheckTreeId(gtTreeID);
+            return Compiler::WALK_CONTINUE;
+        }
+
+        //------------------------------------------------------------------------
+        // CheckTreeId: Check that this tree was not visited before and memorize it as visited.
+        //
+        // Arguments:
+        //    gtTreeID - identificator of GenTree.
+        //
+        // Note:
+        //    This method causes an assert failure when we find a duplicated node in our tree
+        //
+        void CheckTreeId(unsigned gtTreeID)
+        {
+            if (BitVecOps::IsMember(&nodesVecTraits, uniqueNodes, gtTreeID))
             {
-                printf("Duplicate gtTreeID was found: %d\n", gtTreeID);
+                if (comp->verbose)
+                {
+                    printf("Duplicate gtTreeID was found: %d\n", gtTreeID);
+                }
+                assert(!"Duplicate gtTreeID was found");
             }
-            assert(!"Duplicate gtTreeID was found");
+            else
+            {
+                BitVecOps::AddElemD(&nodesVecTraits, uniqueNodes, gtTreeID);
+            }
         }
-        else
-        {
-            BitVecOps::AddElemD(&nodesVecTraits, uniqueNodes, gtTreeID);
-        }
-    }
 
-private:
-    Compiler*    comp;
-    BitVecTraits nodesVecTraits;
-    BitVec       uniqueNodes;
+    private:
+        Compiler*    comp;
+        BitVecTraits nodesVecTraits;
+        BitVec       uniqueNodes;
 };
 
 //------------------------------------------------------------------------------
@@ -4121,559 +4129,570 @@ void Compiler::fgDebugCheckNodesUniqueness()
 //
 class SsaCheckVisitor : public GenTreeVisitor<SsaCheckVisitor>
 {
-private:
-    // Hash key for tracking per-SSA lifetime info
-    //
-    struct SsaKey
-    {
     private:
-        unsigned m_lclNum;
-        unsigned m_ssaNum;
+        // Hash key for tracking per-SSA lifetime info
+        //
+        struct SsaKey
+        {
+            private:
+                unsigned m_lclNum;
+                unsigned m_ssaNum;
+
+            public:
+                SsaKey()
+                    : m_lclNum(BAD_VAR_NUM)
+                    , m_ssaNum(SsaConfig::RESERVED_SSA_NUM)
+                {
+                }
+
+                SsaKey(unsigned lclNum, unsigned ssaNum)
+                    : m_lclNum(lclNum)
+                    , m_ssaNum(ssaNum)
+                {
+                }
+
+                static bool Equals(const SsaKey& x, const SsaKey& y)
+                {
+                    return (x.m_lclNum == y.m_lclNum) && (x.m_ssaNum == y.m_ssaNum);
+                }
+
+                static unsigned GetHashCode(const SsaKey& x)
+                {
+                    return (x.m_lclNum << 16) ^ x.m_ssaNum;
+                }
+
+                unsigned GetLclNum() const
+                {
+                    return m_lclNum;
+                }
+                unsigned GetSsaNum() const
+                {
+                    return m_ssaNum;
+                }
+        };
+
+        // Per-SSA lifetime info
+        //
+        struct SsaInfo
+        {
+            private:
+                BasicBlock* m_defBlock;
+                BasicBlock* m_useBlock;
+                unsigned    m_useCount;
+                bool        m_hasPhiUse;
+                bool        m_hasGlobalUse;
+                bool        m_hasMultipleDef;
+
+            public:
+                SsaInfo()
+                    : m_defBlock(nullptr)
+                    , m_useBlock(nullptr)
+                    , m_useCount(0)
+                    , m_hasPhiUse(false)
+                    , m_hasGlobalUse(false)
+                    , m_hasMultipleDef(false)
+                {
+                }
+
+                void AddUse(BasicBlock* block, const SsaKey& key)
+                {
+                    // We may see uses before defs. If so, record the first use block we see.
+                    // And if we see multiple uses before/without seeing a def, use that to decide
+                    // if the uses are global.
+                    //
+                    if (m_defBlock == nullptr)
+                    {
+                        if (m_useBlock == nullptr)
+                        {
+                            // Use before we've seen a def
+                            //
+                            m_useBlock = block;
+                        }
+                        else if (m_useBlock != block)
+                        {
+                            // Another use, before def, see if global
+                            //
+                            m_hasGlobalUse = true;
+                        }
+                    }
+                    else if (m_defBlock != block)
+                    {
+                        m_hasGlobalUse = true;
+                    }
+
+                    m_useCount++;
+                }
+
+                void AddPhiUse(BasicBlock* block, const SsaKey& key)
+                {
+                    m_hasPhiUse = true;
+                    AddUse(block, key);
+                }
+
+                void AddDef(BasicBlock* block, const SsaKey& key)
+                {
+                    if (m_defBlock == nullptr)
+                    {
+                        // If we already saw a use, it might have been a global use.
+                        //
+                        if ((m_useBlock != nullptr) && (m_useBlock != block))
+                        {
+                            m_hasGlobalUse = true;
+                        }
+
+                        m_defBlock = block;
+                    }
+                    else
+                    {
+                        m_hasMultipleDef = true;
+                    }
+                }
+
+                BasicBlock* GetDefBlock() const
+                {
+                    return m_defBlock;
+                }
+
+                unsigned GetNumUses() const
+                {
+                    // The ssa table use count saturates at USHRT_MAX.
+                    //
+                    if (m_useCount > USHRT_MAX)
+                    {
+                        return USHRT_MAX;
+                    }
+                    return m_useCount;
+                }
+
+                bool HasPhiUse() const
+                {
+                    return m_hasPhiUse;
+                }
+
+                bool HasGlobalUse() const
+                {
+                    return m_hasGlobalUse;
+                }
+
+                bool HasMultipleDef() const
+                {
+                    return m_hasMultipleDef;
+                }
+        };
+
+        typedef JitHashTable<SsaKey, SsaKey, SsaInfo*> SsaInfoMap;
+
+        Compiler* const m_compiler;
+        BasicBlock*     m_block;
+        SsaInfoMap      m_infoMap;
+        bool            m_hasErrors;
 
     public:
-        SsaKey() : m_lclNum(BAD_VAR_NUM), m_ssaNum(SsaConfig::RESERVED_SSA_NUM) {}
+        enum {
+            DoPreOrder = true
+        };
 
-        SsaKey(unsigned lclNum, unsigned ssaNum) : m_lclNum(lclNum), m_ssaNum(ssaNum) {}
-
-        static bool Equals(const SsaKey& x, const SsaKey& y)
-        {
-            return (x.m_lclNum == y.m_lclNum) && (x.m_ssaNum == y.m_ssaNum);
-        }
-
-        static unsigned GetHashCode(const SsaKey& x)
-        {
-            return (x.m_lclNum << 16) ^ x.m_ssaNum;
-        }
-
-        unsigned GetLclNum() const
-        {
-            return m_lclNum;
-        }
-        unsigned GetSsaNum() const
-        {
-            return m_ssaNum;
-        }
-    };
-
-    // Per-SSA lifetime info
-    //
-    struct SsaInfo
-    {
-    private:
-        BasicBlock* m_defBlock;
-        BasicBlock* m_useBlock;
-        unsigned    m_useCount;
-        bool        m_hasPhiUse;
-        bool        m_hasGlobalUse;
-        bool        m_hasMultipleDef;
-
-    public:
-        SsaInfo()
-            : m_defBlock(nullptr)
-            , m_useBlock(nullptr)
-            , m_useCount(0)
-            , m_hasPhiUse(false)
-            , m_hasGlobalUse(false)
-            , m_hasMultipleDef(false)
+        SsaCheckVisitor(Compiler* compiler)
+            : GenTreeVisitor<SsaCheckVisitor>(compiler)
+            , m_compiler(compiler)
+            , m_block(nullptr)
+            , m_infoMap(compiler->getAllocator(CMK_DebugOnly))
+            , m_hasErrors(false)
         {
         }
 
-        void AddUse(BasicBlock* block, const SsaKey& key)
+        void ProcessDef(GenTree* tree, unsigned lclNum, unsigned ssaNum)
         {
-            // We may see uses before defs. If so, record the first use block we see.
-            // And if we see multiple uses before/without seeing a def, use that to decide
-            // if the uses are global.
+            // If the var is not in ssa, the local should not have an ssa num.
             //
-            if (m_defBlock == nullptr)
+            if (!m_compiler->lvaInSsa(lclNum))
             {
-                if (m_useBlock == nullptr)
+                if (ssaNum != SsaConfig::RESERVED_SSA_NUM)
                 {
-                    // Use before we've seen a def
-                    //
-                    m_useBlock = block;
+                    SetHasErrors();
+                    JITDUMP("[error] Unexpected SSA number on def [%06u] (V%02u)\n", m_compiler->dspTreeID(tree),
+                            lclNum);
                 }
-                else if (m_useBlock != block)
-                {
-                    // Another use, before def, see if global
-                    //
-                    m_hasGlobalUse = true;
-                }
-            }
-            else if (m_defBlock != block)
-            {
-                m_hasGlobalUse = true;
+                return;
             }
 
-            m_useCount++;
-        }
-
-        void AddPhiUse(BasicBlock* block, const SsaKey& key)
-        {
-            m_hasPhiUse = true;
-            AddUse(block, key);
-        }
-
-        void AddDef(BasicBlock* block, const SsaKey& key)
-        {
-            if (m_defBlock == nullptr)
+            // All defs of ssa vars should have valid ssa nums.
+            //
+            if (ssaNum == SsaConfig::RESERVED_SSA_NUM)
             {
-                // If we already saw a use, it might have been a global use.
-                //
-                if ((m_useBlock != nullptr) && (m_useBlock != block))
-                {
-                    m_hasGlobalUse = true;
-                }
+                SetHasErrors();
+                JITDUMP("[error] Missing SSA number on def [%06u] (V%02u)\n", m_compiler->dspTreeID(tree), lclNum);
+                return;
+            }
 
-                m_defBlock = block;
+            SsaKey   key(lclNum, ssaNum);
+            SsaInfo* ssaInfo = nullptr;
+            if (!m_infoMap.Lookup(key, &ssaInfo))
+            {
+                ssaInfo = new (m_compiler->getAllocator(CMK_DebugOnly)) SsaInfo;
+                m_infoMap.Set(key, ssaInfo);
+            }
+
+            ssaInfo->AddDef(m_block, key);
+        }
+
+        void ProcessDefs(GenTree* tree)
+        {
+            GenTreeLclVarCommon* lclNode;
+            bool                 isFullDef = false;
+            ssize_t              offset    = 0;
+            unsigned             storeSize = 0;
+            bool definesLocal              = tree->DefinesLocal(m_compiler, &lclNode, &isFullDef, &offset, &storeSize);
+
+            if (!definesLocal)
+            {
+                return;
+            }
+
+            const bool       isUse  = (lclNode->gtFlags & GTF_VAR_USEASG) != 0;
+            unsigned const   lclNum = lclNode->GetLclNum();
+            LclVarDsc* const varDsc = m_compiler->lvaGetDesc(lclNum);
+
+            assert(!(isFullDef && isUse));
+
+            if (lclNode->HasCompositeSsaName())
+            {
+                for (unsigned index = 0; index < varDsc->lvFieldCnt; index++)
+                {
+                    unsigned const   fieldLclNum = varDsc->lvFieldLclStart + index;
+                    LclVarDsc* const fieldVarDsc = m_compiler->lvaGetDesc(fieldLclNum);
+                    unsigned const   fieldSsaNum = lclNode->GetSsaNum(m_compiler, index);
+
+                    ssize_t  fieldStoreOffset;
+                    unsigned fieldStoreSize;
+                    if (m_compiler->gtStoreDefinesField(fieldVarDsc, offset, storeSize, &fieldStoreOffset,
+                                                        &fieldStoreSize))
+                    {
+                        ProcessDef(lclNode, fieldLclNum, fieldSsaNum);
+
+                        if (!ValueNumStore::LoadStoreIsEntire(genTypeSize(fieldVarDsc), fieldStoreOffset,
+                                                              fieldStoreSize))
+                        {
+                            assert(isUse);
+                            unsigned const fieldUseSsaNum = fieldVarDsc->GetPerSsaData(fieldSsaNum)->GetUseDefSsaNum();
+                            ProcessUse(lclNode, fieldLclNum, fieldUseSsaNum);
+                        }
+                    }
+                }
             }
             else
             {
-                m_hasMultipleDef = true;
-            }
-        }
+                unsigned const ssaNum = lclNode->GetSsaNum();
+                ProcessDef(lclNode, lclNum, ssaNum);
 
-        BasicBlock* GetDefBlock() const
-        {
-            return m_defBlock;
-        }
-
-        unsigned GetNumUses() const
-        {
-            // The ssa table use count saturates at USHRT_MAX.
-            //
-            if (m_useCount > USHRT_MAX)
-            {
-                return USHRT_MAX;
-            }
-            return m_useCount;
-        }
-
-        bool HasPhiUse() const
-        {
-            return m_hasPhiUse;
-        }
-
-        bool HasGlobalUse() const
-        {
-            return m_hasGlobalUse;
-        }
-
-        bool HasMultipleDef() const
-        {
-            return m_hasMultipleDef;
-        }
-    };
-
-    typedef JitHashTable<SsaKey, SsaKey, SsaInfo*> SsaInfoMap;
-
-    Compiler* const m_compiler;
-    BasicBlock*     m_block;
-    SsaInfoMap      m_infoMap;
-    bool            m_hasErrors;
-
-public:
-    enum
-    {
-        DoPreOrder = true
-    };
-
-    SsaCheckVisitor(Compiler* compiler)
-        : GenTreeVisitor<SsaCheckVisitor>(compiler)
-        , m_compiler(compiler)
-        , m_block(nullptr)
-        , m_infoMap(compiler->getAllocator(CMK_DebugOnly))
-        , m_hasErrors(false)
-    {
-    }
-
-    void ProcessDef(GenTree* tree, unsigned lclNum, unsigned ssaNum)
-    {
-        // If the var is not in ssa, the local should not have an ssa num.
-        //
-        if (!m_compiler->lvaInSsa(lclNum))
-        {
-            if (ssaNum != SsaConfig::RESERVED_SSA_NUM)
-            {
-                SetHasErrors();
-                JITDUMP("[error] Unexpected SSA number on def [%06u] (V%02u)\n", m_compiler->dspTreeID(tree), lclNum);
-            }
-            return;
-        }
-
-        // All defs of ssa vars should have valid ssa nums.
-        //
-        if (ssaNum == SsaConfig::RESERVED_SSA_NUM)
-        {
-            SetHasErrors();
-            JITDUMP("[error] Missing SSA number on def [%06u] (V%02u)\n", m_compiler->dspTreeID(tree), lclNum);
-            return;
-        }
-
-        SsaKey   key(lclNum, ssaNum);
-        SsaInfo* ssaInfo = nullptr;
-        if (!m_infoMap.Lookup(key, &ssaInfo))
-        {
-            ssaInfo = new (m_compiler->getAllocator(CMK_DebugOnly)) SsaInfo;
-            m_infoMap.Set(key, ssaInfo);
-        }
-
-        ssaInfo->AddDef(m_block, key);
-    }
-
-    void ProcessDefs(GenTree* tree)
-    {
-        GenTreeLclVarCommon* lclNode;
-        bool                 isFullDef    = false;
-        ssize_t              offset       = 0;
-        unsigned             storeSize    = 0;
-        bool                 definesLocal = tree->DefinesLocal(m_compiler, &lclNode, &isFullDef, &offset, &storeSize);
-
-        if (!definesLocal)
-        {
-            return;
-        }
-
-        const bool       isUse  = (lclNode->gtFlags & GTF_VAR_USEASG) != 0;
-        unsigned const   lclNum = lclNode->GetLclNum();
-        LclVarDsc* const varDsc = m_compiler->lvaGetDesc(lclNum);
-
-        assert(!(isFullDef && isUse));
-
-        if (lclNode->HasCompositeSsaName())
-        {
-            for (unsigned index = 0; index < varDsc->lvFieldCnt; index++)
-            {
-                unsigned const   fieldLclNum = varDsc->lvFieldLclStart + index;
-                LclVarDsc* const fieldVarDsc = m_compiler->lvaGetDesc(fieldLclNum);
-                unsigned const   fieldSsaNum = lclNode->GetSsaNum(m_compiler, index);
-
-                ssize_t  fieldStoreOffset;
-                unsigned fieldStoreSize;
-                if (m_compiler->gtStoreDefinesField(fieldVarDsc, offset, storeSize, &fieldStoreOffset, &fieldStoreSize))
+                if (isUse)
                 {
-                    ProcessDef(lclNode, fieldLclNum, fieldSsaNum);
-
-                    if (!ValueNumStore::LoadStoreIsEntire(genTypeSize(fieldVarDsc), fieldStoreOffset, fieldStoreSize))
+                    unsigned useSsaNum = SsaConfig::RESERVED_SSA_NUM;
+                    if (ssaNum != SsaConfig::RESERVED_SSA_NUM)
                     {
-                        assert(isUse);
-                        unsigned const fieldUseSsaNum = fieldVarDsc->GetPerSsaData(fieldSsaNum)->GetUseDefSsaNum();
-                        ProcessUse(lclNode, fieldLclNum, fieldUseSsaNum);
+                        useSsaNum = varDsc->GetPerSsaData(ssaNum)->GetUseDefSsaNum();
                     }
+                    ProcessUse(lclNode, lclNum, useSsaNum);
                 }
             }
         }
-        else
-        {
-            unsigned const ssaNum = lclNode->GetSsaNum();
-            ProcessDef(lclNode, lclNum, ssaNum);
 
-            if (isUse)
+        void ProcessUse(GenTreeLclVarCommon* tree, unsigned lclNum, unsigned ssaNum)
+        {
+            // If the var is not in ssa, the tree should not have an ssa num.
+            //
+            if (!m_compiler->lvaInSsa(lclNum))
             {
-                unsigned useSsaNum = SsaConfig::RESERVED_SSA_NUM;
                 if (ssaNum != SsaConfig::RESERVED_SSA_NUM)
                 {
-                    useSsaNum = varDsc->GetPerSsaData(ssaNum)->GetUseDefSsaNum();
+                    SetHasErrors();
+                    JITDUMP("[error] Unexpected SSA number on [%06u] (V%02u)\n", m_compiler->dspTreeID(tree), lclNum);
                 }
-                ProcessUse(lclNode, lclNum, useSsaNum);
+                return;
             }
-        }
-    }
 
-    void ProcessUse(GenTreeLclVarCommon* tree, unsigned lclNum, unsigned ssaNum)
-    {
-        // If the var is not in ssa, the tree should not have an ssa num.
-        //
-        if (!m_compiler->lvaInSsa(lclNum))
-        {
-            if (ssaNum != SsaConfig::RESERVED_SSA_NUM)
-            {
-                SetHasErrors();
-                JITDUMP("[error] Unexpected SSA number on [%06u] (V%02u)\n", m_compiler->dspTreeID(tree), lclNum);
-            }
-            return;
-        }
-
-        // All uses of ssa vars should have valid ssa nums, unless there are no defs.
-        //
-        if (ssaNum == SsaConfig::RESERVED_SSA_NUM)
-        {
-            LclVarDsc* const varDsc = m_compiler->lvaGetDesc(lclNum);
-
-            if (varDsc->lvPerSsaData.GetCount() > 0)
-            {
-                SetHasErrors();
-                JITDUMP("[error] Missing SSA number on use [%06u] (V%02u)\n", m_compiler->dspTreeID(tree), lclNum);
-            }
-            return;
-        }
-
-        SsaKey   key(lclNum, ssaNum);
-        SsaInfo* ssaInfo = nullptr;
-
-        if (!m_infoMap.Lookup(key, &ssaInfo))
-        {
-            ssaInfo = new (m_compiler->getAllocator(CMK_DebugOnly)) SsaInfo;
-            m_infoMap.Set(key, ssaInfo);
-        }
-
-        if (tree->OperIs(GT_PHI_ARG))
-        {
-            ssaInfo->AddPhiUse(m_block, key);
-        }
-        else
-        {
-            ssaInfo->AddUse(m_block, key);
-        }
-    }
-
-    void ProcessUses(GenTreeLclVarCommon* tree)
-    {
-        unsigned const lclNum = tree->GetLclNum();
-        unsigned const ssaNum = tree->GetSsaNum();
-
-        // We currently should not see composite SSA numbers for uses.
-        //
-        if (tree->HasCompositeSsaName())
-        {
-            SetHasErrors();
-            JITDUMP("[error] Composite SSA number on use [%06u] (V%02u)\n", m_compiler->dspTreeID(tree), lclNum);
-            return;
-        }
-
-        ProcessUse(tree, lclNum, ssaNum);
-    }
-
-    Compiler::fgWalkResult PreOrderVisit(GenTree** use, GenTree* user)
-    {
-        GenTree* const tree = *use;
-
-        if (tree->OperIsSsaDef())
-        {
-            ProcessDefs(tree);
-        }
-        else if (tree->OperIs(GT_LCL_VAR, GT_LCL_FLD, GT_PHI_ARG))
-        {
-            ProcessUses(tree->AsLclVarCommon());
-        }
-
-        return fgWalkResult::WALK_CONTINUE;
-    }
-
-    void SetHasErrors()
-    {
-        if (!m_hasErrors)
-        {
-            JITDUMP("fgDebugCheckSsa: errors found\n");
-            m_hasErrors = true;
-        }
-    }
-
-    bool HasErrors() const
-    {
-        return m_hasErrors;
-    }
-
-    void SetBlock(BasicBlock* block)
-    {
-        m_block = block;
-        CheckPhis(block);
-    }
-
-    void CheckPhis(BasicBlock* block)
-    {
-        Statement* nonPhiStmt = nullptr;
-        for (Statement* const stmt : block->Statements())
-        {
-            // All PhiDefs should appear before any other statements
+            // All uses of ssa vars should have valid ssa nums, unless there are no defs.
             //
-            if (!stmt->IsPhiDefnStmt())
+            if (ssaNum == SsaConfig::RESERVED_SSA_NUM)
             {
-                if (nonPhiStmt == nullptr)
-                {
-                    nonPhiStmt = stmt;
-                }
-                continue;
-            }
+                LclVarDsc* const varDsc = m_compiler->lvaGetDesc(lclNum);
 
-            if (nonPhiStmt != nullptr)
-            {
-                SetHasErrors();
-                JITDUMP("[error] " FMT_BB " PhiDef " FMT_STMT " appears after non-PhiDef " FMT_STMT "\n", block->bbNum,
-                        stmt->GetID(), nonPhiStmt->GetID());
-            }
-
-            GenTreeLclVar* const phiDefNode = stmt->GetRootNode()->AsLclVar();
-            GenTreePhi* const    phi        = phiDefNode->Data()->AsPhi();
-            assert(phiDefNode->IsPhiDefn());
-
-            // Verify each GT_PHI_ARG is the right local.
-            //
-            // If block does not begin a handler, verify GT_PHI_ARG blocks are unique
-            // (that is, each pred supplies at most one ssa def).
-            //
-            BitVecTraits bitVecTraits(m_compiler->fgBBNumMax + 1, m_compiler);
-            BitVec       phiPreds(BitVecOps::MakeEmpty(&bitVecTraits));
-
-            for (GenTreePhi::Use& use : phi->Uses())
-            {
-                GenTreePhiArg* const phiArgNode = use.GetNode()->AsPhiArg();
-                if (phiArgNode->GetLclNum() != phiDefNode->GetLclNum())
+                if (varDsc->lvPerSsaData.GetCount() > 0)
                 {
                     SetHasErrors();
-                    JITDUMP("[error] Wrong local V%02u in PhiArg [%06u] -- expected V%02u\n", phiArgNode->GetLclNum(),
-                            m_compiler->dspTreeID(phiArgNode), phiDefNode->GetLclNum());
+                    JITDUMP("[error] Missing SSA number on use [%06u] (V%02u)\n", m_compiler->dspTreeID(tree), lclNum);
+                }
+                return;
+            }
+
+            SsaKey   key(lclNum, ssaNum);
+            SsaInfo* ssaInfo = nullptr;
+
+            if (!m_infoMap.Lookup(key, &ssaInfo))
+            {
+                ssaInfo = new (m_compiler->getAllocator(CMK_DebugOnly)) SsaInfo;
+                m_infoMap.Set(key, ssaInfo);
+            }
+
+            if (tree->OperIs(GT_PHI_ARG))
+            {
+                ssaInfo->AddPhiUse(m_block, key);
+            }
+            else
+            {
+                ssaInfo->AddUse(m_block, key);
+            }
+        }
+
+        void ProcessUses(GenTreeLclVarCommon* tree)
+        {
+            unsigned const lclNum = tree->GetLclNum();
+            unsigned const ssaNum = tree->GetSsaNum();
+
+            // We currently should not see composite SSA numbers for uses.
+            //
+            if (tree->HasCompositeSsaName())
+            {
+                SetHasErrors();
+                JITDUMP("[error] Composite SSA number on use [%06u] (V%02u)\n", m_compiler->dspTreeID(tree), lclNum);
+                return;
+            }
+
+            ProcessUse(tree, lclNum, ssaNum);
+        }
+
+        Compiler::fgWalkResult PreOrderVisit(GenTree** use, GenTree* user)
+        {
+            GenTree* const tree = *use;
+
+            if (tree->OperIsSsaDef())
+            {
+                ProcessDefs(tree);
+            }
+            else if (tree->OperIs(GT_LCL_VAR, GT_LCL_FLD, GT_PHI_ARG))
+            {
+                ProcessUses(tree->AsLclVarCommon());
+            }
+
+            return fgWalkResult::WALK_CONTINUE;
+        }
+
+        void SetHasErrors()
+        {
+            if (!m_hasErrors)
+            {
+                JITDUMP("fgDebugCheckSsa: errors found\n");
+                m_hasErrors = true;
+            }
+        }
+
+        bool HasErrors() const
+        {
+            return m_hasErrors;
+        }
+
+        void SetBlock(BasicBlock* block)
+        {
+            m_block = block;
+            CheckPhis(block);
+        }
+
+        void CheckPhis(BasicBlock* block)
+        {
+            Statement* nonPhiStmt = nullptr;
+            for (Statement* const stmt : block->Statements())
+            {
+                // All PhiDefs should appear before any other statements
+                //
+                if (!stmt->IsPhiDefnStmt())
+                {
+                    if (nonPhiStmt == nullptr)
+                    {
+                        nonPhiStmt = stmt;
+                    }
+                    continue;
                 }
 
-                // Handlers can have multiple PhiArgs from the same block and implicit preds.
-                // So we can't easily check their PhiArgs.
+                if (nonPhiStmt != nullptr)
+                {
+                    SetHasErrors();
+                    JITDUMP("[error] " FMT_BB " PhiDef " FMT_STMT " appears after non-PhiDef " FMT_STMT "\n",
+                            block->bbNum, stmt->GetID(), nonPhiStmt->GetID());
+                }
+
+                GenTreeLclVar* const phiDefNode = stmt->GetRootNode()->AsLclVar();
+                GenTreePhi* const    phi        = phiDefNode->Data()->AsPhi();
+                assert(phiDefNode->IsPhiDefn());
+
+                // Verify each GT_PHI_ARG is the right local.
                 //
-                if (m_compiler->bbIsHandlerBeg(block))
+                // If block does not begin a handler, verify GT_PHI_ARG blocks are unique
+                // (that is, each pred supplies at most one ssa def).
+                //
+                BitVecTraits bitVecTraits(m_compiler->fgBBNumMax + 1, m_compiler);
+                BitVec       phiPreds(BitVecOps::MakeEmpty(&bitVecTraits));
+
+                for (GenTreePhi::Use& use : phi->Uses())
+                {
+                    GenTreePhiArg* const phiArgNode = use.GetNode()->AsPhiArg();
+                    if (phiArgNode->GetLclNum() != phiDefNode->GetLclNum())
+                    {
+                        SetHasErrors();
+                        JITDUMP("[error] Wrong local V%02u in PhiArg [%06u] -- expected V%02u\n",
+                                phiArgNode->GetLclNum(), m_compiler->dspTreeID(phiArgNode), phiDefNode->GetLclNum());
+                    }
+
+                    // Handlers can have multiple PhiArgs from the same block and implicit preds.
+                    // So we can't easily check their PhiArgs.
+                    //
+                    if (m_compiler->bbIsHandlerBeg(block))
+                    {
+                        continue;
+                    }
+
+                    BasicBlock* const phiArgBlock = phiArgNode->gtPredBB;
+
+                    if (phiArgBlock != nullptr)
+                    {
+                        if (BitVecOps::IsMember(&bitVecTraits, phiPreds, phiArgBlock->bbNum))
+                        {
+                            SetHasErrors();
+                            JITDUMP("[error] " FMT_BB " [%06u]: multiple PhiArgs for predBlock " FMT_BB "\n",
+                                    block->bbNum, m_compiler->dspTreeID(phi), phiArgBlock->bbNum);
+                        }
+
+                        BitVecOps::AddElemD(&bitVecTraits, phiPreds, phiArgBlock->bbNum);
+
+                        // If phiArgBlock is not a pred of block we either have messed up when building
+                        // SSA or made modifications after building SSA and possibly should have pruned
+                        // out or updated this PhiArg.
+                        //
+                        FlowEdge* const edge = m_compiler->fgGetPredForBlock(block, phiArgBlock);
+
+                        if (edge == nullptr)
+                        {
+                            JITDUMP("[info] " FMT_BB " [%06u]: stale PhiArg [%06u] pred block " FMT_BB "\n",
+                                    block->bbNum, m_compiler->dspTreeID(phi), m_compiler->dspTreeID(phiArgNode),
+                                    phiArgBlock->bbNum);
+                        }
+                    }
+                }
+            }
+        }
+
+        void DoChecks()
+        {
+            for (unsigned lclNum = 0; lclNum < m_compiler->lvaCount; lclNum++)
+            {
+                // Check each local in SSA
+                //
+                LclVarDsc* const varDsc = m_compiler->lvaGetDesc(lclNum);
+
+                if (!varDsc->lvInSsa)
                 {
                     continue;
                 }
 
-                BasicBlock* const phiArgBlock = phiArgNode->gtPredBB;
+                // Check each SSA lifetime of that local
+                //
+                const SsaDefArray<LclSsaVarDsc>& ssaDefs = varDsc->lvPerSsaData;
 
-                if (phiArgBlock != nullptr)
+                for (unsigned i = 0; i < ssaDefs.GetCount(); i++)
                 {
-                    if (BitVecOps::IsMember(&bitVecTraits, phiPreds, phiArgBlock->bbNum))
+                    LclSsaVarDsc* const ssaVarDsc = ssaDefs.GetSsaDefByIndex(i);
+                    const unsigned      ssaNum    = ssaDefs.GetSsaNum(ssaVarDsc);
+
+                    // Find the SSA info we gathered for this lifetime via the IR walk
+                    //
+                    SsaKey   key(lclNum, ssaNum);
+                    SsaInfo* ssaInfo = nullptr;
+
+                    if (!m_infoMap.Lookup(key, &ssaInfo))
                     {
-                        SetHasErrors();
-                        JITDUMP("[error] " FMT_BB " [%06u]: multiple PhiArgs for predBlock " FMT_BB "\n", block->bbNum,
-                                m_compiler->dspTreeID(phi), phiArgBlock->bbNum);
+                        // IR has no information about this lifetime.
+                        // Possibly there are no more references.
+                        //
+                        continue;
                     }
 
-                    BitVecOps::AddElemD(&bitVecTraits, phiPreds, phiArgBlock->bbNum);
-
-                    // If phiArgBlock is not a pred of block we either have messed up when building
-                    // SSA or made modifications after building SSA and possibly should have pruned
-                    // out or updated this PhiArg.
+                    // Now cross-check the gathered ssaInfo vs the LclSsaVarDsc.
+                    // LclSsaVarDsc should have the correct def block
                     //
-                    FlowEdge* const edge = m_compiler->fgGetPredForBlock(block, phiArgBlock);
+                    BasicBlock* const ssaInfoDefBlock   = ssaInfo->GetDefBlock();
+                    BasicBlock* const ssaVarDscDefBlock = ssaVarDsc->GetBlock();
 
-                    if (edge == nullptr)
+                    if (ssaInfoDefBlock != ssaVarDscDefBlock)
                     {
-                        JITDUMP("[info] " FMT_BB " [%06u]: stale PhiArg [%06u] pred block " FMT_BB "\n", block->bbNum,
-                                m_compiler->dspTreeID(phi), m_compiler->dspTreeID(phiArgNode), phiArgBlock->bbNum);
+                        // We are inconsistent in tracking where the initial values of params
+                        // and uninit locals come from. Tolerate.
+                        //
+                        const bool initialValOfParamOrLocal =
+                            (lclNum < m_compiler->lvaCount) && (ssaNum == SsaConfig::FIRST_SSA_NUM);
+                        const bool noDefBlockOrFirstBB =
+                            (ssaInfoDefBlock == nullptr) && (ssaVarDscDefBlock == m_compiler->fgFirstBB);
+                        if (!(initialValOfParamOrLocal && noDefBlockOrFirstBB))
+                        {
+                            JITDUMP("[error] Wrong def block for V%02u.%u : IR " FMT_BB " SSA " FMT_BB "\n", lclNum,
+                                    ssaNum, ssaInfoDefBlock == nullptr ? 0 : ssaInfoDefBlock->bbNum,
+                                    ssaVarDscDefBlock == nullptr ? 0 : ssaVarDscDefBlock->bbNum);
+
+                            SetHasErrors();
+                        }
+                    }
+
+                    unsigned const ssaInfoUses   = ssaInfo->GetNumUses();
+                    unsigned const ssaVarDscUses = ssaVarDsc->GetNumUses();
+
+                    // LclSsaVarDsc use count must be accurate or an over-estimate
+                    //
+                    if (ssaInfoUses > ssaVarDscUses)
+                    {
+                        // If this assert fires, it's possible some optimization did not call optRecordSsaUse.
+                        //
+                        JITDUMP("[error] NumUses underestimated for V%02u.%u: IR %u SSA %u\n", lclNum, ssaNum,
+                                ssaInfoUses, ssaVarDscUses);
+                        SetHasErrors();
+                    }
+                    else if (ssaInfoUses < ssaVarDscUses)
+                    {
+                        JITDUMP("[info] NumUses overestimated for V%02u.%u: IR %u SSA %u\n", lclNum, ssaNum,
+                                ssaInfoUses, ssaVarDscUses);
+                    }
+
+                    // LclSsaVarDsc HasPhiUse use must be accurate or an over-estimate
+                    //
+                    if (ssaInfo->HasPhiUse() && !ssaVarDsc->HasPhiUse())
+                    {
+                        JITDUMP("[error] HasPhiUse underestimated for V%02u.%u\n", lclNum, ssaNum);
+                        SetHasErrors();
+                    }
+                    else if (!ssaInfo->HasPhiUse() && ssaVarDsc->HasPhiUse())
+                    {
+                        JITDUMP("[info] HasPhiUse overestimated for V%02u.%u\n", lclNum, ssaNum);
+                    }
+
+                    // LclSsaVarDsc HasGlobalUse use must be accurate or an over-estimate
+                    //
+                    if (ssaInfo->HasGlobalUse() && !ssaVarDsc->HasGlobalUse())
+                    {
+                        JITDUMP("[error] HasGlobalUse underestimated for V%02u.%u\n", lclNum, ssaNum);
+                        SetHasErrors();
+                    }
+                    else if (!ssaInfo->HasGlobalUse() && ssaVarDsc->HasGlobalUse())
+                    {
+                        JITDUMP("[info] HasGlobalUse overestimated for V%02u.%u\n", lclNum, ssaNum);
+                    }
+
+                    // There should be at most one def.
+                    //
+                    if (ssaInfo->HasMultipleDef())
+                    {
+                        JITDUMP("[error] HasMultipleDef for V%02u.%u\n", lclNum, ssaNum);
+                        SetHasErrors();
                     }
                 }
             }
         }
-    }
-
-    void DoChecks()
-    {
-        for (unsigned lclNum = 0; lclNum < m_compiler->lvaCount; lclNum++)
-        {
-            // Check each local in SSA
-            //
-            LclVarDsc* const varDsc = m_compiler->lvaGetDesc(lclNum);
-
-            if (!varDsc->lvInSsa)
-            {
-                continue;
-            }
-
-            // Check each SSA lifetime of that local
-            //
-            const SsaDefArray<LclSsaVarDsc>& ssaDefs = varDsc->lvPerSsaData;
-
-            for (unsigned i = 0; i < ssaDefs.GetCount(); i++)
-            {
-                LclSsaVarDsc* const ssaVarDsc = ssaDefs.GetSsaDefByIndex(i);
-                const unsigned      ssaNum    = ssaDefs.GetSsaNum(ssaVarDsc);
-
-                // Find the SSA info we gathered for this lifetime via the IR walk
-                //
-                SsaKey   key(lclNum, ssaNum);
-                SsaInfo* ssaInfo = nullptr;
-
-                if (!m_infoMap.Lookup(key, &ssaInfo))
-                {
-                    // IR has no information about this lifetime.
-                    // Possibly there are no more references.
-                    //
-                    continue;
-                }
-
-                // Now cross-check the gathered ssaInfo vs the LclSsaVarDsc.
-                // LclSsaVarDsc should have the correct def block
-                //
-                BasicBlock* const ssaInfoDefBlock   = ssaInfo->GetDefBlock();
-                BasicBlock* const ssaVarDscDefBlock = ssaVarDsc->GetBlock();
-
-                if (ssaInfoDefBlock != ssaVarDscDefBlock)
-                {
-                    // We are inconsistent in tracking where the initial values of params
-                    // and uninit locals come from. Tolerate.
-                    //
-                    const bool initialValOfParamOrLocal =
-                        (lclNum < m_compiler->lvaCount) && (ssaNum == SsaConfig::FIRST_SSA_NUM);
-                    const bool noDefBlockOrFirstBB =
-                        (ssaInfoDefBlock == nullptr) && (ssaVarDscDefBlock == m_compiler->fgFirstBB);
-                    if (!(initialValOfParamOrLocal && noDefBlockOrFirstBB))
-                    {
-                        JITDUMP("[error] Wrong def block for V%02u.%u : IR " FMT_BB " SSA " FMT_BB "\n", lclNum, ssaNum,
-                                ssaInfoDefBlock == nullptr ? 0 : ssaInfoDefBlock->bbNum,
-                                ssaVarDscDefBlock == nullptr ? 0 : ssaVarDscDefBlock->bbNum);
-
-                        SetHasErrors();
-                    }
-                }
-
-                unsigned const ssaInfoUses   = ssaInfo->GetNumUses();
-                unsigned const ssaVarDscUses = ssaVarDsc->GetNumUses();
-
-                // LclSsaVarDsc use count must be accurate or an over-estimate
-                //
-                if (ssaInfoUses > ssaVarDscUses)
-                {
-                    // If this assert fires, it's possible some optimization did not call optRecordSsaUse.
-                    //
-                    JITDUMP("[error] NumUses underestimated for V%02u.%u: IR %u SSA %u\n", lclNum, ssaNum, ssaInfoUses,
-                            ssaVarDscUses);
-                    SetHasErrors();
-                }
-                else if (ssaInfoUses < ssaVarDscUses)
-                {
-                    JITDUMP("[info] NumUses overestimated for V%02u.%u: IR %u SSA %u\n", lclNum, ssaNum, ssaInfoUses,
-                            ssaVarDscUses);
-                }
-
-                // LclSsaVarDsc HasPhiUse use must be accurate or an over-estimate
-                //
-                if (ssaInfo->HasPhiUse() && !ssaVarDsc->HasPhiUse())
-                {
-                    JITDUMP("[error] HasPhiUse underestimated for V%02u.%u\n", lclNum, ssaNum);
-                    SetHasErrors();
-                }
-                else if (!ssaInfo->HasPhiUse() && ssaVarDsc->HasPhiUse())
-                {
-                    JITDUMP("[info] HasPhiUse overestimated for V%02u.%u\n", lclNum, ssaNum);
-                }
-
-                // LclSsaVarDsc HasGlobalUse use must be accurate or an over-estimate
-                //
-                if (ssaInfo->HasGlobalUse() && !ssaVarDsc->HasGlobalUse())
-                {
-                    JITDUMP("[error] HasGlobalUse underestimated for V%02u.%u\n", lclNum, ssaNum);
-                    SetHasErrors();
-                }
-                else if (!ssaInfo->HasGlobalUse() && ssaVarDsc->HasGlobalUse())
-                {
-                    JITDUMP("[info] HasGlobalUse overestimated for V%02u.%u\n", lclNum, ssaNum);
-                }
-
-                // There should be at most one def.
-                //
-                if (ssaInfo->HasMultipleDef())
-                {
-                    JITDUMP("[error] HasMultipleDef for V%02u.%u\n", lclNum, ssaNum);
-                    SetHasErrors();
-                }
-            }
-        }
-    }
 };
 
 //------------------------------------------------------------------------------
@@ -4745,15 +4764,13 @@ void Compiler::fgDebugCheckLoops()
             assert(loop->EntryEdges().size() == 1);
             assert(loop->EntryEdge(0)->getSourceBlock()->KindIs(BBJ_ALWAYS));
 
-            loop->VisitRegularExitBlocks(
-                [=](BasicBlock* exit)
+            loop->VisitRegularExitBlocks([=](BasicBlock* exit) {
+                for (BasicBlock* pred : exit->PredBlocks())
                 {
-                    for (BasicBlock* pred : exit->PredBlocks())
-                    {
-                        assert(loop->ContainsBlock(pred));
-                    }
-                    return BasicBlockVisit::Continue;
-                });
+                    assert(loop->ContainsBlock(pred));
+                }
+                return BasicBlockVisit::Continue;
+            });
         }
     }
 }
@@ -4770,14 +4787,15 @@ void Compiler::fgDebugCheckFlowGraphAnnotations()
         return;
     }
 
-    unsigned count =
-        fgRunDfs([](BasicBlock* block, unsigned preorderNum) { assert(block->bbPreorderNum == preorderNum); },
-                 [=](BasicBlock* block, unsigned postorderNum)
-                 {
-                     assert(block->bbPostorderNum == postorderNum);
-                     assert(m_dfsTree->GetPostOrder(postorderNum) == block);
-                 },
-                 [](BasicBlock* block, BasicBlock* succ) {});
+    unsigned count = fgRunDfs(
+        [](BasicBlock* block, unsigned preorderNum) {
+            assert(block->bbPreorderNum == preorderNum);
+        },
+        [=](BasicBlock* block, unsigned postorderNum) {
+            assert(block->bbPostorderNum == postorderNum);
+            assert(m_dfsTree->GetPostOrder(postorderNum) == block);
+        },
+        [](BasicBlock* block, BasicBlock* succ) {});
 
     assert(m_dfsTree->GetPostOrderCount() == count);
 

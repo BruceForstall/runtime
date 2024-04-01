@@ -207,10 +207,10 @@ inline ssize_t emitter::emitGetInsAmdAny(const instrDesc* id) const
 
 #endif // TARGET_XARCH
 
-/*****************************************************************************
- *
- *  Convert between a register mask and a smaller version for storage.
- */
+       /*****************************************************************************
+        *
+        *  Convert between a register mask and a smaller version for storage.
+        */
 /*static*/ inline void emitter::emitEncodeCallGCregs(regMaskTP regmask, instrDesc* id)
 {
     unsigned encodeMask;
@@ -584,8 +584,7 @@ inline bool insIsCMOV(instruction ins)
  *  method that is marked IGF_NOGCINTERRUPT. Stops if the callback returns
  *  false. Returns the final result of the callback.
  */
-template <typename Callback>
-bool emitter::emitGenNoGCLst(Callback& cb)
+template <typename Callback> bool emitter::emitGenNoGCLst(Callback& cb)
 {
     for (insGroup* ig = emitIGlist; ig; ig = ig->igNext)
     {

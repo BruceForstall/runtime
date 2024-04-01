@@ -21,53 +21,53 @@ XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
 
 class ObjectAllocator final : public Phase
 {
-    typedef SmallHashTable<unsigned int, unsigned int, 8U> LocalToLocalMap;
+        typedef SmallHashTable<unsigned int, unsigned int, 8U> LocalToLocalMap;
 
-    //===============================================================================
-    // Data members
-    bool         m_IsObjectStackAllocationEnabled;
-    bool         m_AnalysisDone;
-    BitVecTraits m_bitVecTraits;
-    BitVec       m_EscapingPointers;
-    // We keep the set of possibly-stack-pointing pointers as a superset of the set of
-    // definitely-stack-pointing pointers. All definitely-stack-pointing pointers are in both sets.
-    BitVec              m_PossiblyStackPointingPointers;
-    BitVec              m_DefinitelyStackPointingPointers;
-    LocalToLocalMap     m_HeapLocalToStackLocalMap;
-    BitSetShortLongRep* m_ConnGraphAdjacencyMatrix;
+        //===============================================================================
+        // Data members
+        bool         m_IsObjectStackAllocationEnabled;
+        bool         m_AnalysisDone;
+        BitVecTraits m_bitVecTraits;
+        BitVec       m_EscapingPointers;
+        // We keep the set of possibly-stack-pointing pointers as a superset of the set of
+        // definitely-stack-pointing pointers. All definitely-stack-pointing pointers are in both sets.
+        BitVec              m_PossiblyStackPointingPointers;
+        BitVec              m_DefinitelyStackPointingPointers;
+        LocalToLocalMap     m_HeapLocalToStackLocalMap;
+        BitSetShortLongRep* m_ConnGraphAdjacencyMatrix;
 
-    //===============================================================================
-    // Methods
-public:
-    ObjectAllocator(Compiler* comp);
-    bool IsObjectStackAllocationEnabled() const;
-    void EnableObjectStackAllocation();
+        //===============================================================================
+        // Methods
+    public:
+        ObjectAllocator(Compiler* comp);
+        bool IsObjectStackAllocationEnabled() const;
+        void EnableObjectStackAllocation();
 
-protected:
-    virtual PhaseStatus DoPhase() override;
+    protected:
+        virtual PhaseStatus DoPhase() override;
 
-private:
-    bool         CanAllocateLclVarOnStack(unsigned int lclNum, CORINFO_CLASS_HANDLE clsHnd);
-    bool         CanLclVarEscape(unsigned int lclNum);
-    void         MarkLclVarAsPossiblyStackPointing(unsigned int lclNum);
-    void         MarkLclVarAsDefinitelyStackPointing(unsigned int lclNum);
-    bool         MayLclVarPointToStack(unsigned int lclNum);
-    bool         DoesLclVarPointToStack(unsigned int lclNum);
-    void         DoAnalysis();
-    void         MarkLclVarAsEscaping(unsigned int lclNum);
-    void         MarkEscapingVarsAndBuildConnGraph();
-    void         AddConnGraphEdge(unsigned int sourceLclNum, unsigned int targetLclNum);
-    void         ComputeEscapingNodes(BitVecTraits* bitVecTraits, BitVec& escapingNodes);
-    void         ComputeStackObjectPointers(BitVecTraits* bitVecTraits);
-    bool         MorphAllocObjNodes();
-    void         RewriteUses();
-    GenTree*     MorphAllocObjNodeIntoHelperCall(GenTreeAllocObj* allocObj);
-    unsigned int MorphAllocObjNodeIntoStackAlloc(GenTreeAllocObj* allocObj, BasicBlock* block, Statement* stmt);
-    struct BuildConnGraphVisitorCallbackData;
-    bool CanLclVarEscapeViaParentStack(ArrayStack<GenTree*>* parentStack, unsigned int lclNum);
-    void UpdateAncestorTypes(GenTree* tree, ArrayStack<GenTree*>* parentStack, var_types newType);
+    private:
+        bool         CanAllocateLclVarOnStack(unsigned int lclNum, CORINFO_CLASS_HANDLE clsHnd);
+        bool         CanLclVarEscape(unsigned int lclNum);
+        void         MarkLclVarAsPossiblyStackPointing(unsigned int lclNum);
+        void         MarkLclVarAsDefinitelyStackPointing(unsigned int lclNum);
+        bool         MayLclVarPointToStack(unsigned int lclNum);
+        bool         DoesLclVarPointToStack(unsigned int lclNum);
+        void         DoAnalysis();
+        void         MarkLclVarAsEscaping(unsigned int lclNum);
+        void         MarkEscapingVarsAndBuildConnGraph();
+        void         AddConnGraphEdge(unsigned int sourceLclNum, unsigned int targetLclNum);
+        void         ComputeEscapingNodes(BitVecTraits* bitVecTraits, BitVec& escapingNodes);
+        void         ComputeStackObjectPointers(BitVecTraits* bitVecTraits);
+        bool         MorphAllocObjNodes();
+        void         RewriteUses();
+        GenTree*     MorphAllocObjNodeIntoHelperCall(GenTreeAllocObj* allocObj);
+        unsigned int MorphAllocObjNodeIntoStackAlloc(GenTreeAllocObj* allocObj, BasicBlock* block, Statement* stmt);
+        struct BuildConnGraphVisitorCallbackData;
+        bool CanLclVarEscapeViaParentStack(ArrayStack<GenTree*>* parentStack, unsigned int lclNum);
+        void UpdateAncestorTypes(GenTree* tree, ArrayStack<GenTree*>* parentStack, var_types newType);
 
-    static const unsigned int s_StackAllocMaxSize = 0x2000U;
+        static const unsigned int s_StackAllocMaxSize = 0x2000U;
 };
 
 //===============================================================================

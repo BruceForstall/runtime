@@ -371,7 +371,7 @@ const char* dspRegRange(regMaskTP regMask, size_t& minSiz, const char* sep, regN
                         inRegRange = true;
                         sep        = "-";
                     }
-#else // TARGET*
+#else  // TARGET*
 #error Unsupported or unset target architecture
 #endif // TARGET*
                 }
@@ -532,94 +532,94 @@ DECODE_OPCODE:
             goto DECODE_OPCODE;
 
         default:
-        {
-            __int64 iOp;
-            double  dOp;
-            int     jOp;
-            DWORD   jOp2;
-
-            switch (argKind)
             {
-                case InlineNone:
-                    dumpILBytes(startOpcodePtr, (unsigned)(opcodePtr - startOpcodePtr), ALIGN_WIDTH);
-                    printf(" %-12s", opcodeNames[opcode]);
-                    break;
+                __int64 iOp;
+                double  dOp;
+                int     jOp;
+                DWORD   jOp2;
 
-                case ShortInlineVar:
-                    iOp = getU1LittleEndian(opcodePtr);
-                    goto INT_OP;
-                case ShortInlineI:
-                    iOp = getI1LittleEndian(opcodePtr);
-                    goto INT_OP;
-                case InlineVar:
-                    iOp = getU2LittleEndian(opcodePtr);
-                    goto INT_OP;
-                case InlineTok:
-                case InlineMethod:
-                case InlineField:
-                case InlineType:
-                case InlineString:
-                case InlineSig:
-                case InlineI:
-                    iOp = getI4LittleEndian(opcodePtr);
-                    goto INT_OP;
-                case InlineI8:
-                    iOp = getU4LittleEndian(opcodePtr);
-                    iOp |= (__int64)getU4LittleEndian(opcodePtr + 4) << 32;
-                    goto INT_OP;
+                switch (argKind)
+                {
+                    case InlineNone:
+                        dumpILBytes(startOpcodePtr, (unsigned)(opcodePtr - startOpcodePtr), ALIGN_WIDTH);
+                        printf(" %-12s", opcodeNames[opcode]);
+                        break;
 
-                INT_OP:
-                    dumpILBytes(startOpcodePtr, (unsigned)((opcodePtr - startOpcodePtr) + sz), ALIGN_WIDTH);
-                    printf(" %-12s 0x%X", opcodeNames[opcode], iOp);
-                    break;
+                    case ShortInlineVar:
+                        iOp = getU1LittleEndian(opcodePtr);
+                        goto INT_OP;
+                    case ShortInlineI:
+                        iOp = getI1LittleEndian(opcodePtr);
+                        goto INT_OP;
+                    case InlineVar:
+                        iOp = getU2LittleEndian(opcodePtr);
+                        goto INT_OP;
+                    case InlineTok:
+                    case InlineMethod:
+                    case InlineField:
+                    case InlineType:
+                    case InlineString:
+                    case InlineSig:
+                    case InlineI:
+                        iOp = getI4LittleEndian(opcodePtr);
+                        goto INT_OP;
+                    case InlineI8:
+                        iOp = getU4LittleEndian(opcodePtr);
+                        iOp |= (__int64)getU4LittleEndian(opcodePtr + 4) << 32;
+                        goto INT_OP;
 
-                case ShortInlineR:
-                    dOp = FloatingPointUtils::convertToDouble(getR4LittleEndian(opcodePtr));
-                    goto FLT_OP;
-                case InlineR:
-                    dOp = getR8LittleEndian(opcodePtr);
-                    goto FLT_OP;
+INT_OP:
+                        dumpILBytes(startOpcodePtr, (unsigned)((opcodePtr - startOpcodePtr) + sz), ALIGN_WIDTH);
+                        printf(" %-12s 0x%X", opcodeNames[opcode], iOp);
+                        break;
 
-                FLT_OP:
-                    dumpILBytes(startOpcodePtr, (unsigned)((opcodePtr - startOpcodePtr) + sz), ALIGN_WIDTH);
-                    printf(" %-12s %f", opcodeNames[opcode], dOp);
-                    break;
+                    case ShortInlineR:
+                        dOp = FloatingPointUtils::convertToDouble(getR4LittleEndian(opcodePtr));
+                        goto FLT_OP;
+                    case InlineR:
+                        dOp = getR8LittleEndian(opcodePtr);
+                        goto FLT_OP;
 
-                case ShortInlineBrTarget:
-                    jOp = getI1LittleEndian(opcodePtr);
-                    goto JMP_OP;
-                case InlineBrTarget:
-                    jOp = getI4LittleEndian(opcodePtr);
-                    goto JMP_OP;
+FLT_OP:
+                        dumpILBytes(startOpcodePtr, (unsigned)((opcodePtr - startOpcodePtr) + sz), ALIGN_WIDTH);
+                        printf(" %-12s %f", opcodeNames[opcode], dOp);
+                        break;
 
-                JMP_OP:
-                    dumpILBytes(startOpcodePtr, (unsigned)((opcodePtr - startOpcodePtr) + sz), ALIGN_WIDTH);
-                    printf(" %-12s %d (IL_%04x)", opcodeNames[opcode], jOp, (int)(opcodePtr + sz - codeAddr) + jOp);
-                    break;
+                    case ShortInlineBrTarget:
+                        jOp = getI1LittleEndian(opcodePtr);
+                        goto JMP_OP;
+                    case InlineBrTarget:
+                        jOp = getI4LittleEndian(opcodePtr);
+                        goto JMP_OP;
 
-                case InlineSwitch:
-                    jOp2 = getU4LittleEndian(opcodePtr);
-                    opcodePtr += 4;
-                    opcodePtr += jOp2 * 4; // Jump over the table
-                    dumpILBytes(startOpcodePtr, (unsigned)(opcodePtr - startOpcodePtr), ALIGN_WIDTH);
-                    printf(" %-12s", opcodeNames[opcode]);
-                    break;
+JMP_OP:
+                        dumpILBytes(startOpcodePtr, (unsigned)((opcodePtr - startOpcodePtr) + sz), ALIGN_WIDTH);
+                        printf(" %-12s %d (IL_%04x)", opcodeNames[opcode], jOp, (int)(opcodePtr + sz - codeAddr) + jOp);
+                        break;
 
-                case InlinePhi:
-                    jOp2 = getU1LittleEndian(opcodePtr);
-                    opcodePtr += 1;
-                    opcodePtr += jOp2 * 2; // Jump over the table
-                    dumpILBytes(startOpcodePtr, (unsigned)(opcodePtr - startOpcodePtr), ALIGN_WIDTH);
-                    printf(" %-12s", opcodeNames[opcode]);
-                    break;
+                    case InlineSwitch:
+                        jOp2 = getU4LittleEndian(opcodePtr);
+                        opcodePtr += 4;
+                        opcodePtr += jOp2 * 4; // Jump over the table
+                        dumpILBytes(startOpcodePtr, (unsigned)(opcodePtr - startOpcodePtr), ALIGN_WIDTH);
+                        printf(" %-12s", opcodeNames[opcode]);
+                        break;
 
-                default:
-                    assert(!"Bad argKind");
+                    case InlinePhi:
+                        jOp2 = getU1LittleEndian(opcodePtr);
+                        opcodePtr += 1;
+                        opcodePtr += jOp2 * 2; // Jump over the table
+                        dumpILBytes(startOpcodePtr, (unsigned)(opcodePtr - startOpcodePtr), ALIGN_WIDTH);
+                        printf(" %-12s", opcodeNames[opcode]);
+                        break;
+
+                    default:
+                        assert(!"Bad argKind");
+                }
+
+                opcodePtr += sz;
+                break;
             }
-
-            opcodePtr += sz;
-            break;
-        }
     }
 
     printf("\n");
@@ -1107,7 +1107,8 @@ void Counter::dump(FILE* output)
  *  Histogram class.
  */
 
-Histogram::Histogram(const unsigned* const sizeTable) : m_sizeTable(sizeTable)
+Histogram::Histogram(const unsigned* const sizeTable)
+    : m_sizeTable(sizeTable)
 {
     unsigned sizeCount = 0;
     do
@@ -1179,8 +1180,8 @@ void NodeCounts::dump(FILE* output)
 {
     struct Entry
     {
-        genTreeOps oper;
-        unsigned   count;
+            genTreeOps oper;
+            unsigned   count;
     };
 
     Entry sorted[GT_COUNT];
@@ -1190,21 +1191,19 @@ void NodeCounts::dump(FILE* output)
         sorted[i].count = static_cast<unsigned>(m_counts[i]);
     }
 
-    jitstd::sort(sorted, sorted + ArrLen(sorted),
-                 [](const Entry& lhs, const Entry& rhs)
-                 {
-                     if (lhs.count > rhs.count)
-                     {
-                         return true;
-                     }
+    jitstd::sort(sorted, sorted + ArrLen(sorted), [](const Entry& lhs, const Entry& rhs) {
+        if (lhs.count > rhs.count)
+        {
+            return true;
+        }
 
-                     if (lhs.count < rhs.count)
-                     {
-                         return false;
-                     }
+        if (lhs.count < rhs.count)
+        {
+            return false;
+        }
 
-                     return static_cast<unsigned>(lhs.oper) < static_cast<unsigned>(rhs.oper);
-                 });
+        return static_cast<unsigned>(lhs.oper) < static_cast<unsigned>(rhs.oper);
+    });
 
     for (const Entry& entry : sorted)
     {
@@ -1225,8 +1224,8 @@ void NodeCounts::record(genTreeOps oper)
 
 struct DumpOnShutdownEntry
 {
-    const char* Name;
-    Dumpable*   Dumpable;
+        const char* Name;
+        Dumpable*   Dumpable;
 };
 
 static DumpOnShutdownEntry s_dumpOnShutdown[16];
@@ -1841,7 +1840,8 @@ void HelperCallProperties::init()
 //
 // You must use ';' as a separator; whitespace no longer works
 
-AssemblyNamesList2::AssemblyNamesList2(const WCHAR* list, HostAllocator alloc) : m_alloc(alloc)
+AssemblyNamesList2::AssemblyNamesList2(const WCHAR* list, HostAllocator alloc)
+    : m_alloc(alloc)
 {
     WCHAR          prevChar   = '?';     // dummy
     LPWSTR         nameStart  = nullptr; // start of the name currently being processed. nullptr if no current name
@@ -1928,7 +1928,9 @@ bool AssemblyNamesList2::IsInList(const char* assemblyName)
 // MethodSet
 //=============================================================================
 
-MethodSet::MethodSet(const WCHAR* filename, HostAllocator alloc) : m_pInfos(nullptr), m_alloc(alloc)
+MethodSet::MethodSet(const WCHAR* filename, HostAllocator alloc)
+    : m_pInfos(nullptr)
+    , m_alloc(alloc)
 {
     FILE* methodSetFile = _wfopen(filename, W("r"));
     if (methodSetFile == nullptr)
@@ -2157,7 +2159,10 @@ double CachedCyclesPerSecond()
 }
 
 #ifdef FEATURE_JIT_METHOD_PERF
-CycleCount::CycleCount() : cps(CachedCyclesPerSecond()) {}
+CycleCount::CycleCount()
+    : cps(CachedCyclesPerSecond())
+{
+}
 
 bool CycleCount::GetCycles(unsigned __int64* time)
 {
@@ -3728,8 +3733,7 @@ double BitOperations::UInt64BitsToDouble(uint64_t value)
     return result;
 }
 
-namespace MagicDivide
-{
+namespace MagicDivide {
 template <int TableBase = 0, int TableSize, typename Magic>
 static const Magic* TryGetMagic(const Magic (&table)[TableSize], typename Magic::DivisorType index)
 {
@@ -3748,24 +3752,21 @@ static const Magic* TryGetMagic(const Magic (&table)[TableSize], typename Magic:
     return p;
 };
 
-template <typename T>
-struct UnsignedMagic
+template <typename T> struct UnsignedMagic
 {
-    typedef T DivisorType;
+        typedef T DivisorType;
 
-    T    magic;
-    bool increment;
-    char postShift;
+        T    magic;
+        bool increment;
+        char postShift;
 };
 
-template <typename T>
-const UnsignedMagic<T>* TryGetUnsignedMagic(T divisor)
+template <typename T> const UnsignedMagic<T>* TryGetUnsignedMagic(T divisor)
 {
     return nullptr;
 }
 
-template <>
-const UnsignedMagic<uint32_t>* TryGetUnsignedMagic(uint32_t divisor)
+template <> const UnsignedMagic<uint32_t>* TryGetUnsignedMagic(uint32_t divisor)
 {
     static const UnsignedMagic<uint32_t> table[]{
         {0xaaaaaaab, false, 1}, // 3
@@ -3783,8 +3784,7 @@ const UnsignedMagic<uint32_t>* TryGetUnsignedMagic(uint32_t divisor)
     return TryGetMagic<3>(table, divisor);
 }
 
-template <>
-const UnsignedMagic<uint64_t>* TryGetUnsignedMagic(uint64_t divisor)
+template <> const UnsignedMagic<uint64_t>* TryGetUnsignedMagic(uint64_t divisor)
 {
     static const UnsignedMagic<uint64_t> table[]{
         {0xaaaaaaaaaaaaaaab, false, 1}, // 3
@@ -3946,42 +3946,38 @@ uint64_t GetUnsigned64Magic(
 }
 #endif
 
-template <typename T>
-struct SignedMagic
+template <typename T> struct SignedMagic
 {
-    typedef T DivisorType;
+        typedef T DivisorType;
 
-    T   magic;
-    int shift;
+        T   magic;
+        int shift;
 };
 
-template <typename T>
-const SignedMagic<T>* TryGetSignedMagic(T divisor)
+template <typename T> const SignedMagic<T>* TryGetSignedMagic(T divisor)
 {
     return nullptr;
 }
 
-template <>
-const SignedMagic<int32_t>* TryGetSignedMagic(int32_t divisor)
+template <> const SignedMagic<int32_t>* TryGetSignedMagic(int32_t divisor)
 {
     static const SignedMagic<int32_t> table[]{
-        {0x55555556, 0}, // 3
+        {0x55555556, 0},          // 3
         {},
         {0x66666667, 1},          // 5
         {0x2aaaaaab, 0},          // 6
         {(int32_t)0x92492493, 2}, // 7
         {},
-        {0x38e38e39, 1}, // 9
-        {0x66666667, 2}, // 10
-        {0x2e8ba2e9, 1}, // 11
-        {0x2aaaaaab, 1}, // 12
+        {0x38e38e39, 1},          // 9
+        {0x66666667, 2},          // 10
+        {0x2e8ba2e9, 1},          // 11
+        {0x2aaaaaab, 1},          // 12
     };
 
     return TryGetMagic<3>(table, divisor);
 }
 
-template <>
-const SignedMagic<int64_t>* TryGetSignedMagic(int64_t divisor)
+template <> const SignedMagic<int64_t>* TryGetSignedMagic(int64_t divisor)
 {
     static const SignedMagic<int64_t> table[]{
         {0x5555555555555556, 0}, // 3
@@ -4016,8 +4012,7 @@ const SignedMagic<int64_t>* TryGetSignedMagic(int64_t divisor)
 //   is "Division by invariant integers using multiplication" by Torbjorn Granlund
 //   and Peter L. Montgomery in PLDI 94
 
-template <typename T>
-T GetSignedMagic(T denom, int* shift /*out*/)
+template <typename T> T GetSignedMagic(T denom, int* shift /*out*/)
 {
     const SignedMagic<T>* magic = TryGetSignedMagic(denom);
 
@@ -4101,8 +4096,7 @@ int64_t GetSigned64Magic(int64_t d, int* shift /*out*/)
 #endif
 } // namespace MagicDivide
 
-namespace CheckedOps
-{
+namespace CheckedOps {
 bool CastFromIntOverflows(int32_t fromValue, var_types toType, bool fromUnsigned)
 {
     switch (toType)

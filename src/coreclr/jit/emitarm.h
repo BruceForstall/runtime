@@ -314,8 +314,7 @@ void emitIns_ARR_R(instruction ins, emitAttr attr, regNumber ireg, regNumber reg
 void emitIns_R_ARX(
     instruction ins, emitAttr attr, regNumber ireg, regNumber reg, regNumber rg2, unsigned mul, int disp);
 
-enum EmitCallType
-{
+enum EmitCallType {
     EC_FUNC_TOKEN, // Direct call to a helper/static/nonvirtual/global method
     EC_INDIR_R,    // Indirect call via register
     EC_COUNT

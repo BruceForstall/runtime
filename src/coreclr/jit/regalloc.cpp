@@ -325,20 +325,20 @@ void Compiler::raMarkStkVars()
             goto NOT_STK;
         }
 
-    ON_STK:
+ON_STK:
         // The variable (or part of it) lives on the stack frame
 
         noway_assert((varDsc->lvType != TYP_UNDEF) && (varDsc->lvType != TYP_VOID) && (varDsc->lvType != TYP_UNKNOWN));
 #if FEATURE_FIXED_OUT_ARGS
         noway_assert((lclNum == lvaOutgoingArgSpaceVar) || lvaLclSize(lclNum) != 0);
-#else  // FEATURE_FIXED_OUT_ARGS
+#else                             // FEATURE_FIXED_OUT_ARGS
         noway_assert(lvaLclSize(lclNum) != 0);
-#endif // FEATURE_FIXED_OUT_ARGS
+#endif                            // FEATURE_FIXED_OUT_ARGS
 
         varDsc->lvOnFrame = true; // Our prediction is that the final home for this local variable will be in the
                                   // stack frame
 
-    NOT_STK:;
+NOT_STK:;
         varDsc->lvFramePointerBased = codeGen->isFramePointerUsed();
 
 #if DOUBLE_ALIGN

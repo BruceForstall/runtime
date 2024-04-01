@@ -211,7 +211,9 @@ void SetJitTls(void* value)
 
 #if defined(DEBUG)
 
-JitTls::JitTls(ICorJitInfo* jitInfo) : m_compiler(nullptr), m_logEnv(jitInfo)
+JitTls::JitTls(ICorJitInfo* jitInfo)
+    : m_compiler(nullptr)
+    , m_logEnv(jitInfo)
 {
     m_next = reinterpret_cast<JitTls*>(GetJitTls());
     SetJitTls(this);
@@ -237,11 +239,15 @@ void JitTls::SetCompiler(Compiler* compiler)
     reinterpret_cast<JitTls*>(GetJitTls())->m_compiler = compiler;
 }
 
-#else // !defined(DEBUG)
+#else  // !defined(DEBUG)
 
-JitTls::JitTls(ICorJitInfo* jitInfo) {}
+JitTls::JitTls(ICorJitInfo* jitInfo)
+{
+}
 
-JitTls::~JitTls() {}
+JitTls::~JitTls()
+{
+}
 
 Compiler* JitTls::GetCompiler()
 {
@@ -1403,7 +1409,9 @@ bool Compiler::eeRunWithSPMIErrorTrapImp(void (*function)(void*), void* param)
 unsigned Compiler::eeTryGetClassSize(CORINFO_CLASS_HANDLE clsHnd)
 {
     unsigned classSize = UINT_MAX;
-    eeRunFunctorWithSPMIErrorTrap([&]() { classSize = info.compCompHnd->getClassSize(clsHnd); });
+    eeRunFunctorWithSPMIErrorTrap([&]() {
+        classSize = info.compCompHnd->getClassSize(clsHnd);
+    });
 
     return classSize;
 }

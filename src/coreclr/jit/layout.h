@@ -13,235 +13,235 @@
 // available (cpblk/initblk operations) or not necessary (classes that do not contain GC pointers).
 class ClassLayout
 {
-    // Class handle or NO_CLASS_HANDLE for "block" layouts.
-    const CORINFO_CLASS_HANDLE m_classHandle;
+        // Class handle or NO_CLASS_HANDLE for "block" layouts.
+        const CORINFO_CLASS_HANDLE m_classHandle;
 
-    // Size of the layout in bytes (as reported by ICorJitInfo::getClassSize/getHeapClassSize
-    // for non "block" layouts). For "block" layouts this may be 0 due to 0 being a valid size
-    // for cpblk/initblk.
-    const unsigned m_size;
+        // Size of the layout in bytes (as reported by ICorJitInfo::getClassSize/getHeapClassSize
+        // for non "block" layouts). For "block" layouts this may be 0 due to 0 being a valid size
+        // for cpblk/initblk.
+        const unsigned m_size;
 
-    const unsigned m_isValueClass : 1;
-    INDEBUG(unsigned m_gcPtrsInitialized : 1;)
-    // The number of GC pointers in this layout. Since the maximum size is 2^32-1 the count
-    // can fit in at most 30 bits.
-    unsigned m_gcPtrCount : 30;
+        const unsigned m_isValueClass : 1;
+        INDEBUG(unsigned m_gcPtrsInitialized : 1;)
+        // The number of GC pointers in this layout. Since the maximum size is 2^32-1 the count
+        // can fit in at most 30 bits.
+        unsigned m_gcPtrCount : 30;
 
-    // Array of CorInfoGCType (as BYTE) that describes the GC layout of the class.
-    // For small classes the array is stored inline, avoiding an extra allocation
-    // and the pointer size overhead.
-    union
-    {
-        BYTE* m_gcPtrs;
-        BYTE  m_gcPtrsArray[sizeof(BYTE*)];
-    };
+        // Array of CorInfoGCType (as BYTE) that describes the GC layout of the class.
+        // For small classes the array is stored inline, avoiding an extra allocation
+        // and the pointer size overhead.
+        union
+        {
+                BYTE* m_gcPtrs;
+                BYTE  m_gcPtrsArray[sizeof(BYTE*)];
+        };
 
-    // The normalized type to use in IR for block nodes with this layout.
-    const var_types m_type;
+        // The normalized type to use in IR for block nodes with this layout.
+        const var_types m_type;
 
-    // Class name as reported by ICorJitInfo::getClassName
-    INDEBUG(const char* m_className;)
+        // Class name as reported by ICorJitInfo::getClassName
+        INDEBUG(const char* m_className;)
 
-    // Shortened class name as constructed by Compiler::eeGetShortClassName()
-    INDEBUG(const char* m_shortClassName;)
+        // Shortened class name as constructed by Compiler::eeGetShortClassName()
+        INDEBUG(const char* m_shortClassName;)
 
-    // ClassLayout instances should only be obtained via ClassLayoutTable.
-    friend class ClassLayoutTable;
+        // ClassLayout instances should only be obtained via ClassLayoutTable.
+        friend class ClassLayoutTable;
 
-    ClassLayout(unsigned size)
-        : m_classHandle(NO_CLASS_HANDLE)
-        , m_size(size)
-        , m_isValueClass(false)
+        ClassLayout(unsigned size)
+            : m_classHandle(NO_CLASS_HANDLE)
+            , m_size(size)
+            , m_isValueClass(false)
 #ifdef DEBUG
-        , m_gcPtrsInitialized(true)
+            , m_gcPtrsInitialized(true)
 #endif
-        , m_gcPtrCount(0)
-        , m_gcPtrs(nullptr)
-        , m_type(TYP_STRUCT)
+            , m_gcPtrCount(0)
+            , m_gcPtrs(nullptr)
+            , m_type(TYP_STRUCT)
 #ifdef DEBUG
-        , m_className("block")
-        , m_shortClassName("block")
+            , m_className("block")
+            , m_shortClassName("block")
 #endif
-    {
-    }
+        {
+        }
 
-    static ClassLayout* Create(Compiler* compiler, CORINFO_CLASS_HANDLE classHandle);
+        static ClassLayout* Create(Compiler* compiler, CORINFO_CLASS_HANDLE classHandle);
 
-    ClassLayout(CORINFO_CLASS_HANDLE classHandle,
-                bool                 isValueClass,
-                unsigned             size,
-                var_types type       DEBUGARG(const char* className) DEBUGARG(const char* shortClassName))
-        : m_classHandle(classHandle)
-        , m_size(size)
-        , m_isValueClass(isValueClass)
+        ClassLayout(CORINFO_CLASS_HANDLE classHandle,
+                    bool                 isValueClass,
+                    unsigned             size,
+                    var_types type       DEBUGARG(const char* className) DEBUGARG(const char* shortClassName))
+            : m_classHandle(classHandle)
+            , m_size(size)
+            , m_isValueClass(isValueClass)
 #ifdef DEBUG
-        , m_gcPtrsInitialized(false)
+            , m_gcPtrsInitialized(false)
 #endif
-        , m_gcPtrCount(0)
-        , m_gcPtrs(nullptr)
-        , m_type(type)
+            , m_gcPtrCount(0)
+            , m_gcPtrs(nullptr)
+            , m_type(type)
 #ifdef DEBUG
-        , m_className(className)
-        , m_shortClassName(shortClassName)
+            , m_className(className)
+            , m_shortClassName(shortClassName)
 #endif
-    {
-        assert(size != 0);
-    }
+        {
+            assert(size != 0);
+        }
 
-    void InitializeGCPtrs(Compiler* compiler);
+        void InitializeGCPtrs(Compiler* compiler);
 
-public:
-    CORINFO_CLASS_HANDLE GetClassHandle() const
-    {
-        return m_classHandle;
-    }
+    public:
+        CORINFO_CLASS_HANDLE GetClassHandle() const
+        {
+            return m_classHandle;
+        }
 
-    bool IsBlockLayout() const
-    {
-        return m_classHandle == NO_CLASS_HANDLE;
-    }
+        bool IsBlockLayout() const
+        {
+            return m_classHandle == NO_CLASS_HANDLE;
+        }
 
 #ifdef DEBUG
 
-    const char* GetClassName() const
-    {
-        return m_className;
-    }
+        const char* GetClassName() const
+        {
+            return m_className;
+        }
 
-    const char* GetShortClassName() const
-    {
-        return m_shortClassName;
-    }
+        const char* GetShortClassName() const
+        {
+            return m_shortClassName;
+        }
 
 #endif // DEBUG
 
-    bool IsValueClass() const
-    {
-        return m_isValueClass;
-    }
-
-    unsigned GetSize() const
-    {
-        return m_size;
-    }
-
-    var_types GetType() const
-    {
-        return m_type;
-    }
-
-    //------------------------------------------------------------------------
-    // GetRegisterType: Determine register type for the layout.
-    //
-    // Return Value:
-    //    TYP_UNDEF if the layout is enregistrable, register type otherwise.
-    //
-    var_types GetRegisterType() const
-    {
-        if (HasGCPtr())
+        bool IsValueClass() const
         {
-            return (GetSlotCount() == 1) ? GetGCPtrType(0) : TYP_UNDEF;
+            return m_isValueClass;
         }
 
-        switch (m_size)
+        unsigned GetSize() const
         {
-            case 1:
-                return TYP_UBYTE;
-            case 2:
-                return TYP_USHORT;
-            case 4:
-                return TYP_INT;
+            return m_size;
+        }
+
+        var_types GetType() const
+        {
+            return m_type;
+        }
+
+        //------------------------------------------------------------------------
+        // GetRegisterType: Determine register type for the layout.
+        //
+        // Return Value:
+        //    TYP_UNDEF if the layout is enregistrable, register type otherwise.
+        //
+        var_types GetRegisterType() const
+        {
+            if (HasGCPtr())
+            {
+                return (GetSlotCount() == 1) ? GetGCPtrType(0) : TYP_UNDEF;
+            }
+
+            switch (m_size)
+            {
+                case 1:
+                    return TYP_UBYTE;
+                case 2:
+                    return TYP_USHORT;
+                case 4:
+                    return TYP_INT;
 #ifdef TARGET_64BIT
-            case 8:
-                return TYP_LONG;
+                case 8:
+                    return TYP_LONG;
 #endif
 #ifdef FEATURE_SIMD
-            // TODO: check TYP_SIMD12 profitability,
-            // it will need additional support in `BuildStoreLoc`.
-            case 16:
-                return TYP_SIMD16;
+                // TODO: check TYP_SIMD12 profitability,
+                // it will need additional support in `BuildStoreLoc`.
+                case 16:
+                    return TYP_SIMD16;
 #endif
-            default:
-                return TYP_UNDEF;
+                default:
+                    return TYP_UNDEF;
+            }
         }
-    }
 
-    unsigned GetSlotCount() const
-    {
-        return roundUp(m_size, TARGET_POINTER_SIZE) / TARGET_POINTER_SIZE;
-    }
-
-    unsigned GetGCPtrCount() const
-    {
-        assert(m_gcPtrsInitialized);
-
-        return m_gcPtrCount;
-    }
-
-    bool HasGCPtr() const
-    {
-        assert(m_gcPtrsInitialized);
-
-        return m_gcPtrCount != 0;
-    }
-
-    bool HasGCByRef() const;
-
-    bool IsGCPtr(unsigned slot) const
-    {
-        return GetGCPtr(slot) != TYPE_GC_NONE;
-    }
-
-    bool IsGCRef(unsigned slot) const
-    {
-        return GetGCPtr(slot) == TYPE_GC_REF;
-    }
-
-    bool IsGCByRef(unsigned slot) const
-    {
-        return GetGCPtr(slot) == TYPE_GC_BYREF;
-    }
-
-    var_types GetGCPtrType(unsigned slot) const
-    {
-        switch (GetGCPtr(slot))
+        unsigned GetSlotCount() const
         {
-            case TYPE_GC_NONE:
-                return TYP_I_IMPL;
-            case TYPE_GC_REF:
-                return TYP_REF;
-            case TYPE_GC_BYREF:
-                return TYP_BYREF;
-            default:
-                unreached();
+            return roundUp(m_size, TARGET_POINTER_SIZE) / TARGET_POINTER_SIZE;
         }
-    }
 
-    bool IntersectsGCPtr(unsigned offset, unsigned size) const;
-
-    static bool AreCompatible(const ClassLayout* layout1, const ClassLayout* layout2);
-
-private:
-    const BYTE* GetGCPtrs() const
-    {
-        assert(m_gcPtrsInitialized);
-        assert(!IsBlockLayout());
-
-        return (GetSlotCount() > sizeof(m_gcPtrsArray)) ? m_gcPtrs : m_gcPtrsArray;
-    }
-
-    CorInfoGCType GetGCPtr(unsigned slot) const
-    {
-        assert(m_gcPtrsInitialized);
-        assert(slot < GetSlotCount());
-
-        if (m_gcPtrCount == 0)
+        unsigned GetGCPtrCount() const
         {
-            return TYPE_GC_NONE;
+            assert(m_gcPtrsInitialized);
+
+            return m_gcPtrCount;
         }
 
-        return static_cast<CorInfoGCType>(GetGCPtrs()[slot]);
-    }
+        bool HasGCPtr() const
+        {
+            assert(m_gcPtrsInitialized);
+
+            return m_gcPtrCount != 0;
+        }
+
+        bool HasGCByRef() const;
+
+        bool IsGCPtr(unsigned slot) const
+        {
+            return GetGCPtr(slot) != TYPE_GC_NONE;
+        }
+
+        bool IsGCRef(unsigned slot) const
+        {
+            return GetGCPtr(slot) == TYPE_GC_REF;
+        }
+
+        bool IsGCByRef(unsigned slot) const
+        {
+            return GetGCPtr(slot) == TYPE_GC_BYREF;
+        }
+
+        var_types GetGCPtrType(unsigned slot) const
+        {
+            switch (GetGCPtr(slot))
+            {
+                case TYPE_GC_NONE:
+                    return TYP_I_IMPL;
+                case TYPE_GC_REF:
+                    return TYP_REF;
+                case TYPE_GC_BYREF:
+                    return TYP_BYREF;
+                default:
+                    unreached();
+            }
+        }
+
+        bool IntersectsGCPtr(unsigned offset, unsigned size) const;
+
+        static bool AreCompatible(const ClassLayout* layout1, const ClassLayout* layout2);
+
+    private:
+        const BYTE* GetGCPtrs() const
+        {
+            assert(m_gcPtrsInitialized);
+            assert(!IsBlockLayout());
+
+            return (GetSlotCount() > sizeof(m_gcPtrsArray)) ? m_gcPtrs : m_gcPtrsArray;
+        }
+
+        CorInfoGCType GetGCPtr(unsigned slot) const
+        {
+            assert(m_gcPtrsInitialized);
+            assert(slot < GetSlotCount());
+
+            if (m_gcPtrCount == 0)
+            {
+                return TYPE_GC_NONE;
+            }
+
+            return static_cast<CorInfoGCType>(GetGCPtrs()[slot]);
+        }
 };
 
 #endif // LAYOUT_H

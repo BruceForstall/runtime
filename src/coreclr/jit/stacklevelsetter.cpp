@@ -184,11 +184,11 @@ void StackLevelSetter::SetThrowHelperBlocks(GenTree* node, BasicBlock* block)
     switch (node->OperGet())
     {
         case GT_BOUNDS_CHECK:
-        {
-            GenTreeBoundsChk* bndsChk = node->AsBoundsChk();
-            SetThrowHelperBlock(bndsChk->gtThrowKind, block);
-        }
-        break;
+            {
+                GenTreeBoundsChk* bndsChk = node->AsBoundsChk();
+                SetThrowHelperBlock(bndsChk->gtThrowKind, block);
+            }
+            break;
 
         case GT_INDEX_ADDR:
         case GT_ARR_ELEM:
@@ -206,30 +206,30 @@ void StackLevelSetter::SetThrowHelperBlocks(GenTree* node, BasicBlock* block)
         case GT_MOD:
         case GT_UMOD:
 #endif
-        {
-            ExceptionSetFlags exSetFlags = node->OperExceptions(comp);
+            {
+                ExceptionSetFlags exSetFlags = node->OperExceptions(comp);
 
-            if ((exSetFlags & ExceptionSetFlags::DivideByZeroException) != ExceptionSetFlags::None)
-            {
-                SetThrowHelperBlock(SCK_DIV_BY_ZERO, block);
-            }
-            else
-            {
-                // Even if we thought it might divide by zero during morph, now we know it never will.
-                node->gtFlags |= GTF_DIV_MOD_NO_BY_ZERO;
-            }
+                if ((exSetFlags & ExceptionSetFlags::DivideByZeroException) != ExceptionSetFlags::None)
+                {
+                    SetThrowHelperBlock(SCK_DIV_BY_ZERO, block);
+                }
+                else
+                {
+                    // Even if we thought it might divide by zero during morph, now we know it never will.
+                    node->gtFlags |= GTF_DIV_MOD_NO_BY_ZERO;
+                }
 
-            if ((exSetFlags & ExceptionSetFlags::ArithmeticException) != ExceptionSetFlags::None)
-            {
-                SetThrowHelperBlock(SCK_ARITH_EXCPN, block);
+                if ((exSetFlags & ExceptionSetFlags::ArithmeticException) != ExceptionSetFlags::None)
+                {
+                    SetThrowHelperBlock(SCK_ARITH_EXCPN, block);
+                }
+                else
+                {
+                    // Even if we thought it might overflow during morph, now we know it never will.
+                    node->gtFlags |= GTF_DIV_MOD_NO_OVERFLOW;
+                }
             }
-            else
-            {
-                // Even if we thought it might overflow during morph, now we know it never will.
-                node->gtFlags |= GTF_DIV_MOD_NO_OVERFLOW;
-            }
-        }
-        break;
+            break;
 #endif
 
         default: // Other opers can target throw only due to overflow.

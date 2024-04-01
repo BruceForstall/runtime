@@ -64,13 +64,11 @@ XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
 #endif // USE_MSVCDIS
 
 #ifdef HOST_64BIT
-template <typename T>
-struct SizeTKeyFuncs : JitLargePrimitiveKeyFuncs<T>
+template <typename T> struct SizeTKeyFuncs : JitLargePrimitiveKeyFuncs<T>
 {
 };
 #else  // !HOST_64BIT
-template <typename T>
-struct SizeTKeyFuncs : JitSmallPrimitiveKeyFuncs<T>
+template <typename T> struct SizeTKeyFuncs : JitSmallPrimitiveKeyFuncs<T>
 {
 };
 #endif // HOST_64BIT
@@ -82,178 +80,180 @@ class Compiler;
 
 class DisAssembler
 {
-public:
-    // Constructor
-    void disInit(Compiler* pComp);
+    public:
+        // Constructor
+        void disInit(Compiler* pComp);
 
-    // Destructor
-    void disDone();
+        // Destructor
+        void disDone();
 
-    // Initialize the class for the current method being generated.
-    void disOpenForLateDisAsm(const char* curMethodName, const char* curClassName, PCCOR_SIGNATURE sig);
+        // Initialize the class for the current method being generated.
+        void disOpenForLateDisAsm(const char* curMethodName, const char* curClassName, PCCOR_SIGNATURE sig);
 
-    // Disassemble a buffer: called after code for a method is generated.
-    void disAsmCode(BYTE*  hotCodePtr,
-                    BYTE*  hotCodePtrRW,
-                    size_t hotCodeSize,
-                    BYTE*  coldCodePtr,
-                    BYTE*  coldCodePtrRW,
-                    size_t coldCodeSize);
+        // Disassemble a buffer: called after code for a method is generated.
+        void disAsmCode(BYTE*  hotCodePtr,
+                        BYTE*  hotCodePtrRW,
+                        size_t hotCodeSize,
+                        BYTE*  coldCodePtr,
+                        BYTE*  coldCodePtrRW,
+                        size_t coldCodeSize);
 
-    // Register an address to be associated with a method handle.
-    void disSetMethod(size_t addr, CORINFO_METHOD_HANDLE methHnd);
+        // Register an address to be associated with a method handle.
+        void disSetMethod(size_t addr, CORINFO_METHOD_HANDLE methHnd);
 
-    // Register a relocation address.
-    void disRecordRelocation(size_t relocAddr, size_t targetAddr);
+        // Register a relocation address.
+        void disRecordRelocation(size_t relocAddr, size_t targetAddr);
 
-private:
-    /* Address of the hot and cold code blocks to disassemble */
-    size_t disHotCodeBlock;
-    size_t disColdCodeBlock;
+    private:
+        /* Address of the hot and cold code blocks to disassemble */
+        size_t disHotCodeBlock;
+        size_t disColdCodeBlock;
 
-    /* Size of the hot and cold code blocks to disassemble */
-    size_t disHotCodeSize;
-    size_t disColdCodeSize;
+        /* Size of the hot and cold code blocks to disassemble */
+        size_t disHotCodeSize;
+        size_t disColdCodeSize;
 
-    /* Total code size (simply cached version of disHotCodeSize + disColdCodeSize) */
-    size_t disTotalCodeSize;
+        /* Total code size (simply cached version of disHotCodeSize + disColdCodeSize) */
+        size_t disTotalCodeSize;
 
-    /* Address where the code block is to be loaded */
-    size_t disStartAddr;
+        /* Address where the code block is to be loaded */
+        size_t disStartAddr;
 
-    /* Current offset in the code block */
-    size_t disCurOffset;
+        /* Current offset in the code block */
+        size_t disCurOffset;
 
-    /* Size (in bytes) of current disassembled instruction */
-    size_t disInstSize;
+        /* Size (in bytes) of current disassembled instruction */
+        size_t disInstSize;
 
-    /* Target address of a jump */
-    size_t disTarget;
+        /* Target address of a jump */
+        size_t disTarget;
 
-    /* temporary buffer for function names */
-    // TODO-Review: there is some issue here where this is never set!
-    char disFuncTempBuf[1024];
+        /* temporary buffer for function names */
+        // TODO-Review: there is some issue here where this is never set!
+        char disFuncTempBuf[1024];
 
-    /* Method and class name to output */
-    const char* disCurMethodName;
-    const char* disCurClassName;
+        /* Method and class name to output */
+        const char* disCurMethodName;
+        const char* disCurClassName;
 
-    /* flag that signals when replacing a symbol name has been deferred for following callbacks */
-    // TODO-Review: there is some issue here where this is never set to 'true'!
-    bool disHasName;
+        /* flag that signals when replacing a symbol name has been deferred for following callbacks */
+        // TODO-Review: there is some issue here where this is never set to 'true'!
+        bool disHasName;
 
-    /* An array of labels, for jumps, LEAs, etc. There is one element in the array for each byte in the generated code.
-     * That byte is zero if the corresponding byte of generated code is not a label. Otherwise, the value
-     * is a label number.
-     */
-    BYTE* disLabels;
+        /* An array of labels, for jumps, LEAs, etc. There is one element in the array for each byte in the generated
+         * code. That byte is zero if the corresponding byte of generated code is not a label. Otherwise, the value is a
+         * label number.
+         */
+        BYTE* disLabels;
 
-    void DisasmBuffer(FILE* pfile, bool printit);
+        void DisasmBuffer(FILE* pfile, bool printit);
 
-    /* For the purposes of disassembly, we pretend that the hot and cold sections are linear, and not split.
-     * These functions create this model for the rest of the disassembly code.
-     */
+        /* For the purposes of disassembly, we pretend that the hot and cold sections are linear, and not split.
+         * These functions create this model for the rest of the disassembly code.
+         */
 
-    /* Given a linear offset into the code, find a pointer to the actual code (either in the hot or cold section) */
-    const BYTE* disGetLinearAddr(size_t offset);
+        /* Given a linear offset into the code, find a pointer to the actual code (either in the hot or cold section) */
+        const BYTE* disGetLinearAddr(size_t offset);
 
-    /* Given a linear offset into the code, determine how many bytes are left in the hot or cold buffer the offset
-     * points to */
-    size_t disGetBufferSize(size_t offset);
+        /* Given a linear offset into the code, determine how many bytes are left in the hot or cold buffer the offset
+         * points to */
+        size_t disGetBufferSize(size_t offset);
 
-    // Map of instruction addresses to call target method handles for normal calls.
-    AddrToMethodHandleMap* disAddrToMethodHandleMap;
-    AddrToMethodHandleMap* GetAddrToMethodHandleMap();
+        // Map of instruction addresses to call target method handles for normal calls.
+        AddrToMethodHandleMap* disAddrToMethodHandleMap;
+        AddrToMethodHandleMap* GetAddrToMethodHandleMap();
 
-    // Map of instruction addresses to call target method handles for JIT helper calls.
-    AddrToMethodHandleMap* disHelperAddrToMethodHandleMap;
-    AddrToMethodHandleMap* GetHelperAddrToMethodHandleMap();
+        // Map of instruction addresses to call target method handles for JIT helper calls.
+        AddrToMethodHandleMap* disHelperAddrToMethodHandleMap;
+        AddrToMethodHandleMap* GetHelperAddrToMethodHandleMap();
 
-    // Map of relocation addresses to relocation target.
-    AddrToAddrMap* disRelocationMap;
-    AddrToAddrMap* GetRelocationMap();
+        // Map of relocation addresses to relocation target.
+        AddrToAddrMap* disRelocationMap;
+        AddrToAddrMap* GetRelocationMap();
 
-    const char* disGetMethodFullName(size_t addr);
+        const char* disGetMethodFullName(size_t addr);
 
-    FILE* disAsmFile;
+        FILE* disAsmFile;
 
-    Compiler* disComp;
+        Compiler* disComp;
 
-    bool disDiffable; // 'true' if the output should be diffable (hide or obscure absolute addresses)
+        bool disDiffable; // 'true' if the output should be diffable (hide or obscure absolute addresses)
 
-    template <typename T>
-    T dspAddr(T addr)
-    {
+        template <typename T> T dspAddr(T addr)
+        {
 // silence warning of cast to greater size. It is easier to silence than construct code the compiler is happy with, and
 // it is safe in this case
 #pragma warning(push)
 #pragma warning(disable : 4312)
-        return (addr == 0) ? 0 : (disDiffable ? T(0xD1FFAB1E) : addr);
+            return (addr == 0) ? 0 : (disDiffable ? T(0xD1FFAB1E) : addr);
 #pragma warning(pop)
-    }
+        }
 
 #ifdef USE_MSVCDIS
 
-    /* Callbacks from msdis */
+        /* Callbacks from msdis */
 
-    static size_t __stdcall disCchAddr(
-        const DIS* pdis, DIS::ADDR addr, _In_reads_(cchMax) wchar_t* wz, size_t cchMax, DWORDLONG* pdwDisp);
+        static size_t __stdcall disCchAddr(
+            const DIS* pdis, DIS::ADDR addr, _In_reads_(cchMax) wchar_t* wz, size_t cchMax, DWORDLONG* pdwDisp);
 
-    size_t disCchAddrMember(
-        const DIS* pdis, DIS::ADDR addr, _In_reads_(cchMax) wchar_t* wz, size_t cchMax, DWORDLONG* pdwDisp);
+        size_t disCchAddrMember(
+            const DIS* pdis, DIS::ADDR addr, _In_reads_(cchMax) wchar_t* wz, size_t cchMax, DWORDLONG* pdwDisp);
 
-    static size_t __stdcall disCchFixup(const DIS*                  pdis,
-                                        DIS::ADDR                   addr,
-                                        size_t                      size,
-                                        _In_reads_(cchMax) wchar_t* wz,
-                                        size_t                      cchMax,
-                                        DWORDLONG*                  pdwDisp);
+        static size_t __stdcall disCchFixup(const DIS*                  pdis,
+                                            DIS::ADDR                   addr,
+                                            size_t                      size,
+                                            _In_reads_(cchMax) wchar_t* wz,
+                                            size_t                      cchMax,
+                                            DWORDLONG*                  pdwDisp);
 
-    size_t disCchFixupMember(const DIS*                  pdis,
-                             DIS::ADDR                   addr,
-                             size_t                      size,
-                             _In_reads_(cchMax) wchar_t* wz,
-                             size_t                      cchMax,
-                             DWORDLONG*                  pdwDisp);
+        size_t disCchFixupMember(const DIS*                  pdis,
+                                 DIS::ADDR                   addr,
+                                 size_t                      size,
+                                 _In_reads_(cchMax) wchar_t* wz,
+                                 size_t                      cchMax,
+                                 DWORDLONG*                  pdwDisp);
 
-    static size_t __stdcall disCchRegRel(
-        const DIS* pdis, DIS::REGA reg, DWORD disp, _In_reads_(cchMax) wchar_t* wz, size_t cchMax, DWORD* pdwDisp);
+        static size_t __stdcall disCchRegRel(
+            const DIS* pdis, DIS::REGA reg, DWORD disp, _In_reads_(cchMax) wchar_t* wz, size_t cchMax, DWORD* pdwDisp);
 
-    size_t disCchRegRelMember(
-        const DIS* pdis, DIS::REGA reg, DWORD disp, _In_reads_(cchMax) wchar_t* wz, size_t cchMax, DWORD* pdwDisp);
+        size_t disCchRegRelMember(
+            const DIS* pdis, DIS::REGA reg, DWORD disp, _In_reads_(cchMax) wchar_t* wz, size_t cchMax, DWORD* pdwDisp);
 
-    static size_t __stdcall disCchReg(const DIS* pdis, DIS::REGA reg, _In_reads_(cchMax) wchar_t* wz, size_t cchMax);
+        static size_t __stdcall disCchReg(const DIS*                  pdis,
+                                          DIS::REGA                   reg,
+                                          _In_reads_(cchMax) wchar_t* wz,
+                                          size_t                      cchMax);
 
-    size_t disCchRegMember(const DIS* pdis, DIS::REGA reg, _In_reads_(cchMax) wchar_t* wz, size_t cchMax);
+        size_t disCchRegMember(const DIS* pdis, DIS::REGA reg, _In_reads_(cchMax) wchar_t* wz, size_t cchMax);
 
-    /* Disassemble helper */
+        /* Disassemble helper */
 
-    size_t CbDisassemble(DIS*        pdis,
-                         size_t      offs,
-                         DIS::ADDR   addr,
-                         const BYTE* pb,
-                         size_t      cbMax,
-                         FILE*       pfile,
-                         bool        findLabels,
-                         bool        printit       = false,
-                         bool        dispOffs      = false,
-                         bool        dispCodeBytes = false);
+        size_t CbDisassemble(DIS*        pdis,
+                             size_t      offs,
+                             DIS::ADDR   addr,
+                             const BYTE* pb,
+                             size_t      cbMax,
+                             FILE*       pfile,
+                             bool        findLabels,
+                             bool        printit       = false,
+                             bool        dispOffs      = false,
+                             bool        dispCodeBytes = false);
 
 #endif // USE_MSVCDIS
 
 #ifdef USE_COREDISTOOLS
 
-    bool                      InitCoredistoolsLibrary();            // Load the coredistools library
-    static LONG               s_disCoreDisToolsLibraryInitializing; // 0 = not initializing; 1 = initializing
-    static bool               s_disCoreDisToolsLibraryInitialized;
-    static bool               s_disCoreDisToolsLibraryLoadSuccessful;
-    static NewDisasm_t*       s_PtrNewDisasm;
-    static DumpInstruction_t* s_PtrDumpInstruction;
-    static FinishDisasm_t*    s_PtrFinishDisasm;
+        bool                      InitCoredistoolsLibrary();            // Load the coredistools library
+        static LONG               s_disCoreDisToolsLibraryInitializing; // 0 = not initializing; 1 = initializing
+        static bool               s_disCoreDisToolsLibraryInitialized;
+        static bool               s_disCoreDisToolsLibraryLoadSuccessful;
+        static NewDisasm_t*       s_PtrNewDisasm;
+        static DumpInstruction_t* s_PtrDumpInstruction;
+        static FinishDisasm_t*    s_PtrFinishDisasm;
 
-    bool       InitCoredistoolsDisasm(); // Prepare for disassembly
-    void       DoneCoredistoolsDisasm(); // Done with disassembly
-    CorDisasm* corDisasm;
+        bool       InitCoredistoolsDisasm(); // Prepare for disassembly
+        void       DoneCoredistoolsDisasm(); // Done with disassembly
+        CorDisasm* corDisasm;
 
 #endif // USE_COREDISTOOLS
 };

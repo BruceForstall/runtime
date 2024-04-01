@@ -9,8 +9,7 @@
 // When adding a new intrinsic that will use the GT_INTRINSIC node and can throw, make sure
 // to update the "OperMayThrow" and "fgValueNumberAddExceptionSet" methods to account for that.
 
-enum NamedIntrinsic : unsigned short
-{
+enum NamedIntrinsic : unsigned short {
     NI_Illegal = 0,
 
     NI_System_Enum_HasFlag,

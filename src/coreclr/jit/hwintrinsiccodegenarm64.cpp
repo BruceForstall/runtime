@@ -36,7 +36,10 @@
 //       of a for-loop.
 //
 CodeGen::HWIntrinsicImmOpHelper::HWIntrinsicImmOpHelper(CodeGen* codeGen, GenTree* immOp, GenTreeHWIntrinsic* intrin)
-    : codeGen(codeGen), endLabel(nullptr), nonZeroLabel(nullptr), branchTargetReg(REG_NA)
+    : codeGen(codeGen)
+    , endLabel(nullptr)
+    , nonZeroLabel(nullptr)
+    , branchTargetReg(REG_NA)
 {
     assert(codeGen != nullptr);
     assert(varTypeIsIntegral(immOp));
@@ -346,8 +349,7 @@ void CodeGen::genHWIntrinsic(GenTreeHWIntrinsic* node)
         {
             assert(hasImmediateOperand);
 
-            auto emitShift = [&](GenTree* op, regNumber reg)
-            {
+            auto emitShift = [&](GenTree* op, regNumber reg) {
                 HWIntrinsicImmOpHelper helper(this, op, node);
 
                 for (helper.EmitBegin(); !helper.Done(); helper.EmitCaseEnd())
@@ -385,15 +387,15 @@ void CodeGen::genHWIntrinsic(GenTreeHWIntrinsic* node)
             switch (intrin.numOperands)
             {
                 case 1:
-                {
-                    HWIntrinsicImmOpHelper helper(this, intrin.op1, node);
-                    for (helper.EmitBegin(); !helper.Done(); helper.EmitCaseEnd())
                     {
-                        const insSvePattern pattern = (insSvePattern)helper.ImmValue();
-                        GetEmitter()->emitIns_R_PATTERN(ins, emitSize, targetReg, opt, pattern);
-                    }
-                };
-                break;
+                        HWIntrinsicImmOpHelper helper(this, intrin.op1, node);
+                        for (helper.EmitBegin(); !helper.Done(); helper.EmitCaseEnd())
+                        {
+                            const insSvePattern pattern = (insSvePattern)helper.ImmValue();
+                            GetEmitter()->emitIns_R_PATTERN(ins, emitSize, targetReg, opt, pattern);
+                        }
+                    };
+                    break;
 
                 default:
                     unreached();
@@ -507,10 +509,10 @@ void CodeGen::genHWIntrinsic(GenTreeHWIntrinsic* node)
                 break;
 
             case NI_ArmBase_Yield:
-            {
-                ins = INS_yield;
-                break;
-            }
+                {
+                    ins = INS_yield;
+                    break;
+                }
 
             case NI_ArmBase_Arm64_MultiplyLongAdd:
                 ins = varTypeIsUnsigned(intrin.baseType) ? INS_umaddl : INS_smaddl;
@@ -586,62 +588,62 @@ void CodeGen::genHWIntrinsic(GenTreeHWIntrinsic* node)
             case NI_AdvSimd_DuplicateSelectedScalarToVector64:
             case NI_AdvSimd_DuplicateSelectedScalarToVector128:
             case NI_AdvSimd_Arm64_DuplicateSelectedScalarToVector128:
-            {
-                HWIntrinsicImmOpHelper helper(this, intrin.op2, node);
-
-                // Prior to codegen, the emitSize is based on node->GetSimdSize() which
-                // tracks the size of the first operand and is used to tell if the index
-                // is in range. However, when actually emitting it needs to be the size
-                // of the return and the size of the operand is interpreted based on the
-                // index value.
-
-                assert(
-                    GetEmitter()->isValidVectorIndex(emitSize, GetEmitter()->optGetElemsize(opt), helper.ImmValue()));
-
-                emitSize = emitActualTypeSize(node->gtType);
-                opt      = genGetSimdInsOpt(emitSize, intrin.baseType);
-
-                for (helper.EmitBegin(); !helper.Done(); helper.EmitCaseEnd())
                 {
-                    const int elementIndex = helper.ImmValue();
+                    HWIntrinsicImmOpHelper helper(this, intrin.op2, node);
 
-                    assert(opt != INS_OPTS_NONE);
-                    GetEmitter()->emitIns_R_R_I(ins, emitSize, targetReg, op1Reg, elementIndex, opt);
+                    // Prior to codegen, the emitSize is based on node->GetSimdSize() which
+                    // tracks the size of the first operand and is used to tell if the index
+                    // is in range. However, when actually emitting it needs to be the size
+                    // of the return and the size of the operand is interpreted based on the
+                    // index value.
+
+                    assert(GetEmitter()->isValidVectorIndex(emitSize, GetEmitter()->optGetElemsize(opt),
+                                                            helper.ImmValue()));
+
+                    emitSize = emitActualTypeSize(node->gtType);
+                    opt      = genGetSimdInsOpt(emitSize, intrin.baseType);
+
+                    for (helper.EmitBegin(); !helper.Done(); helper.EmitCaseEnd())
+                    {
+                        const int elementIndex = helper.ImmValue();
+
+                        assert(opt != INS_OPTS_NONE);
+                        GetEmitter()->emitIns_R_R_I(ins, emitSize, targetReg, op1Reg, elementIndex, opt);
+                    }
+
+                    break;
                 }
-
-                break;
-            }
 
             case NI_AdvSimd_Extract:
-            {
-                HWIntrinsicImmOpHelper helper(this, intrin.op2, node);
-
-                for (helper.EmitBegin(); !helper.Done(); helper.EmitCaseEnd())
                 {
-                    const int elementIndex = helper.ImmValue();
+                    HWIntrinsicImmOpHelper helper(this, intrin.op2, node);
 
-                    GetEmitter()->emitIns_R_R_I(ins, emitTypeSize(intrin.baseType), targetReg, op1Reg, elementIndex,
-                                                INS_OPTS_NONE);
+                    for (helper.EmitBegin(); !helper.Done(); helper.EmitCaseEnd())
+                    {
+                        const int elementIndex = helper.ImmValue();
+
+                        GetEmitter()->emitIns_R_R_I(ins, emitTypeSize(intrin.baseType), targetReg, op1Reg, elementIndex,
+                                                    INS_OPTS_NONE);
+                    }
                 }
-            }
-            break;
+                break;
 
             case NI_AdvSimd_ExtractVector64:
             case NI_AdvSimd_ExtractVector128:
-            {
-                opt = (intrin.id == NI_AdvSimd_ExtractVector64) ? INS_OPTS_8B : INS_OPTS_16B;
-
-                HWIntrinsicImmOpHelper helper(this, intrin.op3, node);
-
-                for (helper.EmitBegin(); !helper.Done(); helper.EmitCaseEnd())
                 {
-                    const int elementIndex = helper.ImmValue();
-                    const int byteIndex    = genTypeSize(intrin.baseType) * elementIndex;
+                    opt = (intrin.id == NI_AdvSimd_ExtractVector64) ? INS_OPTS_8B : INS_OPTS_16B;
 
-                    GetEmitter()->emitIns_R_R_R_I(ins, emitSize, targetReg, op1Reg, op2Reg, byteIndex, opt);
+                    HWIntrinsicImmOpHelper helper(this, intrin.op3, node);
+
+                    for (helper.EmitBegin(); !helper.Done(); helper.EmitCaseEnd())
+                    {
+                        const int elementIndex = helper.ImmValue();
+                        const int byteIndex    = genTypeSize(intrin.baseType) * elementIndex;
+
+                        GetEmitter()->emitIns_R_R_R_I(ins, emitSize, targetReg, op1Reg, op2Reg, byteIndex, opt);
+                    }
                 }
-            }
-            break;
+                break;
 
             case NI_AdvSimd_Insert:
                 assert(isRMW);
@@ -684,62 +686,62 @@ void CodeGen::genHWIntrinsic(GenTreeHWIntrinsic* node)
                 break;
 
             case NI_AdvSimd_InsertScalar:
-            {
-                assert(isRMW);
-                if (targetReg != op1Reg)
                 {
-                    assert(targetReg != op3Reg);
+                    assert(isRMW);
+                    if (targetReg != op1Reg)
+                    {
+                        assert(targetReg != op3Reg);
 
-                    GetEmitter()->emitIns_Mov(INS_mov, emitTypeSize(node), targetReg, op1Reg, /* canSkip */ true);
+                        GetEmitter()->emitIns_Mov(INS_mov, emitTypeSize(node), targetReg, op1Reg, /* canSkip */ true);
+                    }
+
+                    HWIntrinsicImmOpHelper helper(this, intrin.op2, node);
+
+                    for (helper.EmitBegin(); !helper.Done(); helper.EmitCaseEnd())
+                    {
+                        const int elementIndex = helper.ImmValue();
+
+                        GetEmitter()->emitIns_R_R_I_I(ins, emitSize, targetReg, op3Reg, elementIndex, 0, opt);
+                    }
                 }
-
-                HWIntrinsicImmOpHelper helper(this, intrin.op2, node);
-
-                for (helper.EmitBegin(); !helper.Done(); helper.EmitCaseEnd())
-                {
-                    const int elementIndex = helper.ImmValue();
-
-                    GetEmitter()->emitIns_R_R_I_I(ins, emitSize, targetReg, op3Reg, elementIndex, 0, opt);
-                }
-            }
-            break;
+                break;
 
             case NI_AdvSimd_Arm64_InsertSelectedScalar:
-            {
-                assert(isRMW);
-                if (targetReg != op1Reg)
                 {
-                    assert(targetReg != op3Reg);
+                    assert(isRMW);
+                    if (targetReg != op1Reg)
+                    {
+                        assert(targetReg != op3Reg);
 
-                    GetEmitter()->emitIns_Mov(INS_mov, emitTypeSize(node), targetReg, op1Reg, /* canSkip */ true);
+                        GetEmitter()->emitIns_Mov(INS_mov, emitTypeSize(node), targetReg, op1Reg, /* canSkip */ true);
+                    }
+
+                    const int resultIndex = (int)intrin.op2->AsIntCon()->gtIconVal;
+                    const int valueIndex  = (int)intrin.op4->AsIntCon()->gtIconVal;
+                    GetEmitter()->emitIns_R_R_I_I(ins, emitSize, targetReg, op3Reg, resultIndex, valueIndex, opt);
                 }
-
-                const int resultIndex = (int)intrin.op2->AsIntCon()->gtIconVal;
-                const int valueIndex  = (int)intrin.op4->AsIntCon()->gtIconVal;
-                GetEmitter()->emitIns_R_R_I_I(ins, emitSize, targetReg, op3Reg, resultIndex, valueIndex, opt);
-            }
-            break;
+                break;
 
             case NI_AdvSimd_LoadAndInsertScalar:
-            {
-                assert(isRMW);
-                if (targetReg != op1Reg)
                 {
-                    assert(targetReg != op3Reg);
+                    assert(isRMW);
+                    if (targetReg != op1Reg)
+                    {
+                        assert(targetReg != op3Reg);
 
-                    GetEmitter()->emitIns_Mov(INS_mov, emitTypeSize(node), targetReg, op1Reg, /* canSkip */ true);
+                        GetEmitter()->emitIns_Mov(INS_mov, emitTypeSize(node), targetReg, op1Reg, /* canSkip */ true);
+                    }
+
+                    HWIntrinsicImmOpHelper helper(this, intrin.op2, node);
+
+                    for (helper.EmitBegin(); !helper.Done(); helper.EmitCaseEnd())
+                    {
+                        const int elementIndex = helper.ImmValue();
+
+                        GetEmitter()->emitIns_R_R_I(ins, emitSize, targetReg, op3Reg, elementIndex);
+                    }
                 }
-
-                HWIntrinsicImmOpHelper helper(this, intrin.op2, node);
-
-                for (helper.EmitBegin(); !helper.Done(); helper.EmitCaseEnd())
-                {
-                    const int elementIndex = helper.ImmValue();
-
-                    GetEmitter()->emitIns_R_R_I(ins, emitSize, targetReg, op3Reg, elementIndex);
-                }
-            }
-            break;
+                break;
 
             case NI_AdvSimd_LoadAndInsertScalarVector64x2:
             case NI_AdvSimd_LoadAndInsertScalarVector64x3:
@@ -747,46 +749,46 @@ void CodeGen::genHWIntrinsic(GenTreeHWIntrinsic* node)
             case NI_AdvSimd_Arm64_LoadAndInsertScalarVector128x2:
             case NI_AdvSimd_Arm64_LoadAndInsertScalarVector128x3:
             case NI_AdvSimd_Arm64_LoadAndInsertScalarVector128x4:
-            {
-                assert(isRMW);
-                unsigned fieldIdx = 0;
-                op2Reg            = intrin.op2->GetRegNum();
-                op3Reg            = intrin.op3->GetRegNum();
-                assert(intrin.op1->OperIsFieldList());
-
-                GenTreeFieldList* fieldList  = intrin.op1->AsFieldList();
-                GenTree*          firstField = fieldList->Uses().GetHead()->GetNode();
-                op1Reg                       = firstField->GetRegNum();
-
-                regNumber targetFieldReg = REG_NA;
-                regNumber op1FieldReg    = REG_NA;
-
-                for (GenTreeFieldList::Use& use : fieldList->Uses())
                 {
-                    GenTree* fieldNode = use.GetNode();
+                    assert(isRMW);
+                    unsigned fieldIdx = 0;
+                    op2Reg            = intrin.op2->GetRegNum();
+                    op3Reg            = intrin.op3->GetRegNum();
+                    assert(intrin.op1->OperIsFieldList());
 
-                    targetFieldReg = node->GetRegByIndex(fieldIdx);
-                    op1FieldReg    = fieldNode->GetRegNum();
+                    GenTreeFieldList* fieldList  = intrin.op1->AsFieldList();
+                    GenTree*          firstField = fieldList->Uses().GetHead()->GetNode();
+                    op1Reg                       = firstField->GetRegNum();
 
-                    if (targetFieldReg != op1FieldReg)
+                    regNumber targetFieldReg = REG_NA;
+                    regNumber op1FieldReg    = REG_NA;
+
+                    for (GenTreeFieldList::Use& use : fieldList->Uses())
                     {
-                        GetEmitter()->emitIns_Mov(INS_mov, emitTypeSize(fieldNode), targetFieldReg, op1FieldReg,
-                                                  /* canSkip */ true);
+                        GenTree* fieldNode = use.GetNode();
+
+                        targetFieldReg = node->GetRegByIndex(fieldIdx);
+                        op1FieldReg    = fieldNode->GetRegNum();
+
+                        if (targetFieldReg != op1FieldReg)
+                        {
+                            GetEmitter()->emitIns_Mov(INS_mov, emitTypeSize(fieldNode), targetFieldReg, op1FieldReg,
+                                                      /* canSkip */ true);
+                        }
+                        fieldIdx++;
                     }
-                    fieldIdx++;
+
+                    HWIntrinsicImmOpHelper helper(this, intrin.op2, node);
+
+                    for (helper.EmitBegin(); !helper.Done(); helper.EmitCaseEnd())
+                    {
+                        const int elementIndex = helper.ImmValue();
+
+                        GetEmitter()->emitIns_R_R_I(ins, emitSize, targetReg, op3Reg, elementIndex);
+                    }
+
+                    break;
                 }
-
-                HWIntrinsicImmOpHelper helper(this, intrin.op2, node);
-
-                for (helper.EmitBegin(); !helper.Done(); helper.EmitCaseEnd())
-                {
-                    const int elementIndex = helper.ImmValue();
-
-                    GetEmitter()->emitIns_R_R_I(ins, emitSize, targetReg, op3Reg, elementIndex);
-                }
-
-                break;
-            }
             case NI_AdvSimd_Arm64_LoadPairVector128:
             case NI_AdvSimd_Arm64_LoadPairVector128NonTemporal:
             case NI_AdvSimd_Arm64_LoadPairVector64:
@@ -816,41 +818,41 @@ void CodeGen::genHWIntrinsic(GenTreeHWIntrinsic* node)
             case NI_AdvSimd_Arm64_StoreSelectedScalarVector128x2:
             case NI_AdvSimd_Arm64_StoreSelectedScalarVector128x3:
             case NI_AdvSimd_Arm64_StoreSelectedScalarVector128x4:
-            {
-                assert(intrin.op2->OperIsFieldList());
-                GenTreeFieldList* fieldList  = intrin.op2->AsFieldList();
-                GenTree*          firstField = fieldList->Uses().GetHead()->GetNode();
-                op2Reg                       = firstField->GetRegNum();
+                {
+                    assert(intrin.op2->OperIsFieldList());
+                    GenTreeFieldList* fieldList  = intrin.op2->AsFieldList();
+                    GenTree*          firstField = fieldList->Uses().GetHead()->GetNode();
+                    op2Reg                       = firstField->GetRegNum();
 
 #ifdef DEBUG
-                unsigned  regCount = 0;
-                regNumber argReg   = op2Reg;
-                for (GenTreeFieldList::Use& use : fieldList->Uses())
-                {
-                    regCount++;
+                    unsigned  regCount = 0;
+                    regNumber argReg   = op2Reg;
+                    for (GenTreeFieldList::Use& use : fieldList->Uses())
+                    {
+                        regCount++;
 
-                    GenTree* argNode = use.GetNode();
-                    assert(argReg == argNode->GetRegNum());
-                    argReg = REG_NEXT(argReg);
-                }
-                assert((ins == INS_st2 && regCount == 2) || (ins == INS_st3 && regCount == 3) ||
-                       (ins == INS_st4 && regCount == 4));
+                        GenTree* argNode = use.GetNode();
+                        assert(argReg == argNode->GetRegNum());
+                        argReg = REG_NEXT(argReg);
+                    }
+                    assert((ins == INS_st2 && regCount == 2) || (ins == INS_st3 && regCount == 3) ||
+                           (ins == INS_st4 && regCount == 4));
 #endif
-                FALLTHROUGH;
-            }
+                    FALLTHROUGH;
+                }
             case NI_AdvSimd_StoreSelectedScalar:
             case NI_AdvSimd_Arm64_StoreSelectedScalar:
-            {
-                HWIntrinsicImmOpHelper helper(this, intrin.op3, node);
-
-                for (helper.EmitBegin(); !helper.Done(); helper.EmitCaseEnd())
                 {
-                    const int elementIndex = helper.ImmValue();
+                    HWIntrinsicImmOpHelper helper(this, intrin.op3, node);
 
-                    GetEmitter()->emitIns_R_R_I(ins, emitSize, op2Reg, op1Reg, elementIndex, opt);
+                    for (helper.EmitBegin(); !helper.Done(); helper.EmitCaseEnd())
+                    {
+                        const int elementIndex = helper.ImmValue();
+
+                        GetEmitter()->emitIns_R_R_I(ins, emitSize, op2Reg, op1Reg, elementIndex, opt);
+                    }
+                    break;
                 }
-                break;
-            }
 
             case NI_AdvSimd_StoreVector64x2AndZip:
             case NI_AdvSimd_StoreVector64x3AndZip:
@@ -864,33 +866,33 @@ void CodeGen::genHWIntrinsic(GenTreeHWIntrinsic* node)
             case NI_AdvSimd_Arm64_StoreVector128x2:
             case NI_AdvSimd_Arm64_StoreVector128x3:
             case NI_AdvSimd_Arm64_StoreVector128x4:
-            {
-                unsigned regCount = 0;
+                {
+                    unsigned regCount = 0;
 
-                assert(intrin.op2->OperIsFieldList());
+                    assert(intrin.op2->OperIsFieldList());
 
-                GenTreeFieldList* fieldList  = intrin.op2->AsFieldList();
-                GenTree*          firstField = fieldList->Uses().GetHead()->GetNode();
-                op2Reg                       = firstField->GetRegNum();
+                    GenTreeFieldList* fieldList  = intrin.op2->AsFieldList();
+                    GenTree*          firstField = fieldList->Uses().GetHead()->GetNode();
+                    op2Reg                       = firstField->GetRegNum();
 
 #ifdef DEBUG
-                regNumber argReg = op2Reg;
-                for (GenTreeFieldList::Use& use : fieldList->Uses())
-                {
-                    regCount++;
+                    regNumber argReg = op2Reg;
+                    for (GenTreeFieldList::Use& use : fieldList->Uses())
+                    {
+                        regCount++;
 
-                    GenTree* argNode = use.GetNode();
-                    assert(argReg == argNode->GetRegNum());
-                    argReg = REG_NEXT(argReg);
-                }
-                assert((ins == INS_st1_2regs && regCount == 2) || (ins == INS_st2 && regCount == 2) ||
-                       (ins == INS_st1_3regs && regCount == 3) || (ins == INS_st3 && regCount == 3) ||
-                       (ins == INS_st1_4regs && regCount == 4) || (ins == INS_st4 && regCount == 4));
+                        GenTree* argNode = use.GetNode();
+                        assert(argReg == argNode->GetRegNum());
+                        argReg = REG_NEXT(argReg);
+                    }
+                    assert((ins == INS_st1_2regs && regCount == 2) || (ins == INS_st2 && regCount == 2) ||
+                           (ins == INS_st1_3regs && regCount == 3) || (ins == INS_st3 && regCount == 3) ||
+                           (ins == INS_st1_4regs && regCount == 4) || (ins == INS_st4 && regCount == 4));
 #endif
 
-                GetEmitter()->emitIns_R_R(ins, emitSize, op2Reg, op1Reg, opt);
-                break;
-            }
+                    GetEmitter()->emitIns_R_R(ins, emitSize, op2Reg, op1Reg, opt);
+                    break;
+                }
 
             case NI_Vector64_CreateScalarUnsafe:
             case NI_Vector128_CreateScalarUnsafe:
@@ -947,50 +949,50 @@ void CodeGen::genHWIntrinsic(GenTreeHWIntrinsic* node)
                 break;
 
             case NI_ArmBase_Yield:
-            {
-                GetEmitter()->emitIns(ins);
-                break;
-            }
+                {
+                    GetEmitter()->emitIns(ins);
+                    break;
+                }
 
             case NI_AdvSimd_DuplicateToVector64:
             case NI_AdvSimd_DuplicateToVector128:
             case NI_AdvSimd_Arm64_DuplicateToVector64:
             case NI_AdvSimd_Arm64_DuplicateToVector128:
-            {
-                if (varTypeIsFloating(intrin.baseType))
                 {
-                    if (intrin.op1->isContainedFltOrDblImmed())
+                    if (varTypeIsFloating(intrin.baseType))
                     {
-                        const double dataValue = intrin.op1->AsDblCon()->DconValue();
-                        GetEmitter()->emitIns_R_F(INS_fmov, emitSize, targetReg, dataValue, opt);
+                        if (intrin.op1->isContainedFltOrDblImmed())
+                        {
+                            const double dataValue = intrin.op1->AsDblCon()->DconValue();
+                            GetEmitter()->emitIns_R_F(INS_fmov, emitSize, targetReg, dataValue, opt);
+                        }
+                        else if (intrin.id == NI_AdvSimd_Arm64_DuplicateToVector64)
+                        {
+                            assert(intrin.baseType == TYP_DOUBLE);
+                            assert(GetEmitter()->IsMovInstruction(ins));
+                            assert(intrin.baseType == intrin.op1->gtType);
+                            GetEmitter()->emitIns_Mov(ins, emitSize, targetReg, op1Reg, /* canSkip */ true, opt);
+                        }
+                        else
+                        {
+                            GetEmitter()->emitIns_R_R_I(ins, emitSize, targetReg, op1Reg, 0, opt);
+                        }
                     }
-                    else if (intrin.id == NI_AdvSimd_Arm64_DuplicateToVector64)
+                    else if (intrin.op1->isContainedIntOrIImmed())
                     {
-                        assert(intrin.baseType == TYP_DOUBLE);
-                        assert(GetEmitter()->IsMovInstruction(ins));
-                        assert(intrin.baseType == intrin.op1->gtType);
-                        GetEmitter()->emitIns_Mov(ins, emitSize, targetReg, op1Reg, /* canSkip */ true, opt);
+                        const ssize_t dataValue = intrin.op1->AsIntCon()->gtIconVal;
+                        GetEmitter()->emitIns_R_I(INS_movi, emitSize, targetReg, dataValue, opt);
+                    }
+                    else if (GetEmitter()->IsMovInstruction(ins))
+                    {
+                        GetEmitter()->emitIns_Mov(ins, emitSize, targetReg, op1Reg, /* canSkip */ false, opt);
                     }
                     else
                     {
-                        GetEmitter()->emitIns_R_R_I(ins, emitSize, targetReg, op1Reg, 0, opt);
+                        GetEmitter()->emitIns_R_R(ins, emitSize, targetReg, op1Reg, opt);
                     }
                 }
-                else if (intrin.op1->isContainedIntOrIImmed())
-                {
-                    const ssize_t dataValue = intrin.op1->AsIntCon()->gtIconVal;
-                    GetEmitter()->emitIns_R_I(INS_movi, emitSize, targetReg, dataValue, opt);
-                }
-                else if (GetEmitter()->IsMovInstruction(ins))
-                {
-                    GetEmitter()->emitIns_Mov(ins, emitSize, targetReg, op1Reg, /* canSkip */ false, opt);
-                }
-                else
-                {
-                    GetEmitter()->emitIns_R_R(ins, emitSize, targetReg, op1Reg, opt);
-                }
-            }
-            break;
+                break;
 
             case NI_Vector64_ToVector128:
                 GetEmitter()->emitIns_Mov(ins, emitSize, targetReg, op1Reg, /* canSkip */ false);
@@ -1003,154 +1005,155 @@ void CodeGen::genHWIntrinsic(GenTreeHWIntrinsic* node)
 
             case NI_Vector64_GetElement:
             case NI_Vector128_GetElement:
-            {
-                assert(intrin.numOperands == 2);
-
-                var_types simdType = Compiler::getSIMDTypeForSize(node->GetSimdSize());
-
-                if (simdType == TYP_SIMD12)
                 {
-                    // op1 of TYP_SIMD12 should be considered as TYP_SIMD16
-                    simdType = TYP_SIMD16;
-                }
+                    assert(intrin.numOperands == 2);
 
-                if (!intrin.op2->OperIsConst())
-                {
-                    assert(!intrin.op2->isContained());
+                    var_types simdType = Compiler::getSIMDTypeForSize(node->GetSimdSize());
 
-                    emitAttr baseTypeSize  = emitTypeSize(intrin.baseType);
-                    unsigned baseTypeScale = genLog2(EA_SIZE_IN_BYTES(baseTypeSize));
+                    if (simdType == TYP_SIMD12)
+                    {
+                        // op1 of TYP_SIMD12 should be considered as TYP_SIMD16
+                        simdType = TYP_SIMD16;
+                    }
 
-                    regNumber baseReg;
-                    regNumber indexReg = op2Reg;
+                    if (!intrin.op2->OperIsConst())
+                    {
+                        assert(!intrin.op2->isContained());
 
-                    // Optimize the case of op1 is in memory and trying to access i'th element.
-                    if (!intrin.op1->isUsedFromReg())
+                        emitAttr baseTypeSize  = emitTypeSize(intrin.baseType);
+                        unsigned baseTypeScale = genLog2(EA_SIZE_IN_BYTES(baseTypeSize));
+
+                        regNumber baseReg;
+                        regNumber indexReg = op2Reg;
+
+                        // Optimize the case of op1 is in memory and trying to access i'th element.
+                        if (!intrin.op1->isUsedFromReg())
+                        {
+                            assert(intrin.op1->isContained());
+
+                            if (intrin.op1->OperIsLocal())
+                            {
+                                unsigned varNum = intrin.op1->AsLclVarCommon()->GetLclNum();
+                                baseReg         = node->ExtractTempReg();
+
+                                // Load the address of varNum
+                                GetEmitter()->emitIns_R_S(INS_lea, EA_PTRSIZE, baseReg, varNum, 0);
+                            }
+                            else
+                            {
+                                // Require GT_IND addr to be not contained.
+                                assert(intrin.op1->OperIs(GT_IND));
+
+                                GenTree* addr = intrin.op1->AsIndir()->Addr();
+                                assert(!addr->isContained());
+                                baseReg = addr->GetRegNum();
+                            }
+                        }
+                        else
+                        {
+                            unsigned simdInitTempVarNum = compiler->lvaSIMDInitTempVarNum;
+                            noway_assert(simdInitTempVarNum != BAD_VAR_NUM);
+
+                            baseReg = node->ExtractTempReg();
+
+                            // Load the address of simdInitTempVarNum
+                            GetEmitter()->emitIns_R_S(INS_lea, EA_PTRSIZE, baseReg, simdInitTempVarNum, 0);
+
+                            // Store the vector to simdInitTempVarNum
+                            GetEmitter()->emitIns_R_R(INS_str, emitTypeSize(simdType), op1Reg, baseReg);
+                        }
+
+                        assert(genIsValidIntReg(indexReg));
+                        assert(genIsValidIntReg(baseReg));
+                        assert(baseReg != indexReg);
+
+                        // Load item at baseReg[index]
+                        GetEmitter()->emitIns_R_R_R_Ext(ins_Load(intrin.baseType), baseTypeSize, targetReg, baseReg,
+                                                        indexReg, INS_OPTS_LSL, baseTypeScale);
+                    }
+                    else if (!GetEmitter()->isValidVectorIndex(emitTypeSize(simdType), emitTypeSize(intrin.baseType),
+                                                               intrin.op2->AsIntCon()->IconValue()))
+                    {
+                        // We only need to generate code for the get if the index is valid
+                        // If the index is invalid, previously generated for the range check will throw
+                    }
+                    else if (!intrin.op1->isUsedFromReg())
                     {
                         assert(intrin.op1->isContained());
+                        assert(intrin.op2->IsCnsIntOrI());
+
+                        int         offset = (int)intrin.op2->AsIntCon()->IconValue() * genTypeSize(intrin.baseType);
+                        instruction ins    = ins_Load(intrin.baseType);
+
+                        assert(!intrin.op1->isUsedFromReg());
 
                         if (intrin.op1->OperIsLocal())
                         {
                             unsigned varNum = intrin.op1->AsLclVarCommon()->GetLclNum();
-                            baseReg         = node->ExtractTempReg();
-
-                            // Load the address of varNum
-                            GetEmitter()->emitIns_R_S(INS_lea, EA_PTRSIZE, baseReg, varNum, 0);
+                            GetEmitter()->emitIns_R_S(ins, emitActualTypeSize(intrin.baseType), targetReg, varNum,
+                                                      offset);
                         }
                         else
                         {
-                            // Require GT_IND addr to be not contained.
                             assert(intrin.op1->OperIs(GT_IND));
 
                             GenTree* addr = intrin.op1->AsIndir()->Addr();
                             assert(!addr->isContained());
-                            baseReg = addr->GetRegNum();
+                            regNumber baseReg = addr->GetRegNum();
+
+                            // ldr targetReg, [baseReg, #offset]
+                            GetEmitter()->emitIns_R_R_I(ins, emitActualTypeSize(intrin.baseType), targetReg, baseReg,
+                                                        offset);
                         }
                     }
                     else
                     {
-                        unsigned simdInitTempVarNum = compiler->lvaSIMDInitTempVarNum;
-                        noway_assert(simdInitTempVarNum != BAD_VAR_NUM);
+                        assert(intrin.op2->IsCnsIntOrI());
+                        ssize_t indexValue = intrin.op2->AsIntCon()->IconValue();
 
-                        baseReg = node->ExtractTempReg();
+                        // no-op if vector is float/double, targetReg == op1Reg and fetching for 0th index.
+                        if ((varTypeIsFloating(intrin.baseType) && (targetReg == op1Reg) && (indexValue == 0)))
+                        {
+                            break;
+                        }
 
-                        // Load the address of simdInitTempVarNum
-                        GetEmitter()->emitIns_R_S(INS_lea, EA_PTRSIZE, baseReg, simdInitTempVarNum, 0);
-
-                        // Store the vector to simdInitTempVarNum
-                        GetEmitter()->emitIns_R_R(INS_str, emitTypeSize(simdType), op1Reg, baseReg);
+                        GetEmitter()->emitIns_R_R_I(ins, emitTypeSize(intrin.baseType), targetReg, op1Reg, indexValue,
+                                                    INS_OPTS_NONE);
                     }
-
-                    assert(genIsValidIntReg(indexReg));
-                    assert(genIsValidIntReg(baseReg));
-                    assert(baseReg != indexReg);
-
-                    // Load item at baseReg[index]
-                    GetEmitter()->emitIns_R_R_R_Ext(ins_Load(intrin.baseType), baseTypeSize, targetReg, baseReg,
-                                                    indexReg, INS_OPTS_LSL, baseTypeScale);
-                }
-                else if (!GetEmitter()->isValidVectorIndex(emitTypeSize(simdType), emitTypeSize(intrin.baseType),
-                                                           intrin.op2->AsIntCon()->IconValue()))
-                {
-                    // We only need to generate code for the get if the index is valid
-                    // If the index is invalid, previously generated for the range check will throw
-                }
-                else if (!intrin.op1->isUsedFromReg())
-                {
-                    assert(intrin.op1->isContained());
-                    assert(intrin.op2->IsCnsIntOrI());
-
-                    int         offset = (int)intrin.op2->AsIntCon()->IconValue() * genTypeSize(intrin.baseType);
-                    instruction ins    = ins_Load(intrin.baseType);
-
-                    assert(!intrin.op1->isUsedFromReg());
-
-                    if (intrin.op1->OperIsLocal())
-                    {
-                        unsigned varNum = intrin.op1->AsLclVarCommon()->GetLclNum();
-                        GetEmitter()->emitIns_R_S(ins, emitActualTypeSize(intrin.baseType), targetReg, varNum, offset);
-                    }
-                    else
-                    {
-                        assert(intrin.op1->OperIs(GT_IND));
-
-                        GenTree* addr = intrin.op1->AsIndir()->Addr();
-                        assert(!addr->isContained());
-                        regNumber baseReg = addr->GetRegNum();
-
-                        // ldr targetReg, [baseReg, #offset]
-                        GetEmitter()->emitIns_R_R_I(ins, emitActualTypeSize(intrin.baseType), targetReg, baseReg,
-                                                    offset);
-                    }
-                }
-                else
-                {
-                    assert(intrin.op2->IsCnsIntOrI());
-                    ssize_t indexValue = intrin.op2->AsIntCon()->IconValue();
-
-                    // no-op if vector is float/double, targetReg == op1Reg and fetching for 0th index.
-                    if ((varTypeIsFloating(intrin.baseType) && (targetReg == op1Reg) && (indexValue == 0)))
-                    {
-                        break;
-                    }
-
-                    GetEmitter()->emitIns_R_R_I(ins, emitTypeSize(intrin.baseType), targetReg, op1Reg, indexValue,
-                                                INS_OPTS_NONE);
-                }
-                break;
-            }
-
-            case NI_Vector128_GetUpper:
-            {
-                const int byteIndex = 8;
-                GetEmitter()->emitIns_R_R_R_I(ins, emitSize, targetReg, op1Reg, op1Reg, byteIndex, INS_OPTS_16B);
-                break;
-            }
-
-            case NI_Vector128_AsVector3:
-            {
-                // AsVector3 can be a no-op when it's already in the right register, otherwise
-                // we just need to move the value over. Vector3 operations will themselves mask
-                // out the upper element when it's relevant, so it's not worth us spending extra
-                // cycles doing so here.
-
-                GetEmitter()->emitIns_Mov(ins, emitSize, targetReg, op1Reg, /* canSkip */ true);
-                break;
-            }
-
-            case NI_Vector64_ToScalar:
-            case NI_Vector128_ToScalar:
-            {
-                if ((varTypeIsFloating(intrin.baseType) && (targetReg == op1Reg)))
-                {
-                    // no-op if vector is float/double and targetReg == op1Reg
                     break;
                 }
 
-                GetEmitter()->emitIns_R_R_I(ins, emitTypeSize(intrin.baseType), targetReg, op1Reg, /* imm */ 0,
-                                            INS_OPTS_NONE);
-            }
-            break;
+            case NI_Vector128_GetUpper:
+                {
+                    const int byteIndex = 8;
+                    GetEmitter()->emitIns_R_R_R_I(ins, emitSize, targetReg, op1Reg, op1Reg, byteIndex, INS_OPTS_16B);
+                    break;
+                }
+
+            case NI_Vector128_AsVector3:
+                {
+                    // AsVector3 can be a no-op when it's already in the right register, otherwise
+                    // we just need to move the value over. Vector3 operations will themselves mask
+                    // out the upper element when it's relevant, so it's not worth us spending extra
+                    // cycles doing so here.
+
+                    GetEmitter()->emitIns_Mov(ins, emitSize, targetReg, op1Reg, /* canSkip */ true);
+                    break;
+                }
+
+            case NI_Vector64_ToScalar:
+            case NI_Vector128_ToScalar:
+                {
+                    if ((varTypeIsFloating(intrin.baseType) && (targetReg == op1Reg)))
+                    {
+                        // no-op if vector is float/double and targetReg == op1Reg
+                        break;
+                    }
+
+                    GetEmitter()->emitIns_R_R_I(ins, emitTypeSize(intrin.baseType), targetReg, op1Reg, /* imm */ 0,
+                                                INS_OPTS_NONE);
+                }
+                break;
 
             case NI_AdvSimd_ReverseElement16:
                 GetEmitter()->emitIns_R_R(ins, emitSize, targetReg, op1Reg,
@@ -1169,111 +1172,111 @@ void CodeGen::genHWIntrinsic(GenTreeHWIntrinsic* node)
 
             case NI_AdvSimd_VectorTableLookup:
             case NI_AdvSimd_Arm64_VectorTableLookup:
-            {
-                unsigned regCount = 0;
-                if (intrin.op1->OperIsFieldList())
                 {
-                    GenTreeFieldList* fieldList  = intrin.op1->AsFieldList();
-                    GenTree*          firstField = fieldList->Uses().GetHead()->GetNode();
-                    op1Reg                       = firstField->GetRegNum();
-                    INDEBUG(regNumber argReg = op1Reg);
-                    for (GenTreeFieldList::Use& use : fieldList->Uses())
+                    unsigned regCount = 0;
+                    if (intrin.op1->OperIsFieldList())
                     {
-                        regCount++;
+                        GenTreeFieldList* fieldList  = intrin.op1->AsFieldList();
+                        GenTree*          firstField = fieldList->Uses().GetHead()->GetNode();
+                        op1Reg                       = firstField->GetRegNum();
+                        INDEBUG(regNumber argReg = op1Reg);
+                        for (GenTreeFieldList::Use& use : fieldList->Uses())
+                        {
+                            regCount++;
 #ifdef DEBUG
 
-                        GenTree* argNode = use.GetNode();
-                        assert(argReg == argNode->GetRegNum());
-                        argReg = REG_NEXT(argReg);
+                            GenTree* argNode = use.GetNode();
+                            assert(argReg == argNode->GetRegNum());
+                            argReg = REG_NEXT(argReg);
 #endif
+                        }
                     }
-                }
-                else
-                {
-                    regCount = 1;
-                    op1Reg   = intrin.op1->GetRegNum();
-                }
+                    else
+                    {
+                        regCount = 1;
+                        op1Reg   = intrin.op1->GetRegNum();
+                    }
 
-                switch (regCount)
-                {
-                    case 2:
-                        ins = INS_tbl_2regs;
-                        break;
-                    case 3:
-                        ins = INS_tbl_3regs;
-                        break;
-                    case 4:
-                        ins = INS_tbl_4regs;
-                        break;
-                    default:
-                        assert(regCount == 1);
-                        assert(ins == INS_tbl);
-                        break;
-                }
+                    switch (regCount)
+                    {
+                        case 2:
+                            ins = INS_tbl_2regs;
+                            break;
+                        case 3:
+                            ins = INS_tbl_3regs;
+                            break;
+                        case 4:
+                            ins = INS_tbl_4regs;
+                            break;
+                        default:
+                            assert(regCount == 1);
+                            assert(ins == INS_tbl);
+                            break;
+                    }
 
-                GetEmitter()->emitIns_R_R_R(ins, emitSize, targetReg, op1Reg, op2Reg, opt);
-                break;
-            }
+                    GetEmitter()->emitIns_R_R_R(ins, emitSize, targetReg, op1Reg, op2Reg, opt);
+                    break;
+                }
 
             case NI_AdvSimd_VectorTableLookupExtension:
             case NI_AdvSimd_Arm64_VectorTableLookupExtension:
-            {
-                assert(isRMW);
-                unsigned regCount = 0;
-                op1Reg            = intrin.op1->GetRegNum();
-                op3Reg            = intrin.op3->GetRegNum();
-                if (intrin.op2->OperIsFieldList())
                 {
-                    GenTreeFieldList* fieldList  = intrin.op2->AsFieldList();
-                    GenTree*          firstField = fieldList->Uses().GetHead()->GetNode();
-                    op2Reg                       = firstField->GetRegNum();
-                    INDEBUG(regNumber argReg = op2Reg);
-                    for (GenTreeFieldList::Use& use : fieldList->Uses())
+                    assert(isRMW);
+                    unsigned regCount = 0;
+                    op1Reg            = intrin.op1->GetRegNum();
+                    op3Reg            = intrin.op3->GetRegNum();
+                    if (intrin.op2->OperIsFieldList())
                     {
-                        regCount++;
+                        GenTreeFieldList* fieldList  = intrin.op2->AsFieldList();
+                        GenTree*          firstField = fieldList->Uses().GetHead()->GetNode();
+                        op2Reg                       = firstField->GetRegNum();
+                        INDEBUG(regNumber argReg = op2Reg);
+                        for (GenTreeFieldList::Use& use : fieldList->Uses())
+                        {
+                            regCount++;
 #ifdef DEBUG
 
-                        GenTree* argNode = use.GetNode();
+                            GenTree* argNode = use.GetNode();
 
-                        // registers should be consecutive
-                        assert(argReg == argNode->GetRegNum());
-                        // and they should not interfere with targetReg
-                        assert(targetReg != argReg);
-                        argReg = REG_NEXT(argReg);
+                            // registers should be consecutive
+                            assert(argReg == argNode->GetRegNum());
+                            // and they should not interfere with targetReg
+                            assert(targetReg != argReg);
+                            argReg = REG_NEXT(argReg);
 #endif
+                        }
                     }
-                }
-                else
-                {
-                    regCount = 1;
-                    op2Reg   = intrin.op2->GetRegNum();
-                }
+                    else
+                    {
+                        regCount = 1;
+                        op2Reg   = intrin.op2->GetRegNum();
+                    }
 
-                switch (regCount)
-                {
-                    case 2:
-                        ins = INS_tbx_2regs;
-                        break;
-                    case 3:
-                        ins = INS_tbx_3regs;
-                        break;
-                    case 4:
-                        ins = INS_tbx_4regs;
-                        break;
-                    default:
-                        assert(regCount == 1);
-                        assert(ins == INS_tbx);
-                        break;
-                }
+                    switch (regCount)
+                    {
+                        case 2:
+                            ins = INS_tbx_2regs;
+                            break;
+                        case 3:
+                            ins = INS_tbx_3regs;
+                            break;
+                        case 4:
+                            ins = INS_tbx_4regs;
+                            break;
+                        default:
+                            assert(regCount == 1);
+                            assert(ins == INS_tbx);
+                            break;
+                    }
 
-                if (targetReg != op1Reg)
-                {
-                    assert(targetReg != op3Reg);
-                    GetEmitter()->emitIns_Mov(INS_mov, emitTypeSize(node), targetReg, op1Reg, /* canSkip */ true);
+                    if (targetReg != op1Reg)
+                    {
+                        assert(targetReg != op3Reg);
+                        GetEmitter()->emitIns_Mov(INS_mov, emitTypeSize(node), targetReg, op1Reg, /* canSkip */ true);
+                    }
+                    GetEmitter()->emitIns_R_R_R(ins, emitSize, targetReg, op2Reg, op3Reg, opt);
+                    break;
                 }
-                GetEmitter()->emitIns_R_R_R(ins, emitSize, targetReg, op2Reg, op3Reg, opt);
-                break;
-            }
 
             case NI_ArmBase_Arm64_MultiplyLongAdd:
             case NI_ArmBase_Arm64_MultiplyLongSub:

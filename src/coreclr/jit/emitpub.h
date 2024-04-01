@@ -42,8 +42,7 @@ unsigned emitEndCodeGen(Compiler*         comp,
 
 unsigned emitGetEpilogCnt();
 
-template <typename Callback>
-bool emitGenNoGCLst(Callback& cb);
+template <typename Callback> bool emitGenNoGCLst(Callback& cb);
 
 void     emitBegProlog();
 unsigned emitGetPrologOffsetEstimate();

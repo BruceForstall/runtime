@@ -6,329 +6,329 @@
 
 struct simd8_t
 {
-    union
-    {
-        float    f32[2];
-        double   f64[1];
-        int8_t   i8[8];
-        int16_t  i16[4];
-        int32_t  i32[2];
-        int64_t  i64[1];
-        uint8_t  u8[8];
-        uint16_t u16[4];
-        uint32_t u32[2];
-        uint64_t u64[1];
-    };
+        union
+        {
+                float    f32[2];
+                double   f64[1];
+                int8_t   i8[8];
+                int16_t  i16[4];
+                int32_t  i32[2];
+                int64_t  i64[1];
+                uint8_t  u8[8];
+                uint16_t u16[4];
+                uint32_t u32[2];
+                uint64_t u64[1];
+        };
 
-    bool operator==(const simd8_t& other) const
-    {
-        return (u64[0] == other.u64[0]);
-    }
+        bool operator==(const simd8_t& other) const
+        {
+            return (u64[0] == other.u64[0]);
+        }
 
-    bool operator!=(const simd8_t& other) const
-    {
-        return !(*this == other);
-    }
+        bool operator!=(const simd8_t& other) const
+        {
+            return !(*this == other);
+        }
 
-    static simd8_t AllBitsSet()
-    {
-        simd8_t result;
+        static simd8_t AllBitsSet()
+        {
+            simd8_t result;
 
-        result.u64[0] = 0xFFFFFFFFFFFFFFFF;
+            result.u64[0] = 0xFFFFFFFFFFFFFFFF;
 
-        return result;
-    }
+            return result;
+        }
 
-    bool IsAllBitsSet() const
-    {
-        return *this == AllBitsSet();
-    }
+        bool IsAllBitsSet() const
+        {
+            return *this == AllBitsSet();
+        }
 
-    bool IsZero() const
-    {
-        return *this == Zero();
-    }
+        bool IsZero() const
+        {
+            return *this == Zero();
+        }
 
-    static simd8_t Zero()
-    {
-        return {};
-    }
+        static simd8_t Zero()
+        {
+            return {};
+        }
 };
 static_assert_no_msg(sizeof(simd8_t) == 8);
 
 #include <pshpack4.h>
 struct simd12_t
 {
-    union
-    {
-        float    f32[3];
-        int8_t   i8[12];
-        int16_t  i16[6];
-        int32_t  i32[3];
-        uint8_t  u8[12];
-        uint16_t u16[6];
-        uint32_t u32[3];
+        union
+        {
+                float    f32[3];
+                int8_t   i8[12];
+                int16_t  i16[6];
+                int32_t  i32[3];
+                uint8_t  u8[12];
+                uint16_t u16[6];
+                uint32_t u32[3];
 
-        // These three exist to simplify templatized code
-        // they won't actually be accessed for real scenarios
+                // These three exist to simplify templatized code
+                // they won't actually be accessed for real scenarios
 
-        double   f64[1];
-        int64_t  i64[1];
-        uint64_t u64[1];
-    };
+                double   f64[1];
+                int64_t  i64[1];
+                uint64_t u64[1];
+        };
 
-    bool operator==(const simd12_t& other) const
-    {
-        return (u32[0] == other.u32[0]) && (u32[1] == other.u32[1]) && (u32[2] == other.u32[2]);
-    }
+        bool operator==(const simd12_t& other) const
+        {
+            return (u32[0] == other.u32[0]) && (u32[1] == other.u32[1]) && (u32[2] == other.u32[2]);
+        }
 
-    bool operator!=(const simd12_t& other) const
-    {
-        return !(*this == other);
-    }
+        bool operator!=(const simd12_t& other) const
+        {
+            return !(*this == other);
+        }
 
-    static simd12_t AllBitsSet()
-    {
-        simd12_t result;
+        static simd12_t AllBitsSet()
+        {
+            simd12_t result;
 
-        result.u32[0] = 0xFFFFFFFF;
-        result.u32[1] = 0xFFFFFFFF;
-        result.u32[2] = 0xFFFFFFFF;
+            result.u32[0] = 0xFFFFFFFF;
+            result.u32[1] = 0xFFFFFFFF;
+            result.u32[2] = 0xFFFFFFFF;
 
-        return result;
-    }
+            return result;
+        }
 
-    bool IsAllBitsSet() const
-    {
-        return *this == AllBitsSet();
-    }
+        bool IsAllBitsSet() const
+        {
+            return *this == AllBitsSet();
+        }
 
-    bool IsZero() const
-    {
-        return *this == Zero();
-    }
+        bool IsZero() const
+        {
+            return *this == Zero();
+        }
 
-    static simd12_t Zero()
-    {
-        return {};
-    }
+        static simd12_t Zero()
+        {
+            return {};
+        }
 };
 #include <poppack.h>
 static_assert_no_msg(sizeof(simd12_t) == 12);
 
 struct simd16_t
 {
-    union
-    {
-        float    f32[4];
-        double   f64[2];
-        int8_t   i8[16];
-        int16_t  i16[8];
-        int32_t  i32[4];
-        int64_t  i64[2];
-        uint8_t  u8[16];
-        uint16_t u16[8];
-        uint32_t u32[4];
-        uint64_t u64[2];
-        simd8_t  v64[2];
-    };
+        union
+        {
+                float    f32[4];
+                double   f64[2];
+                int8_t   i8[16];
+                int16_t  i16[8];
+                int32_t  i32[4];
+                int64_t  i64[2];
+                uint8_t  u8[16];
+                uint16_t u16[8];
+                uint32_t u32[4];
+                uint64_t u64[2];
+                simd8_t  v64[2];
+        };
 
-    bool operator==(const simd16_t& other) const
-    {
-        return (v64[0] == other.v64[0]) && (v64[1] == other.v64[1]);
-    }
+        bool operator==(const simd16_t& other) const
+        {
+            return (v64[0] == other.v64[0]) && (v64[1] == other.v64[1]);
+        }
 
-    bool operator!=(const simd16_t& other) const
-    {
-        return !(*this == other);
-    }
+        bool operator!=(const simd16_t& other) const
+        {
+            return !(*this == other);
+        }
 
-    static simd16_t AllBitsSet()
-    {
-        simd16_t result;
+        static simd16_t AllBitsSet()
+        {
+            simd16_t result;
 
-        result.v64[0] = simd8_t::AllBitsSet();
-        result.v64[1] = simd8_t::AllBitsSet();
+            result.v64[0] = simd8_t::AllBitsSet();
+            result.v64[1] = simd8_t::AllBitsSet();
 
-        return result;
-    }
+            return result;
+        }
 
-    bool IsAllBitsSet() const
-    {
-        return *this == AllBitsSet();
-    }
+        bool IsAllBitsSet() const
+        {
+            return *this == AllBitsSet();
+        }
 
-    bool IsZero() const
-    {
-        return *this == Zero();
-    }
+        bool IsZero() const
+        {
+            return *this == Zero();
+        }
 
-    static simd16_t Zero()
-    {
-        return {};
-    }
+        static simd16_t Zero()
+        {
+            return {};
+        }
 };
 static_assert_no_msg(sizeof(simd16_t) == 16);
 
 #if defined(TARGET_XARCH)
 struct simd32_t
 {
-    union
-    {
-        float    f32[8];
-        double   f64[4];
-        int8_t   i8[32];
-        int16_t  i16[16];
-        int32_t  i32[8];
-        int64_t  i64[4];
-        uint8_t  u8[32];
-        uint16_t u16[16];
-        uint32_t u32[8];
-        uint64_t u64[4];
-        simd8_t  v64[4];
-        simd16_t v128[2];
-    };
+        union
+        {
+                float    f32[8];
+                double   f64[4];
+                int8_t   i8[32];
+                int16_t  i16[16];
+                int32_t  i32[8];
+                int64_t  i64[4];
+                uint8_t  u8[32];
+                uint16_t u16[16];
+                uint32_t u32[8];
+                uint64_t u64[4];
+                simd8_t  v64[4];
+                simd16_t v128[2];
+        };
 
-    bool operator==(const simd32_t& other) const
-    {
-        return (v128[0] == other.v128[0]) && (v128[1] == other.v128[1]);
-    }
+        bool operator==(const simd32_t& other) const
+        {
+            return (v128[0] == other.v128[0]) && (v128[1] == other.v128[1]);
+        }
 
-    bool operator!=(const simd32_t& other) const
-    {
-        return !(*this == other);
-    }
+        bool operator!=(const simd32_t& other) const
+        {
+            return !(*this == other);
+        }
 
-    static simd32_t AllBitsSet()
-    {
-        simd32_t result;
+        static simd32_t AllBitsSet()
+        {
+            simd32_t result;
 
-        result.v128[0] = simd16_t::AllBitsSet();
-        result.v128[1] = simd16_t::AllBitsSet();
+            result.v128[0] = simd16_t::AllBitsSet();
+            result.v128[1] = simd16_t::AllBitsSet();
 
-        return result;
-    }
+            return result;
+        }
 
-    bool IsAllBitsSet() const
-    {
-        return *this == AllBitsSet();
-    }
+        bool IsAllBitsSet() const
+        {
+            return *this == AllBitsSet();
+        }
 
-    bool IsZero() const
-    {
-        return *this == Zero();
-    }
+        bool IsZero() const
+        {
+            return *this == Zero();
+        }
 
-    static simd32_t Zero()
-    {
-        return {};
-    }
+        static simd32_t Zero()
+        {
+            return {};
+        }
 };
 static_assert_no_msg(sizeof(simd32_t) == 32);
 
 struct simd64_t
 {
-    union
-    {
-        float    f32[16];
-        double   f64[8];
-        int8_t   i8[64];
-        int16_t  i16[32];
-        int32_t  i32[16];
-        int64_t  i64[8];
-        uint8_t  u8[64];
-        uint16_t u16[32];
-        uint32_t u32[16];
-        uint64_t u64[8];
-        simd8_t  v64[8];
-        simd16_t v128[4];
-        simd32_t v256[2];
-    };
+        union
+        {
+                float    f32[16];
+                double   f64[8];
+                int8_t   i8[64];
+                int16_t  i16[32];
+                int32_t  i32[16];
+                int64_t  i64[8];
+                uint8_t  u8[64];
+                uint16_t u16[32];
+                uint32_t u32[16];
+                uint64_t u64[8];
+                simd8_t  v64[8];
+                simd16_t v128[4];
+                simd32_t v256[2];
+        };
 
-    bool operator==(const simd64_t& other) const
-    {
-        return (v256[0] == other.v256[0]) && (v256[1] == other.v256[1]);
-    }
+        bool operator==(const simd64_t& other) const
+        {
+            return (v256[0] == other.v256[0]) && (v256[1] == other.v256[1]);
+        }
 
-    bool operator!=(const simd64_t& other) const
-    {
-        return !(*this == other);
-    }
+        bool operator!=(const simd64_t& other) const
+        {
+            return !(*this == other);
+        }
 
-    static simd64_t AllBitsSet()
-    {
-        simd64_t result;
+        static simd64_t AllBitsSet()
+        {
+            simd64_t result;
 
-        result.v256[0] = simd32_t::AllBitsSet();
-        result.v256[1] = simd32_t::AllBitsSet();
+            result.v256[0] = simd32_t::AllBitsSet();
+            result.v256[1] = simd32_t::AllBitsSet();
 
-        return result;
-    }
+            return result;
+        }
 
-    bool IsAllBitsSet() const
-    {
-        return *this == AllBitsSet();
-    }
+        bool IsAllBitsSet() const
+        {
+            return *this == AllBitsSet();
+        }
 
-    bool IsZero() const
-    {
-        return *this == Zero();
-    }
+        bool IsZero() const
+        {
+            return *this == Zero();
+        }
 
-    static simd64_t Zero()
-    {
-        return {};
-    }
+        static simd64_t Zero()
+        {
+            return {};
+        }
 };
 static_assert_no_msg(sizeof(simd64_t) == 64);
 
 struct simdmask_t
 {
-    union
-    {
-        int8_t   i8[8];
-        int16_t  i16[4];
-        int32_t  i32[2];
-        int64_t  i64[1];
-        uint8_t  u8[8];
-        uint16_t u16[4];
-        uint32_t u32[2];
-        uint64_t u64[1];
-    };
+        union
+        {
+                int8_t   i8[8];
+                int16_t  i16[4];
+                int32_t  i32[2];
+                int64_t  i64[1];
+                uint8_t  u8[8];
+                uint16_t u16[4];
+                uint32_t u32[2];
+                uint64_t u64[1];
+        };
 
-    bool operator==(const simdmask_t& other) const
-    {
-        return (u64[0] == other.u64[0]);
-    }
+        bool operator==(const simdmask_t& other) const
+        {
+            return (u64[0] == other.u64[0]);
+        }
 
-    bool operator!=(const simdmask_t& other) const
-    {
-        return !(*this == other);
-    }
+        bool operator!=(const simdmask_t& other) const
+        {
+            return !(*this == other);
+        }
 
-    static simdmask_t AllBitsSet()
-    {
-        simdmask_t result;
+        static simdmask_t AllBitsSet()
+        {
+            simdmask_t result;
 
-        result.u64[0] = 0xFFFFFFFFFFFFFFFF;
+            result.u64[0] = 0xFFFFFFFFFFFFFFFF;
 
-        return result;
-    }
+            return result;
+        }
 
-    bool IsAllBitsSet() const
-    {
-        return *this == AllBitsSet();
-    }
+        bool IsAllBitsSet() const
+        {
+            return *this == AllBitsSet();
+        }
 
-    bool IsZero() const
-    {
-        return *this == Zero();
-    }
+        bool IsZero() const
+        {
+            return *this == Zero();
+        }
 
-    static simdmask_t Zero()
-    {
-        return {};
-    }
+        static simdmask_t Zero()
+        {
+            return {};
+        }
 };
 static_assert_no_msg(sizeof(simdmask_t) == 8);
 
@@ -337,69 +337,65 @@ typedef simd64_t simd_t;
 typedef simd16_t simd_t;
 #endif
 
-template <typename TBase>
-TBase EvaluateUnaryScalarSpecialized(genTreeOps oper, TBase arg0)
+template <typename TBase> TBase EvaluateUnaryScalarSpecialized(genTreeOps oper, TBase arg0)
 {
     switch (oper)
     {
         case GT_NOT:
-        {
-            return ~arg0;
-        }
+            {
+                return ~arg0;
+            }
 
         case GT_LZCNT:
-        {
-            if (sizeof(TBase) == sizeof(uint32_t))
             {
-                uint32_t result = BitOperations::LeadingZeroCount(static_cast<uint32_t>(arg0));
-                return static_cast<TBase>(result);
-            }
-            else if (sizeof(TBase) == sizeof(uint64_t))
-            {
-                uint64_t result = BitOperations::LeadingZeroCount(static_cast<uint64_t>(arg0));
-                return static_cast<TBase>(result);
-            }
+                if (sizeof(TBase) == sizeof(uint32_t))
+                {
+                    uint32_t result = BitOperations::LeadingZeroCount(static_cast<uint32_t>(arg0));
+                    return static_cast<TBase>(result);
+                }
+                else if (sizeof(TBase) == sizeof(uint64_t))
+                {
+                    uint64_t result = BitOperations::LeadingZeroCount(static_cast<uint64_t>(arg0));
+                    return static_cast<TBase>(result);
+                }
 
-            unreached();
-        }
+                unreached();
+            }
 
         default:
-        {
-            unreached();
-        }
+            {
+                unreached();
+            }
     }
 }
 
-template <>
-inline float EvaluateUnaryScalarSpecialized<float>(genTreeOps oper, float arg0)
+template <> inline float EvaluateUnaryScalarSpecialized<float>(genTreeOps oper, float arg0)
 {
     uint32_t arg0Bits   = BitOperations::SingleToUInt32Bits(arg0);
     uint32_t resultBits = EvaluateUnaryScalarSpecialized<uint32_t>(oper, arg0Bits);
     return BitOperations::UInt32BitsToSingle(resultBits);
 }
 
-template <>
-inline double EvaluateUnaryScalarSpecialized<double>(genTreeOps oper, double arg0)
+template <> inline double EvaluateUnaryScalarSpecialized<double>(genTreeOps oper, double arg0)
 {
     uint64_t arg0Bits   = BitOperations::DoubleToUInt64Bits(arg0);
     uint64_t resultBits = EvaluateUnaryScalarSpecialized<uint64_t>(oper, arg0Bits);
     return BitOperations::UInt64BitsToDouble(resultBits);
 }
 
-template <typename TBase>
-TBase EvaluateUnaryScalar(genTreeOps oper, TBase arg0)
+template <typename TBase> TBase EvaluateUnaryScalar(genTreeOps oper, TBase arg0)
 {
     switch (oper)
     {
         case GT_NEG:
-        {
-            return static_cast<TBase>(0) - arg0;
-        }
+            {
+                return static_cast<TBase>(0) - arg0;
+            }
 
         default:
-        {
-            return EvaluateUnaryScalarSpecialized<TBase>(oper, arg0);
-        }
+            {
+                return EvaluateUnaryScalarSpecialized<TBase>(oper, arg0);
+            }
     }
 }
 
@@ -439,74 +435,73 @@ void EvaluateUnarySimd(genTreeOps oper, bool scalar, var_types baseType, TSimd* 
     switch (baseType)
     {
         case TYP_FLOAT:
-        {
-            EvaluateUnarySimd<TSimd, float>(oper, scalar, result, arg0);
-            break;
-        }
+            {
+                EvaluateUnarySimd<TSimd, float>(oper, scalar, result, arg0);
+                break;
+            }
 
         case TYP_DOUBLE:
-        {
-            EvaluateUnarySimd<TSimd, double>(oper, scalar, result, arg0);
-            break;
-        }
+            {
+                EvaluateUnarySimd<TSimd, double>(oper, scalar, result, arg0);
+                break;
+            }
 
         case TYP_BYTE:
-        {
-            EvaluateUnarySimd<TSimd, int8_t>(oper, scalar, result, arg0);
-            break;
-        }
+            {
+                EvaluateUnarySimd<TSimd, int8_t>(oper, scalar, result, arg0);
+                break;
+            }
 
         case TYP_SHORT:
-        {
-            EvaluateUnarySimd<TSimd, int16_t>(oper, scalar, result, arg0);
-            break;
-        }
+            {
+                EvaluateUnarySimd<TSimd, int16_t>(oper, scalar, result, arg0);
+                break;
+            }
 
         case TYP_INT:
-        {
-            EvaluateUnarySimd<TSimd, int32_t>(oper, scalar, result, arg0);
-            break;
-        }
+            {
+                EvaluateUnarySimd<TSimd, int32_t>(oper, scalar, result, arg0);
+                break;
+            }
 
         case TYP_LONG:
-        {
-            EvaluateUnarySimd<TSimd, int64_t>(oper, scalar, result, arg0);
-            break;
-        }
+            {
+                EvaluateUnarySimd<TSimd, int64_t>(oper, scalar, result, arg0);
+                break;
+            }
 
         case TYP_UBYTE:
-        {
-            EvaluateUnarySimd<TSimd, uint8_t>(oper, scalar, result, arg0);
-            break;
-        }
+            {
+                EvaluateUnarySimd<TSimd, uint8_t>(oper, scalar, result, arg0);
+                break;
+            }
 
         case TYP_USHORT:
-        {
-            EvaluateUnarySimd<TSimd, uint16_t>(oper, scalar, result, arg0);
-            break;
-        }
+            {
+                EvaluateUnarySimd<TSimd, uint16_t>(oper, scalar, result, arg0);
+                break;
+            }
 
         case TYP_UINT:
-        {
-            EvaluateUnarySimd<TSimd, uint32_t>(oper, scalar, result, arg0);
-            break;
-        }
+            {
+                EvaluateUnarySimd<TSimd, uint32_t>(oper, scalar, result, arg0);
+                break;
+            }
 
         case TYP_ULONG:
-        {
-            EvaluateUnarySimd<TSimd, uint64_t>(oper, scalar, result, arg0);
-            break;
-        }
+            {
+                EvaluateUnarySimd<TSimd, uint64_t>(oper, scalar, result, arg0);
+                break;
+            }
 
         default:
-        {
-            unreached();
-        }
+            {
+                unreached();
+            }
     }
 }
 
-template <typename TBase>
-TBase EvaluateBinaryScalarRSZ(TBase arg0, TBase arg1)
+template <typename TBase> TBase EvaluateBinaryScalarRSZ(TBase arg0, TBase arg1)
 {
 #if defined(TARGET_XARCH)
     if ((arg1 < 0) || (arg1 >= (sizeof(TBase) * 8)))
@@ -527,8 +522,7 @@ TBase EvaluateBinaryScalarRSZ(TBase arg0, TBase arg1)
     return arg0 >> arg1;
 }
 
-template <>
-inline int8_t EvaluateBinaryScalarRSZ<int8_t>(int8_t arg0, int8_t arg1)
+template <> inline int8_t EvaluateBinaryScalarRSZ<int8_t>(int8_t arg0, int8_t arg1)
 {
     uint8_t arg0Bits = static_cast<uint8_t>(arg0);
     uint8_t arg1Bits = static_cast<uint8_t>(arg1);
@@ -537,8 +531,7 @@ inline int8_t EvaluateBinaryScalarRSZ<int8_t>(int8_t arg0, int8_t arg1)
     return static_cast<int8_t>(resultBits);
 }
 
-template <>
-inline int16_t EvaluateBinaryScalarRSZ<int16_t>(int16_t arg0, int16_t arg1)
+template <> inline int16_t EvaluateBinaryScalarRSZ<int16_t>(int16_t arg0, int16_t arg1)
 {
     uint16_t arg0Bits = static_cast<uint16_t>(arg0);
     uint16_t arg1Bits = static_cast<uint16_t>(arg1);
@@ -547,8 +540,7 @@ inline int16_t EvaluateBinaryScalarRSZ<int16_t>(int16_t arg0, int16_t arg1)
     return static_cast<int16_t>(resultBits);
 }
 
-template <>
-inline int32_t EvaluateBinaryScalarRSZ<int32_t>(int32_t arg0, int32_t arg1)
+template <> inline int32_t EvaluateBinaryScalarRSZ<int32_t>(int32_t arg0, int32_t arg1)
 {
     uint32_t arg0Bits = static_cast<uint32_t>(arg0);
     uint32_t arg1Bits = static_cast<uint32_t>(arg1);
@@ -557,8 +549,7 @@ inline int32_t EvaluateBinaryScalarRSZ<int32_t>(int32_t arg0, int32_t arg1)
     return static_cast<int32_t>(resultBits);
 }
 
-template <>
-inline int64_t EvaluateBinaryScalarRSZ<int64_t>(int64_t arg0, int64_t arg1)
+template <> inline int64_t EvaluateBinaryScalarRSZ<int64_t>(int64_t arg0, int64_t arg1)
 {
     uint64_t arg0Bits = static_cast<uint64_t>(arg0);
     uint64_t arg1Bits = static_cast<uint64_t>(arg1);
@@ -567,99 +558,97 @@ inline int64_t EvaluateBinaryScalarRSZ<int64_t>(int64_t arg0, int64_t arg1)
     return static_cast<int64_t>(resultBits);
 }
 
-template <typename TBase>
-TBase EvaluateBinaryScalarSpecialized(genTreeOps oper, TBase arg0, TBase arg1)
+template <typename TBase> TBase EvaluateBinaryScalarSpecialized(genTreeOps oper, TBase arg0, TBase arg1)
 {
     switch (oper)
     {
         case GT_AND:
-        {
-            return arg0 & arg1;
-        }
+            {
+                return arg0 & arg1;
+            }
 
         case GT_AND_NOT:
-        {
-            return arg0 & ~arg1;
-        }
+            {
+                return arg0 & ~arg1;
+            }
 
         case GT_LSH:
-        {
-#if defined(TARGET_XARCH)
-            if ((arg1 < 0) || (arg1 >= (sizeof(TBase) * 8)))
             {
-                // For SIMD, xarch allows overshifting and treats
-                // it as zeroing. So ensure we do the same here.
-                //
-                // The xplat APIs ensure the shiftAmount is masked
-                // to be within range, so we can't hit this for them.
+#if defined(TARGET_XARCH)
+                if ((arg1 < 0) || (arg1 >= (sizeof(TBase) * 8)))
+                {
+                    // For SIMD, xarch allows overshifting and treats
+                    // it as zeroing. So ensure we do the same here.
+                    //
+                    // The xplat APIs ensure the shiftAmount is masked
+                    // to be within range, so we can't hit this for them.
 
-                return static_cast<TBase>(0);
-            }
+                    return static_cast<TBase>(0);
+                }
 #else
-            // Other platforms enforce masking in their encoding
-            assert((arg1 >= 0) && (arg1 < (sizeof(TBase) * 8)));
+                // Other platforms enforce masking in their encoding
+                assert((arg1 >= 0) && (arg1 < (sizeof(TBase) * 8)));
 #endif
-            return arg0 << arg1;
-        }
+                return arg0 << arg1;
+            }
 
         case GT_OR:
-        {
-            return arg0 | arg1;
-        }
+            {
+                return arg0 | arg1;
+            }
 
         case GT_ROL:
-        {
-            return EvaluateBinaryScalarSpecialized<TBase>(GT_LSH, arg0, arg1) |
-                   EvaluateBinaryScalarRSZ<TBase>(arg0, (sizeof(TBase) * 8) - arg1);
-        }
+            {
+                return EvaluateBinaryScalarSpecialized<TBase>(GT_LSH, arg0, arg1) |
+                       EvaluateBinaryScalarRSZ<TBase>(arg0, (sizeof(TBase) * 8) - arg1);
+            }
 
         case GT_ROR:
-        {
-            return EvaluateBinaryScalarRSZ<TBase>(arg0, arg1) |
-                   EvaluateBinaryScalarSpecialized<TBase>(GT_LSH, arg0, (sizeof(TBase) * 8) - arg1);
-        }
+            {
+                return EvaluateBinaryScalarRSZ<TBase>(arg0, arg1) |
+                       EvaluateBinaryScalarSpecialized<TBase>(GT_LSH, arg0, (sizeof(TBase) * 8) - arg1);
+            }
 
         case GT_RSH:
-        {
-#if defined(TARGET_XARCH)
-            if ((arg1 < 0) || (arg1 >= (sizeof(TBase) * 8)))
             {
-                // For SIMD, xarch allows overshifting and treats
-                // it as propagating the sign bit (returning Zero
-                // or AllBitsSet). So ensure we do the same here.
-                //
-                // The xplat APIs ensure the shiftAmount is masked
-                // to be within range, so we can't hit this for them.
+#if defined(TARGET_XARCH)
+                if ((arg1 < 0) || (arg1 >= (sizeof(TBase) * 8)))
+                {
+                    // For SIMD, xarch allows overshifting and treats
+                    // it as propagating the sign bit (returning Zero
+                    // or AllBitsSet). So ensure we do the same here.
+                    //
+                    // The xplat APIs ensure the shiftAmount is masked
+                    // to be within range, so we can't hit this for them.
 
-                arg0 >>= ((sizeof(TBase) * 8) - 1);
-                arg1 = static_cast<TBase>(1);
-            }
+                    arg0 >>= ((sizeof(TBase) * 8) - 1);
+                    arg1 = static_cast<TBase>(1);
+                }
 #else
-            // Other platforms enforce masking in their encoding
-            assert((arg1 >= 0) && (arg1 < (sizeof(TBase) * 8)));
+                // Other platforms enforce masking in their encoding
+                assert((arg1 >= 0) && (arg1 < (sizeof(TBase) * 8)));
 #endif
-            return arg0 >> arg1;
-        }
+                return arg0 >> arg1;
+            }
 
         case GT_RSZ:
-        {
-            return EvaluateBinaryScalarRSZ<TBase>(arg0, arg1);
-        }
+            {
+                return EvaluateBinaryScalarRSZ<TBase>(arg0, arg1);
+            }
 
         case GT_XOR:
-        {
-            return arg0 ^ arg1;
-        }
+            {
+                return arg0 ^ arg1;
+            }
 
         default:
-        {
-            unreached();
-        }
+            {
+                unreached();
+            }
     }
 }
 
-template <>
-inline float EvaluateBinaryScalarSpecialized<float>(genTreeOps oper, float arg0, float arg1)
+template <> inline float EvaluateBinaryScalarSpecialized<float>(genTreeOps oper, float arg0, float arg1)
 {
     uint32_t arg0Bits = BitOperations::SingleToUInt32Bits(arg0);
     uint32_t arg1Bits = BitOperations::SingleToUInt32Bits(arg1);
@@ -668,8 +657,7 @@ inline float EvaluateBinaryScalarSpecialized<float>(genTreeOps oper, float arg0,
     return BitOperations::UInt32BitsToSingle(resultBits);
 }
 
-template <>
-inline double EvaluateBinaryScalarSpecialized<double>(genTreeOps oper, double arg0, double arg1)
+template <> inline double EvaluateBinaryScalarSpecialized<double>(genTreeOps oper, double arg0, double arg1)
 {
     uint64_t arg0Bits = BitOperations::DoubleToUInt64Bits(arg0);
     uint64_t arg1Bits = BitOperations::DoubleToUInt64Bits(arg1);
@@ -678,35 +666,34 @@ inline double EvaluateBinaryScalarSpecialized<double>(genTreeOps oper, double ar
     return BitOperations::UInt64BitsToDouble(resultBits);
 }
 
-template <typename TBase>
-TBase EvaluateBinaryScalar(genTreeOps oper, TBase arg0, TBase arg1)
+template <typename TBase> TBase EvaluateBinaryScalar(genTreeOps oper, TBase arg0, TBase arg1)
 {
     switch (oper)
     {
         case GT_ADD:
-        {
-            return arg0 + arg1;
-        }
+            {
+                return arg0 + arg1;
+            }
 
         case GT_DIV:
-        {
-            return arg0 / arg1;
-        }
+            {
+                return arg0 / arg1;
+            }
 
         case GT_MUL:
-        {
-            return arg0 * arg1;
-        }
+            {
+                return arg0 * arg1;
+            }
 
         case GT_SUB:
-        {
-            return arg0 - arg1;
-        }
+            {
+                return arg0 - arg1;
+            }
 
         default:
-        {
-            return EvaluateBinaryScalarSpecialized<TBase>(oper, arg0, arg1);
-        }
+            {
+                return EvaluateBinaryScalarSpecialized<TBase>(oper, arg0, arg1);
+            }
     }
 }
 
@@ -749,74 +736,73 @@ void EvaluateBinarySimd(genTreeOps oper, bool scalar, var_types baseType, TSimd*
     switch (baseType)
     {
         case TYP_FLOAT:
-        {
-            EvaluateBinarySimd<TSimd, float>(oper, scalar, result, arg0, arg1);
-            break;
-        }
+            {
+                EvaluateBinarySimd<TSimd, float>(oper, scalar, result, arg0, arg1);
+                break;
+            }
 
         case TYP_DOUBLE:
-        {
-            EvaluateBinarySimd<TSimd, double>(oper, scalar, result, arg0, arg1);
-            break;
-        }
+            {
+                EvaluateBinarySimd<TSimd, double>(oper, scalar, result, arg0, arg1);
+                break;
+            }
 
         case TYP_BYTE:
-        {
-            EvaluateBinarySimd<TSimd, int8_t>(oper, scalar, result, arg0, arg1);
-            break;
-        }
+            {
+                EvaluateBinarySimd<TSimd, int8_t>(oper, scalar, result, arg0, arg1);
+                break;
+            }
 
         case TYP_SHORT:
-        {
-            EvaluateBinarySimd<TSimd, int16_t>(oper, scalar, result, arg0, arg1);
-            break;
-        }
+            {
+                EvaluateBinarySimd<TSimd, int16_t>(oper, scalar, result, arg0, arg1);
+                break;
+            }
 
         case TYP_INT:
-        {
-            EvaluateBinarySimd<TSimd, int32_t>(oper, scalar, result, arg0, arg1);
-            break;
-        }
+            {
+                EvaluateBinarySimd<TSimd, int32_t>(oper, scalar, result, arg0, arg1);
+                break;
+            }
 
         case TYP_LONG:
-        {
-            EvaluateBinarySimd<TSimd, int64_t>(oper, scalar, result, arg0, arg1);
-            break;
-        }
+            {
+                EvaluateBinarySimd<TSimd, int64_t>(oper, scalar, result, arg0, arg1);
+                break;
+            }
 
         case TYP_UBYTE:
-        {
-            EvaluateBinarySimd<TSimd, uint8_t>(oper, scalar, result, arg0, arg1);
-            break;
-        }
+            {
+                EvaluateBinarySimd<TSimd, uint8_t>(oper, scalar, result, arg0, arg1);
+                break;
+            }
 
         case TYP_USHORT:
-        {
-            EvaluateBinarySimd<TSimd, uint16_t>(oper, scalar, result, arg0, arg1);
-            break;
-        }
+            {
+                EvaluateBinarySimd<TSimd, uint16_t>(oper, scalar, result, arg0, arg1);
+                break;
+            }
 
         case TYP_UINT:
-        {
-            EvaluateBinarySimd<TSimd, uint32_t>(oper, scalar, result, arg0, arg1);
-            break;
-        }
+            {
+                EvaluateBinarySimd<TSimd, uint32_t>(oper, scalar, result, arg0, arg1);
+                break;
+            }
 
         case TYP_ULONG:
-        {
-            EvaluateBinarySimd<TSimd, uint64_t>(oper, scalar, result, arg0, arg1);
-            break;
-        }
+            {
+                EvaluateBinarySimd<TSimd, uint64_t>(oper, scalar, result, arg0, arg1);
+                break;
+            }
 
         default:
-        {
-            unreached();
-        }
+            {
+                unreached();
+            }
     }
 }
 
-template <typename TSimd, typename TBase>
-void BroadcastConstantToSimd(TSimd* result, TBase arg0)
+template <typename TSimd, typename TBase> void BroadcastConstantToSimd(TSimd* result, TBase arg0)
 {
     uint32_t count = sizeof(TSimd) / sizeof(TBase);
 

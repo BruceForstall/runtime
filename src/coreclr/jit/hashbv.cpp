@@ -449,7 +449,9 @@ hashBv* hashBv::CreateFrom(hashBv* other, Compiler* comp)
     return result;
 }
 
-void hashBv::MergeLists(hashBvNode** root1, hashBvNode** root2) {}
+void hashBv::MergeLists(hashBvNode** root1, hashBvNode** root2)
+{
+}
 
 bool hashBv::TooSmall()
 {
@@ -615,17 +617,15 @@ void hashBv::dump()
     // DBEXEC(TRUE, printf("[%d(%d)(nodes:%d)]{ ", hashtable_size(), countBits(), this->numNodes));
 
     printf("{");
-    ForEachHbvBitSet(*this,
-                     [&](indexType index)
-                     {
-                         if (!first)
-                         {
-                             printf(" ");
-                         }
-                         printf("%d", index);
-                         first = false;
-                         return HbvWalk::Continue;
-                     });
+    ForEachHbvBitSet(*this, [&](indexType index) {
+        if (!first)
+        {
+            printf(" ");
+        }
+        printf("%d", index);
+        first = false;
+        return HbvWalk::Continue;
+    });
     printf("}\n");
 }
 
@@ -636,25 +636,23 @@ void hashBv::dumpFancy()
 
     printf("{");
     printf("count:%d", this->countBits());
-    ForEachHbvBitSet(*this,
-                     [&](indexType index)
-                     {
-                         if (last_1 != index - 1)
-                         {
-                             if (last_0 + 1 != last_1)
-                             {
-                                 printf(" %d-%d", last_0 + 1, last_1);
-                             }
-                             else
-                             {
-                                 printf(" %d", last_1);
-                             }
-                             last_0 = index - 1;
-                         }
-                         last_1 = index;
+    ForEachHbvBitSet(*this, [&](indexType index) {
+        if (last_1 != index - 1)
+        {
+            if (last_0 + 1 != last_1)
+            {
+                printf(" %d-%d", last_0 + 1, last_1);
+            }
+            else
+            {
+                printf(" %d", last_1);
+            }
+            last_0 = index - 1;
+        }
+        last_1 = index;
 
-                         return HbvWalk::Continue;
-                     });
+        return HbvWalk::Continue;
+    });
 
     // Print the last one
     if (last_0 + 1 != last_1)
@@ -935,315 +933,336 @@ bool hashBv::anySet()
 
 class AndAction
 {
-public:
-    static inline void PreAction(hashBv* lhs, hashBv* rhs) {}
-    static inline void PostAction(hashBv* lhs, hashBv* rhs) {}
-    static inline bool DefaultResult()
-    {
-        return false;
-    }
-
-    static inline void LeftGap(hashBv* lhs, hashBvNode**& l, hashBvNode*& r, bool& result, bool& terminate)
-    {
-        // it's in other, not this
-        // so skip it
-        r = r->next;
-    }
-    static inline void RightGap(hashBv* lhs, hashBvNode**& l, hashBvNode*& r, bool& result, bool& terminate)
-    {
-        // it's in LHS, not RHS
-        // so have to remove it
-        hashBvNode* old = *l;
-        *l              = (*l)->next;
-        // splice it out
-        old->freeNode(lhs->globalData());
-        lhs->numNodes--;
-        result = true;
-    }
-    static inline void BothPresent(hashBv* lhs, hashBvNode**& l, hashBvNode*& r, bool& result, bool& terminate)
-    {
-        if ((*l)->AndWithChange(r))
+    public:
+        static inline void PreAction(hashBv* lhs, hashBv* rhs)
         {
-            r      = r->next;
-            result = true;
+        }
+        static inline void PostAction(hashBv* lhs, hashBv* rhs)
+        {
+        }
+        static inline bool DefaultResult()
+        {
+            return false;
+        }
 
-            if ((*l)->anySet())
+        static inline void LeftGap(hashBv* lhs, hashBvNode**& l, hashBvNode*& r, bool& result, bool& terminate)
+        {
+            // it's in other, not this
+            // so skip it
+            r = r->next;
+        }
+        static inline void RightGap(hashBv* lhs, hashBvNode**& l, hashBvNode*& r, bool& result, bool& terminate)
+        {
+            // it's in LHS, not RHS
+            // so have to remove it
+            hashBvNode* old = *l;
+            *l              = (*l)->next;
+            // splice it out
+            old->freeNode(lhs->globalData());
+            lhs->numNodes--;
+            result = true;
+        }
+        static inline void BothPresent(hashBv* lhs, hashBvNode**& l, hashBvNode*& r, bool& result, bool& terminate)
+        {
+            if ((*l)->AndWithChange(r))
             {
-                l = &((*l)->next);
+                r      = r->next;
+                result = true;
+
+                if ((*l)->anySet())
+                {
+                    l = &((*l)->next);
+                }
+                else
+                {
+                    hashBvNode* old = *l;
+                    *l              = (*l)->next;
+                    old->freeNode(lhs->globalData());
+                    lhs->numNodes--;
+                }
             }
             else
             {
-                hashBvNode* old = *l;
-                *l              = (*l)->next;
-                old->freeNode(lhs->globalData());
-                lhs->numNodes--;
+                r = r->next;
+                l = &((*l)->next);
             }
         }
-        else
+        static inline void LeftEmpty(hashBv* lhs, hashBvNode**& l, hashBvNode*& r, bool& result, bool& terminate)
         {
             r = r->next;
-            l = &((*l)->next);
         }
-    }
-    static inline void LeftEmpty(hashBv* lhs, hashBvNode**& l, hashBvNode*& r, bool& result, bool& terminate)
-    {
-        r = r->next;
-    }
 };
 
 class SubtractAction
 {
-public:
-    static inline void PreAction(hashBv* lhs, hashBv* rhs) {}
-    static inline void PostAction(hashBv* lhs, hashBv* rhs) {}
-    static inline bool DefaultResult()
-    {
-        return false;
-    }
-    static inline void LeftGap(hashBv* lhs, hashBvNode**& l, hashBvNode*& r, bool& result, bool& terminate)
-    {
-        // it's in other, not this
-        // so skip it
-        r = r->next;
-    }
-    static inline void RightGap(hashBv* lhs, hashBvNode**& l, hashBvNode*& r, bool& result, bool& terminate)
-    {
-        // in lhs, not rhs
-        // so skip lhs
-        l = &((*l)->next);
-    }
-    static inline void BothPresent(hashBv* lhs, hashBvNode**& l, hashBvNode*& r, bool& result, bool& terminate)
-    {
-        if ((*l)->SubtractWithChange(r))
+    public:
+        static inline void PreAction(hashBv* lhs, hashBv* rhs)
         {
-            r      = r->next;
-            result = true;
-
-            if ((*l)->anySet())
+        }
+        static inline void PostAction(hashBv* lhs, hashBv* rhs)
+        {
+        }
+        static inline bool DefaultResult()
+        {
+            return false;
+        }
+        static inline void LeftGap(hashBv* lhs, hashBvNode**& l, hashBvNode*& r, bool& result, bool& terminate)
+        {
+            // it's in other, not this
+            // so skip it
+            r = r->next;
+        }
+        static inline void RightGap(hashBv* lhs, hashBvNode**& l, hashBvNode*& r, bool& result, bool& terminate)
+        {
+            // in lhs, not rhs
+            // so skip lhs
+            l = &((*l)->next);
+        }
+        static inline void BothPresent(hashBv* lhs, hashBvNode**& l, hashBvNode*& r, bool& result, bool& terminate)
+        {
+            if ((*l)->SubtractWithChange(r))
             {
-                l = &((*l)->next);
+                r      = r->next;
+                result = true;
+
+                if ((*l)->anySet())
+                {
+                    l = &((*l)->next);
+                }
+                else
+                {
+                    hashBvNode* old = *l;
+                    *l              = (*l)->next;
+                    old->freeNode(lhs->globalData());
+                    lhs->numNodes--;
+                }
             }
             else
             {
-                hashBvNode* old = *l;
-                *l              = (*l)->next;
-                old->freeNode(lhs->globalData());
-                lhs->numNodes--;
+                r = r->next;
+                l = &((*l)->next);
             }
         }
-        else
+        static inline void LeftEmpty(hashBv* lhs, hashBvNode**& l, hashBvNode*& r, bool& result, bool& terminate)
         {
             r = r->next;
-            l = &((*l)->next);
         }
-    }
-    static inline void LeftEmpty(hashBv* lhs, hashBvNode**& l, hashBvNode*& r, bool& result, bool& terminate)
-    {
-        r = r->next;
-    }
 };
 
 class XorAction
 {
-public:
-    static inline void PreAction(hashBv* lhs, hashBv* rhs) {}
-    static inline void PostAction(hashBv* lhs, hashBv* rhs) {}
-    static inline bool DefaultResult()
-    {
-        return false;
-    }
-
-    static inline void LeftGap(hashBv* lhs, hashBvNode**& l, hashBvNode*& r, bool& result, bool& terminate)
-    {
-        // it's in other, not this
-        // so put one in
-        result           = true;
-        hashBvNode* temp = hashBvNode::Create(r->baseIndex, lhs->compiler);
-        lhs->numNodes++;
-        temp->XorWith(r);
-        temp->next = (*l)->next;
-        *l         = temp;
-        l          = &(temp->next);
-
-        r = r->next;
-    }
-
-    static inline void RightGap(hashBv* lhs, hashBvNode**& l, hashBvNode*& r, bool& result, bool& terminate)
-    {
-        // it's in LHS, not RHS
-        // so LHS remains the same
-        l = &((*l)->next);
-    }
-
-    static inline void BothPresent(hashBv* lhs, hashBvNode**& l, hashBvNode*& r, bool& result, bool& terminate)
-    {
-        if ((*l)->XorWithChange(r))
+    public:
+        static inline void PreAction(hashBv* lhs, hashBv* rhs)
         {
-            result = true;
         }
-        l = &((*l)->next);
-        r = r->next;
-    }
+        static inline void PostAction(hashBv* lhs, hashBv* rhs)
+        {
+        }
+        static inline bool DefaultResult()
+        {
+            return false;
+        }
 
-    static inline void LeftEmpty(hashBv* lhs, hashBvNode**& l, hashBvNode*& r, bool& result, bool& terminate)
-    {
-        // it's in other, not this
-        // so put one in
-        result           = true;
-        hashBvNode* temp = hashBvNode::Create(r->baseIndex, lhs->compiler);
-        lhs->numNodes++;
-        temp->XorWith(r);
-        temp->next = nullptr;
-        *l         = temp;
-        l          = &(temp->next);
+        static inline void LeftGap(hashBv* lhs, hashBvNode**& l, hashBvNode*& r, bool& result, bool& terminate)
+        {
+            // it's in other, not this
+            // so put one in
+            result           = true;
+            hashBvNode* temp = hashBvNode::Create(r->baseIndex, lhs->compiler);
+            lhs->numNodes++;
+            temp->XorWith(r);
+            temp->next = (*l)->next;
+            *l         = temp;
+            l          = &(temp->next);
 
-        r = r->next;
-    }
+            r = r->next;
+        }
+
+        static inline void RightGap(hashBv* lhs, hashBvNode**& l, hashBvNode*& r, bool& result, bool& terminate)
+        {
+            // it's in LHS, not RHS
+            // so LHS remains the same
+            l = &((*l)->next);
+        }
+
+        static inline void BothPresent(hashBv* lhs, hashBvNode**& l, hashBvNode*& r, bool& result, bool& terminate)
+        {
+            if ((*l)->XorWithChange(r))
+            {
+                result = true;
+            }
+            l = &((*l)->next);
+            r = r->next;
+        }
+
+        static inline void LeftEmpty(hashBv* lhs, hashBvNode**& l, hashBvNode*& r, bool& result, bool& terminate)
+        {
+            // it's in other, not this
+            // so put one in
+            result           = true;
+            hashBvNode* temp = hashBvNode::Create(r->baseIndex, lhs->compiler);
+            lhs->numNodes++;
+            temp->XorWith(r);
+            temp->next = nullptr;
+            *l         = temp;
+            l          = &(temp->next);
+
+            r = r->next;
+        }
 };
 
 class OrAction
 {
-public:
-    static inline void PreAction(hashBv* lhs, hashBv* rhs)
-    {
-        if (lhs->log2_hashSize + 2 < rhs->log2_hashSize)
+    public:
+        static inline void PreAction(hashBv* lhs, hashBv* rhs)
         {
-            lhs->Resize(rhs->numNodes);
+            if (lhs->log2_hashSize + 2 < rhs->log2_hashSize)
+            {
+                lhs->Resize(rhs->numNodes);
+            }
+            if (rhs->numNodes > rhs->hashtable_size() * 4)
+            {
+                rhs->Resize(rhs->numNodes);
+            }
         }
-        if (rhs->numNodes > rhs->hashtable_size() * 4)
+        static inline void PostAction(hashBv* lhs, hashBv* rhs)
         {
-            rhs->Resize(rhs->numNodes);
         }
-    }
-    static inline void PostAction(hashBv* lhs, hashBv* rhs) {}
-    static inline bool DefaultResult()
-    {
-        return false;
-    }
-
-    static inline void LeftGap(hashBv* lhs, hashBvNode**& l, hashBvNode*& r, bool& result, bool& terminate)
-    {
-        // it's in other, not this
-        // so put one in
-        result           = true;
-        hashBvNode* temp = hashBvNode::Create(r->baseIndex, lhs->compiler);
-        lhs->numNodes++;
-        temp->OrWith(r);
-        temp->next = *l;
-        *l         = temp;
-        l          = &(temp->next);
-
-        r = r->next;
-    }
-    static inline void RightGap(hashBv* lhs, hashBvNode**& l, hashBvNode*& r, bool& result, bool& terminate)
-    {
-        // in lhs, not rhs
-        // so skip lhs
-        l = &((*l)->next);
-    }
-    static inline void BothPresent(hashBv* lhs, hashBvNode**& l, hashBvNode*& r, bool& result, bool& terminate)
-    {
-        if ((*l)->OrWithChange(r))
+        static inline bool DefaultResult()
         {
-            result = true;
+            return false;
         }
-        l = &((*l)->next);
-        r = r->next;
-    }
-    static inline void LeftEmpty(hashBv* lhs, hashBvNode**& l, hashBvNode*& r, bool& result, bool& terminate)
-    {
-        // other contains something this does not
-        // copy it
-        // LeftGap(lhs, l, r, result, terminate);
-        result           = true;
-        hashBvNode* temp = hashBvNode::Create(r->baseIndex, lhs->compiler);
-        lhs->numNodes++;
-        temp->OrWith(r);
-        temp->next = nullptr;
-        *l         = temp;
-        l          = &(temp->next);
 
-        r = r->next;
-    }
+        static inline void LeftGap(hashBv* lhs, hashBvNode**& l, hashBvNode*& r, bool& result, bool& terminate)
+        {
+            // it's in other, not this
+            // so put one in
+            result           = true;
+            hashBvNode* temp = hashBvNode::Create(r->baseIndex, lhs->compiler);
+            lhs->numNodes++;
+            temp->OrWith(r);
+            temp->next = *l;
+            *l         = temp;
+            l          = &(temp->next);
+
+            r = r->next;
+        }
+        static inline void RightGap(hashBv* lhs, hashBvNode**& l, hashBvNode*& r, bool& result, bool& terminate)
+        {
+            // in lhs, not rhs
+            // so skip lhs
+            l = &((*l)->next);
+        }
+        static inline void BothPresent(hashBv* lhs, hashBvNode**& l, hashBvNode*& r, bool& result, bool& terminate)
+        {
+            if ((*l)->OrWithChange(r))
+            {
+                result = true;
+            }
+            l = &((*l)->next);
+            r = r->next;
+        }
+        static inline void LeftEmpty(hashBv* lhs, hashBvNode**& l, hashBvNode*& r, bool& result, bool& terminate)
+        {
+            // other contains something this does not
+            // copy it
+            // LeftGap(lhs, l, r, result, terminate);
+            result           = true;
+            hashBvNode* temp = hashBvNode::Create(r->baseIndex, lhs->compiler);
+            lhs->numNodes++;
+            temp->OrWith(r);
+            temp->next = nullptr;
+            *l         = temp;
+            l          = &(temp->next);
+
+            r = r->next;
+        }
 };
 
 class CompareAction
 {
-public:
-    static inline void PreAction(hashBv* lhs, hashBv* rhs) {}
-    static inline void PostAction(hashBv* lhs, hashBv* rhs) {}
-    static inline bool DefaultResult()
-    {
-        return true;
-    }
+    public:
+        static inline void PreAction(hashBv* lhs, hashBv* rhs)
+        {
+        }
+        static inline void PostAction(hashBv* lhs, hashBv* rhs)
+        {
+        }
+        static inline bool DefaultResult()
+        {
+            return true;
+        }
 
-    static inline void LeftGap(hashBv* lhs, hashBvNode**& l, hashBvNode*& r, bool& result, bool& terminate)
-    {
-        terminate = true;
-        result    = false;
-    }
-    static inline void RightGap(hashBv* lhs, hashBvNode**& l, hashBvNode*& r, bool& result, bool& terminate)
-    {
-        // in lhs, not rhs
-        // so skip lhs
-        terminate = true;
-        result    = false;
-    }
-    static inline void BothPresent(hashBv* lhs, hashBvNode**& l, hashBvNode*& r, bool& result, bool& terminate)
-    {
-        if (!(*l)->sameAs(r))
+        static inline void LeftGap(hashBv* lhs, hashBvNode**& l, hashBvNode*& r, bool& result, bool& terminate)
         {
             terminate = true;
             result    = false;
         }
-        l = &((*l)->next);
-        r = r->next;
-    }
-    static inline void LeftEmpty(hashBv* lhs, hashBvNode**& l, hashBvNode*& r, bool& result, bool& terminate)
-    {
-        terminate = true;
-        result    = false;
-    }
+        static inline void RightGap(hashBv* lhs, hashBvNode**& l, hashBvNode*& r, bool& result, bool& terminate)
+        {
+            // in lhs, not rhs
+            // so skip lhs
+            terminate = true;
+            result    = false;
+        }
+        static inline void BothPresent(hashBv* lhs, hashBvNode**& l, hashBvNode*& r, bool& result, bool& terminate)
+        {
+            if (!(*l)->sameAs(r))
+            {
+                terminate = true;
+                result    = false;
+            }
+            l = &((*l)->next);
+            r = r->next;
+        }
+        static inline void LeftEmpty(hashBv* lhs, hashBvNode**& l, hashBvNode*& r, bool& result, bool& terminate)
+        {
+            terminate = true;
+            result    = false;
+        }
 };
 
 class IntersectsAction
 {
-public:
-    static inline void PreAction(hashBv* lhs, hashBv* rhs) {}
-    static inline void PostAction(hashBv* lhs, hashBv* rhs) {}
-    static inline bool DefaultResult()
-    {
-        return false;
-    }
-
-    static inline void LeftGap(hashBv* lhs, hashBvNode**& l, hashBvNode*& r, bool& result, bool& terminate)
-    {
-        // in rhs, not lhs
-        // so skip rhs
-        r = r->next;
-    }
-    static inline void RightGap(hashBv* lhs, hashBvNode**& l, hashBvNode*& r, bool& result, bool& terminate)
-    {
-        // in lhs, not rhs
-        // so skip lhs
-        l = &((*l)->next);
-    }
-    static inline void BothPresent(hashBv* lhs, hashBvNode**& l, hashBvNode*& r, bool& result, bool& terminate)
-    {
-        if ((*l)->Intersects(r))
+    public:
+        static inline void PreAction(hashBv* lhs, hashBv* rhs)
         {
-            terminate = true;
-            result    = true;
         }
-    }
-    static inline void LeftEmpty(hashBv* lhs, hashBvNode**& l, hashBvNode*& r, bool& result, bool& terminate)
-    {
-        r = r->next;
-    }
+        static inline void PostAction(hashBv* lhs, hashBv* rhs)
+        {
+        }
+        static inline bool DefaultResult()
+        {
+            return false;
+        }
+
+        static inline void LeftGap(hashBv* lhs, hashBvNode**& l, hashBvNode*& r, bool& result, bool& terminate)
+        {
+            // in rhs, not lhs
+            // so skip rhs
+            r = r->next;
+        }
+        static inline void RightGap(hashBv* lhs, hashBvNode**& l, hashBvNode*& r, bool& result, bool& terminate)
+        {
+            // in lhs, not rhs
+            // so skip lhs
+            l = &((*l)->next);
+        }
+        static inline void BothPresent(hashBv* lhs, hashBvNode**& l, hashBvNode*& r, bool& result, bool& terminate)
+        {
+            if ((*l)->Intersects(r))
+            {
+                terminate = true;
+                result    = true;
+            }
+        }
+        static inline void LeftEmpty(hashBv* lhs, hashBvNode**& l, hashBvNode*& r, bool& result, bool& terminate)
+        {
+            r = r->next;
+        }
 };
 
-template <typename Action>
-bool hashBv::MultiTraverseLHSBigger(hashBv* other)
+template <typename Action> bool hashBv::MultiTraverseLHSBigger(hashBv* other)
 {
     int hts = this->hashtable_size();
     int ots = other->hashtable_size();
@@ -1326,8 +1345,7 @@ bool hashBv::MultiTraverseLHSBigger(hashBv* other)
     return result;
 }
 
-template <typename Action>
-bool hashBv::MultiTraverseRHSBigger(hashBv* other)
+template <typename Action> bool hashBv::MultiTraverseRHSBigger(hashBv* other)
 {
     int ots = other->hashtable_size();
 
@@ -1417,8 +1435,7 @@ bool hashBv::MultiTraverseRHSBigger(hashBv* other)
 // LHSBigger and RHSBigger algorithms both work for equal
 // this is a specialized version of RHSBigger which is simpler (and faster)
 // because equal sizes are the 99% case
-template <typename Action>
-bool hashBv::MultiTraverseEqual(hashBv* other)
+template <typename Action> bool hashBv::MultiTraverseEqual(hashBv* other)
 {
     int hts = this->hashtable_size();
     assert(other->hashtable_size() == hts);
@@ -1484,8 +1501,7 @@ bool hashBv::MultiTraverseEqual(hashBv* other)
     return result;
 }
 
-template <class Action>
-bool hashBv::MultiTraverse(hashBv* other)
+template <class Action> bool hashBv::MultiTraverse(hashBv* other)
 {
     assert(this->numNodes == this->getNodeCount());
 

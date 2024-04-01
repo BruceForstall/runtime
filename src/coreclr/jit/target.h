@@ -68,27 +68,27 @@ inline bool compUnixX86Abi()
 // The following are intended to capture only those #defines that cannot be replaced
 // with static const members of Target
 #if defined(TARGET_AMD64)
-#define REGMASK_BITS 64
+#define REGMASK_BITS              64
 #define CSE_CONST_SHARED_LOW_BITS 16
 
 #elif defined(TARGET_X86)
-#define REGMASK_BITS 32
+#define REGMASK_BITS              32
 #define CSE_CONST_SHARED_LOW_BITS 16
 
 #elif defined(TARGET_ARM)
-#define REGMASK_BITS 64
+#define REGMASK_BITS              64
 #define CSE_CONST_SHARED_LOW_BITS 12
 
 #elif defined(TARGET_ARM64)
-#define REGMASK_BITS 64
+#define REGMASK_BITS              64
 #define CSE_CONST_SHARED_LOW_BITS 12
 
 #elif defined(TARGET_LOONGARCH64)
-#define REGMASK_BITS 64
+#define REGMASK_BITS              64
 #define CSE_CONST_SHARED_LOW_BITS 12
 
 #elif defined(TARGET_RISCV64)
-#define REGMASK_BITS 64
+#define REGMASK_BITS              64
 #define CSE_CONST_SHARED_LOW_BITS 12
 
 #else
@@ -107,10 +107,9 @@ inline bool compUnixX86Abi()
 //    REG_NA           - Used to indicate that a register is either not yet assigned or not required.
 //
 #if defined(TARGET_ARM) || defined(TARGET_LOONGARCH64) || defined(TARGET_RISCV64)
-enum _regNumber_enum : unsigned
-{
+enum _regNumber_enum : unsigned {
 #define REGDEF(name, rnum, mask, sname) REG_##name = rnum,
-#define REGALIAS(alias, realname) REG_##alias = REG_##realname,
+#define REGALIAS(alias, realname)       REG_##alias = REG_##realname,
 #include "register.h"
 
     REG_COUNT,
@@ -118,20 +117,18 @@ enum _regNumber_enum : unsigned
     ACTUAL_REG_COUNT = REG_COUNT - 1 // everything but REG_STK (only real regs)
 };
 
-enum _regMask_enum : unsigned __int64
-{
+enum _regMask_enum : unsigned __int64 {
     RBM_NONE = 0,
 #define REGDEF(name, rnum, mask, sname) RBM_##name = mask,
-#define REGALIAS(alias, realname) RBM_##alias = RBM_##realname,
+#define REGALIAS(alias, realname)       RBM_##alias = RBM_##realname,
 #include "register.h"
 };
 
 #elif defined(TARGET_ARM64)
 
-enum _regNumber_enum : unsigned
-{
+enum _regNumber_enum : unsigned {
 #define REGDEF(name, rnum, mask, xname, wname) REG_##name = rnum,
-#define REGALIAS(alias, realname) REG_##alias = REG_##realname,
+#define REGALIAS(alias, realname)              REG_##alias = REG_##realname,
 #include "register.h"
 
     REG_COUNT,
@@ -139,20 +136,18 @@ enum _regNumber_enum : unsigned
     ACTUAL_REG_COUNT = REG_COUNT - 1 // everything but REG_STK (only real regs)
 };
 
-enum _regMask_enum : unsigned __int64
-{
+enum _regMask_enum : unsigned __int64 {
     RBM_NONE = 0,
 #define REGDEF(name, rnum, mask, xname, wname) RBM_##name = mask,
-#define REGALIAS(alias, realname) RBM_##alias = RBM_##realname,
+#define REGALIAS(alias, realname)              RBM_##alias = RBM_##realname,
 #include "register.h"
 };
 
 #elif defined(TARGET_AMD64)
 
-enum _regNumber_enum : unsigned
-{
+enum _regNumber_enum : unsigned {
 #define REGDEF(name, rnum, mask, sname) REG_##name = rnum,
-#define REGALIAS(alias, realname) REG_##alias = REG_##realname,
+#define REGALIAS(alias, realname)       REG_##alias = REG_##realname,
 #include "register.h"
 
     REG_COUNT,
@@ -160,22 +155,19 @@ enum _regNumber_enum : unsigned
     ACTUAL_REG_COUNT = REG_COUNT - 1 // everything but REG_STK (only real regs)
 };
 
-enum _regMask_enum : uint64_t
-{
+enum _regMask_enum : uint64_t {
     RBM_NONE = 0,
 
 #define REGDEF(name, rnum, mask, sname) RBM_##name = mask,
-#define REGALIAS(alias, realname) RBM_##alias = RBM_##realname,
+#define REGALIAS(alias, realname)       RBM_##alias = RBM_##realname,
 #include "register.h"
-
 };
 
 #elif defined(TARGET_X86)
 
-enum _regNumber_enum : unsigned
-{
+enum _regNumber_enum : unsigned {
 #define REGDEF(name, rnum, mask, sname) REG_##name = rnum,
-#define REGALIAS(alias, realname) REG_##alias = REG_##realname,
+#define REGALIAS(alias, realname)       REG_##alias = REG_##realname,
 #include "register.h"
 
     REG_COUNT,
@@ -183,12 +175,11 @@ enum _regNumber_enum : unsigned
     ACTUAL_REG_COUNT = REG_COUNT - 1 // everything but REG_STK (only real regs)
 };
 
-enum _regMask_enum : unsigned
-{
+enum _regMask_enum : unsigned {
     RBM_NONE = 0,
 
 #define REGDEF(name, rnum, mask, sname) RBM_##name = mask,
-#define REGALIAS(alias, realname) RBM_##alias = RBM_##realname,
+#define REGALIAS(alias, realname)       RBM_##alias = RBM_##realname,
 #include "register.h"
 };
 
@@ -239,9 +230,9 @@ typedef unsigned char   regNumberSmall;
 /*****************************************************************************/
 
 #ifdef DEBUG
-#define DSP_SRC_OPER_LEFT 0
+#define DSP_SRC_OPER_LEFT  0
 #define DSP_SRC_OPER_RIGHT 1
-#define DSP_DST_OPER_LEFT 1
+#define DSP_DST_OPER_LEFT  1
 #define DSP_DST_OPER_RIGHT 0
 #endif
 
@@ -317,20 +308,19 @@ C_ASSERT((FEATURE_TAILCALL_OPT == 0) || (FEATURE_FASTTAILCALL == 1));
 /*****************************************************************************/
 class Target
 {
-public:
-    static const char* g_tgtCPUName;
-    static const char* g_tgtPlatformName()
-    {
-        return TargetOS::IsWindows ? "Windows" : "Unix";
-    };
+    public:
+        static const char* g_tgtCPUName;
+        static const char* g_tgtPlatformName()
+        {
+            return TargetOS::IsWindows ? "Windows" : "Unix";
+        };
 
-    enum ArgOrder
-    {
-        ARG_ORDER_R2L,
-        ARG_ORDER_L2R
-    };
-    static const enum ArgOrder g_tgtArgOrder;
-    static const enum ArgOrder g_tgtUnmanagedArgOrder;
+        enum ArgOrder {
+            ARG_ORDER_R2L,
+            ARG_ORDER_L2R
+        };
+        static const enum ArgOrder g_tgtArgOrder;
+        static const enum ArgOrder g_tgtUnmanagedArgOrder;
 };
 
 const char* getRegName(unsigned reg); // this is for gcencode.cpp and disasm.cpp that don't use the regNumber type

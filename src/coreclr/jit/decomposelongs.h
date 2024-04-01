@@ -17,66 +17,69 @@ XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
 
 class DecomposeLongs
 {
-public:
-    DecomposeLongs(Compiler* compiler) : m_compiler(compiler) {}
+    public:
+        DecomposeLongs(Compiler* compiler)
+            : m_compiler(compiler)
+        {
+        }
 
-    void PrepareForDecomposition();
-    void DecomposeBlock(BasicBlock* block);
+        void PrepareForDecomposition();
+        void DecomposeBlock(BasicBlock* block);
 
-    static void DecomposeRange(Compiler* compiler, LIR::Range& range);
+        static void DecomposeRange(Compiler* compiler, LIR::Range& range);
 
-private:
-    inline LIR::Range& Range() const
-    {
-        return *m_range;
-    }
+    private:
+        inline LIR::Range& Range() const
+        {
+            return *m_range;
+        }
 
-    void PromoteLongVars();
-    void TryPromoteLongVar(unsigned lclNum);
+        void PromoteLongVars();
+        void TryPromoteLongVar(unsigned lclNum);
 
-    // Driver functions
-    void     DecomposeRangeHelper();
-    GenTree* DecomposeNode(GenTree* tree);
+        // Driver functions
+        void     DecomposeRangeHelper();
+        GenTree* DecomposeNode(GenTree* tree);
 
-    // Per-node type decompose cases
-    GenTree* DecomposeLclVar(LIR::Use& use);
-    GenTree* DecomposeLclFld(LIR::Use& use);
-    GenTree* DecomposeStoreLclVar(LIR::Use& use);
-    GenTree* DecomposeStoreLclFld(LIR::Use& use);
-    GenTree* DecomposeCast(LIR::Use& use);
-    GenTree* DecomposeCnsLng(LIR::Use& use);
-    GenTree* DecomposeFieldList(GenTreeFieldList* fieldList, GenTreeOp* longNode);
-    GenTree* DecomposeCall(LIR::Use& use);
-    GenTree* DecomposeInd(LIR::Use& use);
-    GenTree* DecomposeStoreInd(LIR::Use& use);
-    GenTree* DecomposeNot(LIR::Use& use);
-    GenTree* DecomposeNeg(LIR::Use& use);
-    GenTree* DecomposeArith(LIR::Use& use);
-    GenTree* DecomposeShift(LIR::Use& use);
-    GenTree* DecomposeRotate(LIR::Use& use);
-    GenTree* DecomposeMul(LIR::Use& use);
-    GenTree* DecomposeUMod(LIR::Use& use);
-    GenTree* DecomposeSelect(LIR::Use& use);
+        // Per-node type decompose cases
+        GenTree* DecomposeLclVar(LIR::Use& use);
+        GenTree* DecomposeLclFld(LIR::Use& use);
+        GenTree* DecomposeStoreLclVar(LIR::Use& use);
+        GenTree* DecomposeStoreLclFld(LIR::Use& use);
+        GenTree* DecomposeCast(LIR::Use& use);
+        GenTree* DecomposeCnsLng(LIR::Use& use);
+        GenTree* DecomposeFieldList(GenTreeFieldList* fieldList, GenTreeOp* longNode);
+        GenTree* DecomposeCall(LIR::Use& use);
+        GenTree* DecomposeInd(LIR::Use& use);
+        GenTree* DecomposeStoreInd(LIR::Use& use);
+        GenTree* DecomposeNot(LIR::Use& use);
+        GenTree* DecomposeNeg(LIR::Use& use);
+        GenTree* DecomposeArith(LIR::Use& use);
+        GenTree* DecomposeShift(LIR::Use& use);
+        GenTree* DecomposeRotate(LIR::Use& use);
+        GenTree* DecomposeMul(LIR::Use& use);
+        GenTree* DecomposeUMod(LIR::Use& use);
+        GenTree* DecomposeSelect(LIR::Use& use);
 
 #ifdef FEATURE_HW_INTRINSICS
-    GenTree* DecomposeHWIntrinsic(LIR::Use& use);
-    GenTree* DecomposeHWIntrinsicGetElement(LIR::Use& use, GenTreeHWIntrinsic* node);
+        GenTree* DecomposeHWIntrinsic(LIR::Use& use);
+        GenTree* DecomposeHWIntrinsicGetElement(LIR::Use& use, GenTreeHWIntrinsic* node);
 #endif // FEATURE_HW_INTRINSICS
 
-    GenTree* OptimizeCastFromDecomposedLong(GenTreeCast* cast, GenTree* nextNode);
+        GenTree* OptimizeCastFromDecomposedLong(GenTreeCast* cast, GenTree* nextNode);
 
-    // Helper functions
-    GenTree* FinalizeDecomposition(LIR::Use& use, GenTree* loResult, GenTree* hiResult, GenTree* insertResultAfter);
-    GenTree* RepresentOpAsLocalVar(GenTree* op, GenTree* user, GenTree** edge);
-    GenTree* EnsureIntSized(GenTree* node, bool signExtend);
+        // Helper functions
+        GenTree* FinalizeDecomposition(LIR::Use& use, GenTree* loResult, GenTree* hiResult, GenTree* insertResultAfter);
+        GenTree* RepresentOpAsLocalVar(GenTree* op, GenTree* user, GenTree** edge);
+        GenTree* EnsureIntSized(GenTree* node, bool signExtend);
 
-    GenTree*          StoreNodeToVar(LIR::Use& use);
-    static genTreeOps GetHiOper(genTreeOps oper);
-    static genTreeOps GetLoOper(genTreeOps oper);
+        GenTree*          StoreNodeToVar(LIR::Use& use);
+        static genTreeOps GetHiOper(genTreeOps oper);
+        static genTreeOps GetLoOper(genTreeOps oper);
 
-    // Data
-    Compiler*   m_compiler;
-    LIR::Range* m_range;
+        // Data
+        Compiler*   m_compiler;
+        LIR::Range* m_range;
 };
 
 #endif // _DECOMPOSELONGS_H_

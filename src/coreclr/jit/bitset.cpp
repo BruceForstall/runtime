@@ -18,8 +18,7 @@ unsigned BitSetSupport::BitCountTable[16] = { 0, 1, 1, 2,
 // clang-format on
 
 #ifdef DEBUG
-template <typename BitSetType, unsigned Uniq, typename Env, typename BitSetTraits>
-void BitSetSupport::RunTests(Env env)
+template <typename BitSetType, unsigned Uniq, typename Env, typename BitSetTraits> void BitSetSupport::RunTests(Env env)
 {
 
     typedef BitSetOps<BitSetType, Uniq, Env, BitSetTraits> LclBitSetOps;
@@ -96,23 +95,23 @@ void BitSetSupport::RunTests(Env env)
 
 class TestBitSetTraits
 {
-public:
-    static void* Alloc(CompAllocator alloc, size_t byteSize)
-    {
-        return alloc.allocate<char>(byteSize);
-    }
-    static unsigned GetSize(CompAllocator alloc)
-    {
-        return 64;
-    }
-    static unsigned GetArrSize(CompAllocator alloc)
-    {
-        return (64 / 8) / sizeof(size_t);
-    }
-    static unsigned GetEpoch(CompAllocator alloc)
-    {
-        return 0;
-    }
+    public:
+        static void* Alloc(CompAllocator alloc, size_t byteSize)
+        {
+            return alloc.allocate<char>(byteSize);
+        }
+        static unsigned GetSize(CompAllocator alloc)
+        {
+            return 64;
+        }
+        static unsigned GetArrSize(CompAllocator alloc)
+        {
+            return (64 / 8) / sizeof(size_t);
+        }
+        static unsigned GetEpoch(CompAllocator alloc)
+        {
+            return 0;
+        }
 };
 
 void BitSetSupport::TestSuite(CompAllocator env)

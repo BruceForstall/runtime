@@ -349,14 +349,14 @@ void Compiler::fgRemoveBlockAsPred(BasicBlock* block)
             break;
 
         case BBJ_EHFINALLYRET:
-        {
-            BBehfDesc* const ehfDesc = block->GetEhfTargets();
-            for (unsigned i = 0; i < ehfDesc->bbeCount; i++)
             {
-                fgRemoveRefPred(ehfDesc->bbeSuccs[i]);
+                BBehfDesc* const ehfDesc = block->GetEhfTargets();
+                for (unsigned i = 0; i < ehfDesc->bbeCount; i++)
+                {
+                    fgRemoveRefPred(ehfDesc->bbeSuccs[i]);
+                }
+                break;
             }
-            break;
-        }
 
         case BBJ_EHFAULTRET:
         case BBJ_THROW:
@@ -364,14 +364,14 @@ void Compiler::fgRemoveBlockAsPred(BasicBlock* block)
             break;
 
         case BBJ_SWITCH:
-        {
-            BBswtDesc* const swtDesc = block->GetSwitchTargets();
-            for (unsigned i = 0; i < swtDesc->bbsCount; i++)
             {
-                fgRemoveRefPred(swtDesc->bbsDstTab[i]);
+                BBswtDesc* const swtDesc = block->GetSwitchTargets();
+                for (unsigned i = 0; i < swtDesc->bbsCount; i++)
+                {
+                    fgRemoveRefPred(swtDesc->bbsDstTab[i]);
+                }
+                break;
             }
-            break;
-        }
 
         default:
             noway_assert(!"Block doesn't have a valid bbKind!!!!");

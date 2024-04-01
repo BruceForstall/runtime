@@ -139,30 +139,30 @@ GenTree* LC_Ident::ToGenTree(Compiler* comp, BasicBlock* bb)
         case ClassHandle:
             return comp->gtNewIconHandleNode((size_t)clsHnd, GTF_ICON_CLASS_HDL);
         case IndirOfLocal:
-        {
-            GenTree* addr = comp->gtNewLclvNode(lclNum, TYP_REF);
-            if (indirOffs != 0)
             {
-                addr = comp->gtNewOperNode(GT_ADD, TYP_BYREF, addr,
-                                           comp->gtNewIconNode(static_cast<ssize_t>(indirOffs), TYP_I_IMPL));
-            }
+                GenTree* addr = comp->gtNewLclvNode(lclNum, TYP_REF);
+                if (indirOffs != 0)
+                {
+                    addr = comp->gtNewOperNode(GT_ADD, TYP_BYREF, addr,
+                                               comp->gtNewIconNode(static_cast<ssize_t>(indirOffs), TYP_I_IMPL));
+                }
 
-            GenTree* const indir = comp->gtNewIndir(TYP_I_IMPL, addr, GTF_IND_INVARIANT);
-            return indir;
-        }
+                GenTree* const indir = comp->gtNewIndir(TYP_I_IMPL, addr, GTF_IND_INVARIANT);
+                return indir;
+            }
         case MethodAddr:
-        {
-            GenTreeIntCon* methodAddrHandle = comp->gtNewIconHandleNode((size_t)methAddr, GTF_ICON_FTN_ADDR);
-            INDEBUG(methodAddrHandle->gtTargetHandle = (size_t)targetMethHnd);
-            return methodAddrHandle;
-        }
+            {
+                GenTreeIntCon* methodAddrHandle = comp->gtNewIconHandleNode((size_t)methAddr, GTF_ICON_FTN_ADDR);
+                INDEBUG(methodAddrHandle->gtTargetHandle = (size_t)targetMethHnd);
+                return methodAddrHandle;
+            }
         case IndirOfMethodAddrSlot:
-        {
-            GenTreeIntCon* slot = comp->gtNewIconHandleNode((size_t)methAddr, GTF_ICON_FTN_ADDR);
-            INDEBUG(slot->gtTargetHandle = (size_t)targetMethHnd);
-            GenTree* indir = comp->gtNewIndir(TYP_I_IMPL, slot, GTF_IND_NONFAULTING | GTF_IND_INVARIANT);
-            return indir;
-        }
+            {
+                GenTreeIntCon* slot = comp->gtNewIconHandleNode((size_t)methAddr, GTF_ICON_FTN_ADDR);
+                INDEBUG(slot->gtTargetHandle = (size_t)targetMethHnd);
+                GenTree* indir = comp->gtNewIndir(TYP_I_IMPL, slot, GTF_IND_NONFAULTING | GTF_IND_INVARIANT);
+                return indir;
+            }
         default:
             assert(!"Could not convert LC_Ident to GenTree");
             unreached();
@@ -1148,37 +1148,37 @@ bool Compiler::optDeriveLoopCloningConditions(FlowGraphNaturalLoop* loop, LoopCl
                 break;
 
             case LcOptInfo::LcTypeTest:
-            {
-                LcTypeTestOptInfo* ttInfo      = optInfo->AsLcTypeTestOptInfo();
-                LC_Ident           objDeref    = LC_Ident::CreateIndirOfLocal(ttInfo->lclNum, 0);
-                LC_Ident           methodTable = LC_Ident::CreateClassHandle(ttInfo->clsHnd);
-                LC_Condition       cond(GT_EQ, LC_Expr(objDeref), LC_Expr(methodTable));
-                context->EnsureObjDerefs(loop->GetIndex())->Push(objDeref);
-                context->EnsureConditions(loop->GetIndex())->Push(cond);
-                break;
-            }
+                {
+                    LcTypeTestOptInfo* ttInfo      = optInfo->AsLcTypeTestOptInfo();
+                    LC_Ident           objDeref    = LC_Ident::CreateIndirOfLocal(ttInfo->lclNum, 0);
+                    LC_Ident           methodTable = LC_Ident::CreateClassHandle(ttInfo->clsHnd);
+                    LC_Condition       cond(GT_EQ, LC_Expr(objDeref), LC_Expr(methodTable));
+                    context->EnsureObjDerefs(loop->GetIndex())->Push(objDeref);
+                    context->EnsureConditions(loop->GetIndex())->Push(cond);
+                    break;
+                }
 
             case LcOptInfo::LcMethodAddrTest:
-            {
-                LcMethodAddrTestOptInfo* test = optInfo->AsLcMethodAddrTestOptInfo();
-                LC_Ident                 objDeref =
-                    LC_Ident::CreateIndirOfLocal(test->delegateLclNum, eeGetEEInfo()->offsetOfDelegateFirstTarget);
-                LC_Ident methAddr;
-                if (test->isSlot)
                 {
-                    methAddr = LC_Ident::CreateIndirMethodAddrSlot(test->methAddr DEBUG_ARG(test->targetMethHnd));
-                }
-                else
-                {
-                    methAddr = LC_Ident::CreateMethodAddr(test->methAddr DEBUG_ARG(test->targetMethHnd));
-                }
+                    LcMethodAddrTestOptInfo* test = optInfo->AsLcMethodAddrTestOptInfo();
+                    LC_Ident                 objDeref =
+                        LC_Ident::CreateIndirOfLocal(test->delegateLclNum, eeGetEEInfo()->offsetOfDelegateFirstTarget);
+                    LC_Ident methAddr;
+                    if (test->isSlot)
+                    {
+                        methAddr = LC_Ident::CreateIndirMethodAddrSlot(test->methAddr DEBUG_ARG(test->targetMethHnd));
+                    }
+                    else
+                    {
+                        methAddr = LC_Ident::CreateMethodAddr(test->methAddr DEBUG_ARG(test->targetMethHnd));
+                    }
 
-                LC_Condition cond(GT_EQ, LC_Expr(objDeref), LC_Expr(methAddr));
+                    LC_Condition cond(GT_EQ, LC_Expr(objDeref), LC_Expr(methAddr));
 
-                context->EnsureObjDerefs(loop->GetIndex())->Push(objDeref);
-                context->EnsureConditions(loop->GetIndex())->Push(cond);
-                break;
-            }
+                    context->EnsureObjDerefs(loop->GetIndex())->Push(objDeref);
+                    context->EnsureConditions(loop->GetIndex())->Push(cond);
+                    break;
+                }
 
             default:
                 JITDUMP("Unknown opt\n");
@@ -1354,30 +1354,31 @@ bool Compiler::optDeriveLoopCloningConditions(FlowGraphNaturalLoop* loop, LoopCl
         switch (optInfo->GetOptType())
         {
             case LcOptInfo::LcJaggedArray:
-            {
-                LcJaggedArrayOptInfo* arrIndexInfo = optInfo->AsLcJaggedArrayOptInfo();
-                LC_Array     arrLen(LC_Array::Jagged, &arrIndexInfo->arrIndex, arrIndexInfo->dim, LC_Array::ArrLen);
-                LC_Ident     arrLenIdent = LC_Ident::CreateArrAccess(arrLen);
-                LC_Condition cond(opLimitCondition, LC_Expr(ident), LC_Expr(arrLenIdent));
-                context->EnsureConditions(loop->GetIndex())->Push(cond);
+                {
+                    LcJaggedArrayOptInfo* arrIndexInfo = optInfo->AsLcJaggedArrayOptInfo();
+                    LC_Array     arrLen(LC_Array::Jagged, &arrIndexInfo->arrIndex, arrIndexInfo->dim, LC_Array::ArrLen);
+                    LC_Ident     arrLenIdent = LC_Ident::CreateArrAccess(arrLen);
+                    LC_Condition cond(opLimitCondition, LC_Expr(ident), LC_Expr(arrLenIdent));
+                    context->EnsureConditions(loop->GetIndex())->Push(cond);
 
-                // Ensure that this array must be dereference-able, before executing the actual condition.
-                LC_Array array(LC_Array::Jagged, &arrIndexInfo->arrIndex, arrIndexInfo->dim, LC_Array::None);
-                context->EnsureArrayDerefs(loop->GetIndex())->Push(array);
-            }
-            break;
+                    // Ensure that this array must be dereference-able, before executing the actual condition.
+                    LC_Array array(LC_Array::Jagged, &arrIndexInfo->arrIndex, arrIndexInfo->dim, LC_Array::None);
+                    context->EnsureArrayDerefs(loop->GetIndex())->Push(array);
+                }
+                break;
             case LcOptInfo::LcMdArray:
-            {
-                LcMdArrayOptInfo* mdArrInfo = optInfo->AsLcMdArrayOptInfo();
-                LC_Array arrLen(LC_Array(LC_Array::MdArray, mdArrInfo->GetArrIndexForDim(getAllocator(CMK_LoopClone)),
-                                         mdArrInfo->dim, LC_Array::None));
-                LC_Ident arrLenIdent = LC_Ident::CreateArrAccess(arrLen);
-                LC_Condition cond(opLimitCondition, LC_Expr(ident), LC_Expr(arrLenIdent));
-                context->EnsureConditions(loop->GetIndex())->Push(cond);
+                {
+                    LcMdArrayOptInfo* mdArrInfo = optInfo->AsLcMdArrayOptInfo();
+                    LC_Array          arrLen(LC_Array(LC_Array::MdArray,
+                                                      mdArrInfo->GetArrIndexForDim(getAllocator(CMK_LoopClone)), mdArrInfo->dim,
+                                                      LC_Array::None));
+                    LC_Ident          arrLenIdent = LC_Ident::CreateArrAccess(arrLen);
+                    LC_Condition      cond(opLimitCondition, LC_Expr(ident), LC_Expr(arrLenIdent));
+                    context->EnsureConditions(loop->GetIndex())->Push(cond);
 
-                // TODO: ensure array is dereference-able?
-            }
-            break;
+                    // TODO: ensure array is dereference-able?
+                }
+                break;
             case LcOptInfo::LcTypeTest:
                 // handled above
                 break;
@@ -1677,95 +1678,95 @@ void Compiler::optPerformStaticOptimizations(FlowGraphNaturalLoop*     loop,
         switch (optInfo->GetOptType())
         {
             case LcOptInfo::LcJaggedArray:
-            {
-                LcJaggedArrayOptInfo* arrIndexInfo = optInfo->AsLcJaggedArrayOptInfo();
-                compCurBB                          = arrIndexInfo->arrIndex.useBlock;
-
-                // Remove all bounds checks for this array up to (and including) `arrIndexInfo->dim`. So, if that is 1,
-                // Remove rank 0 and 1 bounds checks.
-
-                for (unsigned dim = 0; dim <= arrIndexInfo->dim; dim++)
                 {
-                    GenTree* bndsChkNode = arrIndexInfo->arrIndex.bndsChks[dim];
+                    LcJaggedArrayOptInfo* arrIndexInfo = optInfo->AsLcJaggedArrayOptInfo();
+                    compCurBB                          = arrIndexInfo->arrIndex.useBlock;
+
+                    // Remove all bounds checks for this array up to (and including) `arrIndexInfo->dim`. So, if that is
+                    // 1, Remove rank 0 and 1 bounds checks.
+
+                    for (unsigned dim = 0; dim <= arrIndexInfo->dim; dim++)
+                    {
+                        GenTree* bndsChkNode = arrIndexInfo->arrIndex.bndsChks[dim];
 
 #ifdef DEBUG
-                    if (verbose)
-                    {
-                        printf("Remove bounds check ");
-                        printTreeID(bndsChkNode->gtGetOp1());
-                        printf(" for " FMT_STMT ", dim% d, ", arrIndexInfo->stmt->GetID(), dim);
-                        arrIndexInfo->arrIndex.Print();
-                        printf(", bounds check nodes: ");
-                        arrIndexInfo->arrIndex.PrintBoundsCheckNodes();
-                        printf("\n");
-                    }
+                        if (verbose)
+                        {
+                            printf("Remove bounds check ");
+                            printTreeID(bndsChkNode->gtGetOp1());
+                            printf(" for " FMT_STMT ", dim% d, ", arrIndexInfo->stmt->GetID(), dim);
+                            arrIndexInfo->arrIndex.Print();
+                            printf(", bounds check nodes: ");
+                            arrIndexInfo->arrIndex.PrintBoundsCheckNodes();
+                            printf("\n");
+                        }
 #endif // DEBUG
 
-                    if (bndsChkNode->gtGetOp1()->OperIs(GT_BOUNDS_CHECK))
-                    {
-                        // This COMMA node will only represent a bounds check if we've haven't already removed this
-                        // bounds check in some other nesting cloned loop. For example, consider:
-                        //   for (i = 0; i < x; i++)
-                        //      for (j = 0; j < y; j++)
-                        //         a[i][j] = i + j;
-                        // If the outer loop is cloned first, it will remove the a[i] bounds check from the optimized
-                        // path. Later, when the inner loop is cloned, we want to remove the a[i][j] bounds check. If
-                        // we clone the inner loop, we know that the a[i] bounds check isn't required because we'll add
-                        // it to the loop cloning conditions. On the other hand, we can clone a loop where we get rid of
-                        // the nested bounds check but nobody has gotten rid of the outer bounds check. As before, we
-                        // know the outer bounds check is not needed because it's been added to the cloning conditions,
-                        // so we can get rid of the bounds check here.
-                        //
-                        optRemoveCommaBasedRangeCheck(bndsChkNode, arrIndexInfo->stmt);
-                    }
-                    else
-                    {
-                        JITDUMP("  Bounds check already removed\n");
+                        if (bndsChkNode->gtGetOp1()->OperIs(GT_BOUNDS_CHECK))
+                        {
+                            // This COMMA node will only represent a bounds check if we've haven't already removed this
+                            // bounds check in some other nesting cloned loop. For example, consider:
+                            //   for (i = 0; i < x; i++)
+                            //      for (j = 0; j < y; j++)
+                            //         a[i][j] = i + j;
+                            // If the outer loop is cloned first, it will remove the a[i] bounds check from the
+                            // optimized path. Later, when the inner loop is cloned, we want to remove the a[i][j]
+                            // bounds check. If we clone the inner loop, we know that the a[i] bounds check isn't
+                            // required because we'll add it to the loop cloning conditions. On the other hand, we can
+                            // clone a loop where we get rid of the nested bounds check but nobody has gotten rid of the
+                            // outer bounds check. As before, we know the outer bounds check is not needed because it's
+                            // been added to the cloning conditions, so we can get rid of the bounds check here.
+                            //
+                            optRemoveCommaBasedRangeCheck(bndsChkNode, arrIndexInfo->stmt);
+                        }
+                        else
+                        {
+                            JITDUMP("  Bounds check already removed\n");
 
-                        // If the bounds check node isn't there, it better have been converted to a GT_NOP.
-                        assert(bndsChkNode->gtGetOp1()->OperIs(GT_NOP));
+                            // If the bounds check node isn't there, it better have been converted to a GT_NOP.
+                            assert(bndsChkNode->gtGetOp1()->OperIs(GT_NOP));
+                        }
                     }
+
+                    DBEXEC(dynamicPath, optDebugLogLoopCloning(arrIndexInfo->arrIndex.useBlock, arrIndexInfo->stmt));
                 }
-
-                DBEXEC(dynamicPath, optDebugLogLoopCloning(arrIndexInfo->arrIndex.useBlock, arrIndexInfo->stmt));
-            }
-            break;
+                break;
             case LcOptInfo::LcMdArray:
                 // TODO-CQ: CLONE: Implement.
                 break;
             case LcOptInfo::LcTypeTest:
             case LcOptInfo::LcMethodAddrTest:
-            {
-                Statement*    stmt;
-                GenTreeIndir* indir;
-
-                if (optInfo->GetOptType() == LcOptInfo::LcTypeTest)
                 {
-                    LcTypeTestOptInfo* typeTestInfo = optInfo->AsLcTypeTestOptInfo();
-                    stmt                            = typeTestInfo->stmt;
-                    indir                           = typeTestInfo->methodTableIndir;
+                    Statement*    stmt;
+                    GenTreeIndir* indir;
+
+                    if (optInfo->GetOptType() == LcOptInfo::LcTypeTest)
+                    {
+                        LcTypeTestOptInfo* typeTestInfo = optInfo->AsLcTypeTestOptInfo();
+                        stmt                            = typeTestInfo->stmt;
+                        indir                           = typeTestInfo->methodTableIndir;
+                    }
+                    else
+                    {
+                        LcMethodAddrTestOptInfo* methodTestInfo = optInfo->AsLcMethodAddrTestOptInfo();
+                        stmt                                    = methodTestInfo->stmt;
+                        indir                                   = methodTestInfo->delegateAddressIndir;
+                    }
+
+                    JITDUMP("Updating flags on GDV guard inside hot loop. Before:\n");
+                    DISPSTMT(stmt);
+
+                    indir->gtFlags |= GTF_IND_NONFAULTING;
+                    indir->SetHasOrderingSideEffect();
+                    indir->gtFlags &= ~GTF_EXCEPT;
+                    assert(fgNodeThreading == NodeThreading::None);
+                    gtUpdateStmtSideEffects(stmt);
+
+                    JITDUMP("After:\n");
+                    DISPSTMT(stmt);
+
+                    break;
                 }
-                else
-                {
-                    LcMethodAddrTestOptInfo* methodTestInfo = optInfo->AsLcMethodAddrTestOptInfo();
-                    stmt                                    = methodTestInfo->stmt;
-                    indir                                   = methodTestInfo->delegateAddressIndir;
-                }
-
-                JITDUMP("Updating flags on GDV guard inside hot loop. Before:\n");
-                DISPSTMT(stmt);
-
-                indir->gtFlags |= GTF_IND_NONFAULTING;
-                indir->SetHasOrderingSideEffect();
-                indir->gtFlags &= ~GTF_EXCEPT;
-                assert(fgNodeThreading == NodeThreading::None);
-                gtUpdateStmtSideEffects(stmt);
-
-                JITDUMP("After:\n");
-                DISPSTMT(stmt);
-
-                break;
-            }
 
             default:
                 break;
@@ -1813,12 +1814,10 @@ bool Compiler::optIsLoopClonable(FlowGraphNaturalLoop* loop, LoopCloneContext* c
     // flow can reach the header, but that would require the handler to also be
     // part of the loop, which guarantees that the loop contains two distinct
     // EH regions.
-    loop->VisitLoopBlocks(
-        [](BasicBlock* block)
-        {
-            assert(!block->KindIs(BBJ_RETURN));
-            return BasicBlockVisit::Continue;
-        });
+    loop->VisitLoopBlocks([](BasicBlock* block) {
+        assert(!block->KindIs(BBJ_RETURN));
+        return BasicBlockVisit::Continue;
+    });
 #endif
 
     // Is the entry block a handler or filter start?  If so, then if we cloned, we could create a jump
@@ -2020,12 +2019,10 @@ void Compiler::optCloneLoop(FlowGraphNaturalLoop* loop, LoopCloneContext* contex
     loop->Duplicate(&newPred, blockMap, LoopCloneContext::slowPathWeightScaleFactor);
 
     // Scale old blocks to the fast path weight.
-    loop->VisitLoopBlocks(
-        [=](BasicBlock* block)
-        {
-            block->scaleBBWeight(LoopCloneContext::fastPathWeightScaleFactor);
-            return BasicBlockVisit::Continue;
-        });
+    loop->VisitLoopBlocks([=](BasicBlock* block) {
+        block->scaleBBWeight(LoopCloneContext::fastPathWeightScaleFactor);
+        return BasicBlockVisit::Continue;
+    });
 
     // Perform the static optimizations on the fast path.
     optPerformStaticOptimizations(loop, context DEBUGARG(true));
@@ -2807,21 +2804,19 @@ bool Compiler::optIdentifyLoopOptInfo(FlowGraphNaturalLoop* loop, LoopCloneConte
 
     LoopCloneVisitorInfo info(context, loop, nullptr, shouldCloneForArrayBounds, shouldCloneForGdvTests);
 
-    loop->VisitLoopBlocksReversePostOrder(
-        [=, &info](BasicBlock* block)
+    loop->VisitLoopBlocksReversePostOrder([=, &info](BasicBlock* block) {
+        compCurBB = block;
+        for (Statement* const stmt : block->Statements())
         {
-            compCurBB = block;
-            for (Statement* const stmt : block->Statements())
-            {
-                info.stmt               = stmt;
-                const bool lclVarsOnly  = false;
-                const bool computeStack = false;
-                fgWalkTreePre(stmt->GetRootNodePointer(), optCanOptimizeByLoopCloningVisitor, &info, lclVarsOnly,
-                              computeStack);
-            }
+            info.stmt               = stmt;
+            const bool lclVarsOnly  = false;
+            const bool computeStack = false;
+            fgWalkTreePre(stmt->GetRootNodePointer(), optCanOptimizeByLoopCloningVisitor, &info, lclVarsOnly,
+                          computeStack);
+        }
 
-            return BasicBlockVisit::Continue;
-        });
+        return BasicBlockVisit::Continue;
+    });
 
     return true;
 }
