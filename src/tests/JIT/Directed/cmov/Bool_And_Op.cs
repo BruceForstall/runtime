@@ -5,6 +5,8 @@
 #pragma warning disable
 
 using System;
+using System.Diagnostics;
+using System.Runtime;
 using Xunit;
 public class testout1
 {
@@ -20310,6 +20312,17 @@ public class testout1
     [Fact]
     public static int TestEntryPoint()
     {
+        Console.WriteLine("BEFORE stats");
+        Console.WriteLine(JitInfo.GetCompilationTime(false));
+        long startIndex = GC.GetGCMemoryInfo().Index;
+        Console.WriteLine("Start GC: " + startIndex);
+
+        string currentTime = DateTime.Now.ToString("HH:mm:ss.fff");
+        Console.WriteLine("Current Time: " + currentTime);
+
+        Stopwatch stopwatch = new Stopwatch();
+        stopwatch.Start();
+
         int Sum = 0;
         Sum += Sub_Funclet_0();
         Sum += Sub_Funclet_1();
@@ -20772,6 +20785,19 @@ public class testout1
         Sum += Sub_Funclet_458();
         Sum += Sub_Funclet_459();
         Sum += Sub_Funclet_460();
+
+        stopwatch.Stop();
+        long endIndex = GC.GetGCMemoryInfo().Index;
+
+        Console.WriteLine("AFTER stats");
+        Console.WriteLine(JitInfo.GetCompilationTime(false));
+        Console.WriteLine("End GC: " + endIndex);
+        Console.WriteLine("Total GC: " + (endIndex - startIndex));
+
+        currentTime = DateTime.Now.ToString("HH:mm:ss.fff");
+        Console.WriteLine("Current Time: " + currentTime);
+
+        Console.WriteLine("Elapsed Time: " + stopwatch.ElapsedMilliseconds + " ms");
 
         if (Sum == 11520)
         {
